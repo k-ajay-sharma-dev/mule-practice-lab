@@ -76,9 +76,11 @@ export default {
         'Hybrid Standalone: by the cores visible to the JVM running Mule, with fractional cores rounded up',
         'Hybrid Standalone: each VM or container is metered separately, even on one physical host',
         'Hybrid Standalone: only physical cores are counted',
+        'Hybrid Standalone: by the average CPU the Mule JVM used over the month',
+        'Hybrid Standalone: by the vCore size picked at deployment in Runtime Manager',
       ],
       answer: [0, 1, 2],
-      explain: 'Physical cores are not considered on hybrid. These rules affect the real cost of each option, and you are responsible for staying compliant.',
+      explain: 'Runtime Fabric counts the CPU Limits of the replicas, or the worker node CPU, against the licence. Hybrid Standalone counts the cores visible to the JVM, rounded up, and each VM or container counts on its own even on one host. Physical cores are not considered on hybrid. Usage is not the measure: an idle server still counts the cores it can see. Hybrid apps have no vCore size to pick; that is how CloudHub works. These rules affect the real cost of each option, and you are responsible for staying compliant.',
     },
     {
       type: 'single',

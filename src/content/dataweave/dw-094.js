@@ -29,7 +29,7 @@ Work out each result before you choose.
     out({
       body: '[1, 2, 3] map ($ > 1)',
       right: '[false, true, true]',
-      wrong: ['[2, 3]', '[1, 2, 3]', 'true'],
+      wrong: ['[2, 3]', '[1, 2, 3]', '[false, false, true]'],
       explain: '`map` always returns one result per item. Here each result is the Boolean from the comparison, so nothing is removed.',
     }),
     out({

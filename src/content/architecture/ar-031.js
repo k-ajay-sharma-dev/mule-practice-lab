@@ -83,9 +83,9 @@ export default {
       prompt: 'With 4 source systems and 6 consumers, how many mappings does a common model need compared with point-to-point?',
       options: [
         '10 instead of 24 (N + M instead of N × M)',
-        '24 instead of 10',
-        '4 in both cases',
-        'It makes no difference',
+        '6 instead of 24 (only the M consumers map to the model)',
+        '4 instead of 24 (only the N sources map to the model)',
+        '24 in both cases (each pair still needs its own mapping)',
       ],
       answer: 0,
       explain: 'Each system and each consumer maps once to the shared model, instead of every pair having its own mapping.',
@@ -108,7 +108,7 @@ export default {
       options: [
         'The response becomes too large for the mobile app',
         'Consumers become coupled to SAP, so replacing SAP breaks every one of them',
-        'SAP field names cannot be serialised to JSON',
+        'APIkit rejects the response, since SAP names break RAML types',
         'No risk, as long as the SAP fields are documented in Exchange',
       ],
       answer: 1,

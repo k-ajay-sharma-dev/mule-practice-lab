@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'Why should the restart app check Oracle and blob storage before republishing failed messages?',
+      prompt: 'Oracle is in maintenance until 02:30. The restart app, which has no health checks, runs at 02:00 and republishes 900 failed messages. What happens?',
       options: [
-        'To warm the connection pools before the run',
-        'If either is down, republished messages fail again',
-        'To count the blobs that need reprocessing',
-        'To refresh the credentials the main flow uses',
+        'All 900 fail again and return to the failure queue, using up their republish count',
+        'The main flow keeps them in its JMS prefetch buffer until Oracle comes back',
+        'The Database connector queues the inserts and runs them when Oracle is back',
+        'The broker holds the messages back, since the consumer keeps reporting failures',
       ],
-      answer: 1,
-      explain: 'If either is still down, every republished message fails again and returns to the failure queue. Most failed messages failed because a dependency was down. Republishing before it is back only cycles them again.',
+      answer: 0,
+      explain: 'If either Oracle or blob storage is still down, every republished message fails again and returns to the failure queue. Most failed messages failed because a dependency was down. Republishing before it is back only cycles them again. Prefetch only buffers messages, it does not wait for a database. A reconnection strategy retries a connection a few times, it does not hold inserts for half an hour. A broker does not slow delivery because a consumer fails.',
     },
     {
       type: 'multi',
@@ -24,11 +24,13 @@ export default {
       options: [
         'A light query such as selecting from dual on the Oracle connection',
         'Reading the properties of the inbound container, or listing it with a page size of one',
-        'Downloading every blob in the container',
+        'Downloading every blob in the container to confirm each can be read',
         'Checking that the JMS broker accepts a connection',
+        'Calling the restart app\'s own HTTP health endpoint',
+        'Counting all rows in the Oracle staging tables',
       ],
       answer: [0, 1, 3],
-      explain: 'Health checks should be cheap and touch each dependency the load needs. Downloading everything is a load, not a check.',
+      explain: 'Health checks should be cheap and touch each dependency the load needs. A query on dual proves Oracle answers. Reading the container properties or one page of the listing proves Blob Storage answers with the hub\'s credentials. A connection to the broker proves JMS is up. Downloading every blob is a load, not a check. The restart app\'s own endpoint only shows that the restart app runs, not that Oracle, Blob Storage or the broker do. Counting every staging row is a heavy scan that adds load to the database you are checking.',
     },
     {
       type: 'single',
@@ -36,7 +38,7 @@ export default {
       options: [
         'Republish it again, with a longer delay',
         'Park it with its history and alert support',
-        'Delete it from the failure queue',
+        'Move it to the DLQ and ack it, with no alert',
         'Republish it with a new message id',
       ],
       answer: 1,
@@ -46,7 +48,7 @@ export default {
       type: 'single',
       prompt: '4,000 messages wait in the failure queue after an outage. How should the restart app republish them?',
       options: [
-        'All at once, as fast as possible',
+        'All at once, as the main flow has 4 consumers',
         'In batches at a controlled rate',
         'Newest first, so recent data lands sooner',
         'All at once, after a restart of the main app',
@@ -59,9 +61,9 @@ export default {
       prompt: 'The restart app consumes from the failure queue and publishes to the main queue on the same ActiveMQ broker. How do you avoid losing or doubling a message if it crashes in between?',
       options: [
         'One JMS local transaction for consume and publish',
-        'Log the message before publishing it',
-        'Publish from inside an Async scope',
-        'Publish twice and let the duplicate check sort it',
+        'Ack the failed message first, then publish it',
+        'Publish first, then let AUTO acknowledgement ack',
+        'One transaction across two connection configs',
       ],
       answer: 0,
       explain: 'On one broker, a JMS local transaction on the same connection config can cover the consume and the publish, so both commit or both roll back. A crash rolls both back and the message stays in the failure queue.',

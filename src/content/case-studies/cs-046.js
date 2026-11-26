@@ -49,10 +49,10 @@ export default {
       type: 'single',
       prompt: 'A board member asks: "Would plain Java microservices remove the lock-in?" Best answer?',
       options: [
-        'Yes, because open-source code and frameworks carry no lock-in at all',
+        'Yes, because open-source frameworks have no licence fee and many vendors support them',
         'No, it moves lock-in to custom code and its team, and loses connectors and governance',
-        'Yes, as long as the services are deployed on a Kubernetes cluster',
-        'No, because the API contracts would still be stored in Exchange',
+        'Yes, if the services run on a Kubernetes cluster that any cloud provider can host',
+        'No, because the API contracts would still be stored in Exchange and tied to it',
       ],
       answer: 1,
       explain: 'Every option has dependencies. Custom code ties you to its frameworks and the team that wrote it, and gives up connectors, productivity and governance. Contracts are portable wherever they are stored, and Kubernetes changes where code runs, not who can maintain it. A credible answer acknowledges this and shows the size and cost of the dependency rather than promising zero lock-in.',
@@ -76,7 +76,7 @@ export default {
       options: [
         '"There is no real lock-in, because all our APIs use open standards like OAS."',
         '"Yes, there is lock-in, mostly in logic any platform needs. Here is its size and exit cost."',
-        'A detailed walkthrough of Mule runtime internals, connectors and their versions',
+        '"First, here is how our Mule runtimes, connectors and DataWeave scripts work."',
         '"We recommend starting to migrate off the platform now to remove the risk."',
       ],
       answer: 1,
@@ -88,8 +88,8 @@ export default {
       options: [
         'Clear data and configuration export rights',
         'Transition assistance terms if you leave',
-        'Multi-year price protection',
-        'Exclusivity for the vendor on all future integration work',
+        'Multi-year price protection on the licence',
+        'Exclusivity in return for a larger renewal discount',
       ],
       answer: [0, 1],
       explain: 'Export rights and transition assistance lower exit cost. Multi-year price protection is also worth seeking, but it caps price risk and does not change the cost of leaving. Flexibility to reduce capacity is another useful term. Granting exclusivity would increase dependency, which is the opposite of what the board asked for.',

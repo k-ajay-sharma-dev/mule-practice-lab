@@ -17,19 +17,19 @@ export default {
         'Trigger: the web app retried aggressively. Root cause: the vendor broke its 200 ms response time agreement with no warning.',
       ],
       answer: 0,
-      explain: 'Third parties will always slow down sometimes, so that is only the trigger. The outage happened because the design let an unessential dependency hold checkout threads for up to 60 s with no fallback. Blaming the vendor or the engineer misses what the team can fix.',
+      explain: 'Third parties will always slow down sometimes, so that is only the trigger. The outage happened because the design let an unessential dependency hold checkout requests for up to 60 s with no fallback. Blaming the vendor or the engineer misses what the team can fix.',
     },
     {
       type: 'single',
       prompt: 'A checkout API calls a third-party service synchronously with a 60 s timeout. The service slows from 200 ms to 30 s per response, and checkout stops responding. What is the direct cause inside the Mule app?',
       options: [
-        'Slow calls hold worker threads until none are left',
+        'Each slow call holds a worker thread while it waits, until no thread is left',
         'Worker CPU reaches its limit, so requests queue up',
-        'Mule 4 cannot set response timeouts on HTTP requests',
-        'The third-party service uses REST instead of SOAP',
+        'Waiting requests pile up in flight until the flow hits its concurrency or connection limit',
+        'The HTTP Request has no response timeout, so calls wait forever',
       ],
-      answer: 0,
-      explain: 'A long timeout lets slow calls hold worker threads until they are exhausted. CPU stayed low in this outage, Mule 4 HTTP requests do support explicit response timeouts (a very long one was set), and the protocol of the vendor API is irrelevant. Other factors made the outage worse: a co-deployed `customer-sapi` failed too (no bulkhead), aggressive web app retries added load, and alerts fired only on CPU, so detection took 50 minutes.',
+      answer: 2,
+      explain: 'In Mule 4 the HTTP Request is non-blocking, so a call that waits does not hold a thread. That was true of the old Mule 3 thread-per-request model. What a 60 s timeout does is keep each request in flight for up to 60 s, so in-flight requests pile up until the flow reaches its concurrency limit or the outbound connections run out, and new checkouts are refused or queued. CPU stayed low in this outage, and Mule 4 HTTP requests do support explicit response timeouts (a very long one was set). Other factors made the outage worse: a co-deployed `customer-sapi` failed too (no bulkhead), aggressive web app retries added load, and alerts fired only on CPU, so detection took 50 minutes.',
     },
     {
       type: 'single',
@@ -38,11 +38,11 @@ export default {
       options: [
         'Raise the timeout to 120 s so that slow responses still succeed and no order is refused',
         'Cut the timeout to about 2 s and, on failure, accept the address and validate it later',
-        'Add more replicas of `checkout-papi` so there are more threads to wait on the slow call',
+        'Add more replicas of `checkout-papi` so more requests can wait on the slow call at once',
         'Retry the call three times with a short delay before failing the checkout',
       ],
       answer: 1,
-      explain: 'Address validation is not essential to taking an order, so it needs a short, deliberate timeout plus a fallback: the order is flagged and the address is checked asynchronously. A longer timeout makes threads wait even longer. More replicas only give the slow dependency more threads to hold, and synchronous retries multiply the load on a struggling service.',
+      explain: 'Address validation is not essential to taking an order, so it needs a short, deliberate timeout plus a fallback: the order is flagged and the address is checked asynchronously. A longer timeout keeps requests in flight even longer. More replicas only give the slow dependency more requests to hold, and synchronous retries multiply the load on a struggling service.',
     },
     {
       type: 'single',
@@ -50,12 +50,12 @@ export default {
       prompt: 'Why did restarting the application only help for a few minutes each time?',
       options: [
         'The restart cleared a memory leak that came back after a few minutes',
-        'Restarts freed the threads, but the slow calls and client retries filled them again',
-        'CloudHub throttles applications that are restarted more than once an hour',
-        'The restart reloaded an old configuration that had the bug',
+        'Restarts dropped the requests in flight, but the slow calls and client retries built them up again',
+        'Restarts reset the vendor rate limit on the client ID, which tripped again soon',
+        'Restarts restored the default thread pool size, which the runtime shrank again',
       ],
       answer: 1,
-      explain: 'Runtime state was a symptom, not the cause. As long as every request waited on the slow API and clients kept retrying, thread exhaustion returned within minutes.',
+      explain: 'Runtime state was a symptom, not the cause. As long as every request waited on the slow API and clients kept retrying, the backlog of waiting requests returned within minutes.',
     },
     {
       type: 'match',
@@ -86,7 +86,7 @@ export default {
       type: 'single',
       prompt: 'In a Mule outage, nobody was paged for 50 minutes, because alerts watched only CPU and CPU stayed low. Which metric shows leadership whether this detection gap is closing?',
       options: [
-        'Number of Mule applications deployed',
+        'Number of Mule apps with alert rules set up',
         'Average CPU utilisation of all workers',
         'Number of restarts during each incident',
         'Time to detect an incident',
@@ -101,7 +101,7 @@ export default {
 **Timeline**
 1. A third-party address-validation API became slow (responses taking 30 s instead of 200 ms).
 2. The \`checkout-papi\` called it synchronously with a 60 s timeout.
-3. Mule worker threads filled up, checkout stopped responding, and the web app retried aggressively.
+3. Requests waiting on the slow call piled up in flight until checkout hit its limits and stopped responding, and the web app retried aggressively.
 4. The shared \`customer-sapi\` (deployed in the same application as \`checkout-papi\` for "cost reasons") also stopped.
 5. Alerts fired only on CPU, which stayed low, so the on-call engineer was paged 50 minutes in by the customer-service team.
 6. Restarts helped for a few minutes each time.
@@ -148,7 +148,7 @@ You are the integration architect asked to run the post-incident review and prop
   solution: `
 **Analysis.**
 - *Trigger*: third-party latency spike.
-- *Causes*: synchronous call on the critical path with a 60 s timeout; no fallback although address validation is not essential to taking an order; threads exhausted; \`customer-sapi\` co-deployed so the failure spread; aggressive client retries amplified load.
+- *Causes*: synchronous call on the critical path with a 60 s timeout; no fallback although address validation is not essential to taking an order; waiting requests piled up in flight; \`customer-sapi\` co-deployed so the failure spread; aggressive client retries amplified load.
 - *Detection*: alerts on CPU only; no latency or error-rate alerting; no dependency-level metrics.
 - *Recovery*: restarts did not address the cause; no runbook or feature flag to switch the dependency off.
 Write it blamelessly: focus on system conditions, not the engineer.
@@ -180,7 +180,7 @@ Write it blamelessly: focus on system conditions, not the engineer.
 **Risks.** Programme crowded out by features (leadership-backed capacity, e.g. 20% per sprint), alert fatigue (symptom-based, tuned alerts), and fixes that only cover this one dependency (apply standards broadly).
 `,
   followUps: [
-    { q: 'Why did restarts only help for a few minutes?', a: 'Restarts freed threads, but the slow dependency and the client retries were still there, so threads filled up again. The cause was the unbounded waiting on a slow dependency, not the runtime state.' },
+    { q: 'Why did restarts only help for a few minutes?', a: 'Restarts dropped the requests in flight, but the slow dependency and the client retries were still there, so the backlog built up again. In Mule 4 the waiting HTTP call does not hold a thread; the waiting requests do the damage. The cause was the unbounded waiting on a slow dependency, not the runtime state.' },
     { q: 'Is a 2-second timeout always right?', a: 'No. Timeouts should come from the dependency\'s normal latency (e.g. its p99) and the caller\'s own SLA budget. The point is that every call has a deliberate, bounded timeout.' },
     { q: 'How do you get busy teams to adopt the standards?', a: 'Lower the effort (templates, shared libraries, pipeline checks), prioritise the critical APIs first, and tie the work to measurable SLOs that leadership tracks.' },
   ],

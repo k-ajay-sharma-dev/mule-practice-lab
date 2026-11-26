@@ -119,15 +119,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Is Scatter-Gather always faster?',
+      prompt: 'A Process API calls `GET /customers/{id}` (200 ms) and then `GET /orders?customerNo=...` (300 ms), using the customer number returned by the first call. A developer moves both calls into a Scatter-Gather to save time. What happens?',
       options: [
-        'Yes, parallel calls are always faster',
-        'Only for independent calls whose backends can take the concurrency',
-        'No, the thread handoff makes it slower than sequential calls',
-        'Only on CloudHub 2.0, which runs each route on its own worker',
+        'The total falls to about 300 ms, the time of the slower call',
+        'Mule sees the dependency and runs the customer route first, so the total stays near 500 ms',
+        'The orders route has no customer number yet, because both routes start from the same input',
+        'The total falls, but only if each route has its own HTTP Request configuration',
       ],
-      answer: 1,
-      explain: 'Parallelism has a resource cost: it uses more threads and connections at once, so size pools and replicas accordingly.',
+      answer: 2,
+      explain: 'Scatter-Gather helps only for independent calls. Every route starts from the same input event, so the orders route cannot use a value the customer route has not returned yet. Mule does not order routes by data dependency, and separate requester configurations are not what decides it. Parallelism also has a resource cost: it uses more threads and connections at once, so size pools and replicas accordingly.',
     },
   ],
   description: `

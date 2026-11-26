@@ -38,7 +38,7 @@ export default {
       options: [
         '`outputMimeType="application/csv; header=false; separator=|"`',
         '`outputMimeType="application/csv; headerLineNumber=-1"`',
-        '`outputMimeType="text/plain; separator=|"`',
+        '`outputMimeType="text/plain; header=false; separator=|"`',
         '`outputMimeType="application/flatfile; separator=|"`',
       ],
       answer: 0,

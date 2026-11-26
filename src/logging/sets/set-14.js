@@ -23,23 +23,25 @@ export const SET_14 = [
   {
     id: 'log-14002',
     kind: 'choice',
-    situation: 'Which line best records the FTP download?',
+    situation:
+      'Marrow & Pine downloads costs.zip from several suppliers. Today ftp.supplier-b.example sent /out/costs.zip in binary mode: 4,101,118 bytes read, and the server listing gave the same size. Which line best records the download?',
     options: [
+      'FTP download finished host=ftp.supplier-b.example path=/out/costs.zip sizeBytes=4101118 mode=BINARY durationMs=5200 status=OK',
+      'FTP download finished file=costs.zip sizeBytes=4101118 serverSize=4101118 mode=BINARY durationMs=5200',
       'FTP download finished host=ftp.supplier-b.example path=/out/costs.zip sizeBytes=4101118 serverSize=4101118 mode=BINARY durationMs=5200',
-      'Downloaded file',
-      'ftp://marrow-int:<password>@ftp.supplier-b.example/out/costs.zip',
-      'FTP download finished host=ftp.supplier-b.example path=/out/costs.zip sizeBytes=4101118 mode=BINARY durationMs=5200',
+      'FTP download finished host=ftp.supplier-b.example path=/out/costs.zip sizeBytes=4101118 serverSize=4101118 durationMs=5200 user=marrow-int',
     ],
-    answer: 0,
-    explain: 'Both sizes and the mode show the copy was exact. An FTP URL with the password must never be logged. The last line has no server size, so nothing shows whether the whole file arrived.',
+    answer: 2,
+    explain:
+      'Both sizes and the mode show the copy was exact. The line with status=OK has no server size, so nothing proves the whole file arrived. The line with only file=costs.zip has no host or folder, and several suppliers send that name. The line with user=marrow-int leaves out the mode, which is what explains a zip broken by ASCII mode.',
   },
   {
     id: 'log-14003',
     kind: 'multi',
-    situation: 'A zip arrived broken. Which facts on the download line help?',
-    options: ['The size read', 'The size on the server', 'The transfer mode', 'The supplier contact name'],
-    answers: [0, 1, 2],
-    explain: 'Different sizes with ASCII mode explain a broken zip at once.',
+    situation: 'A costs.zip downloaded over FTP will not open. Which facts on the download line help find the cause?',
+    options: ['The number of other files in the remote folder', 'The transfer mode, ASCII or BINARY', 'The bytes read', 'The size in the server listing'],
+    answers: [1, 2, 3],
+    explain: 'Different sizes with ASCII mode explain a broken zip at once. How many other files sit in the folder says nothing about this one.',
   },
   {
     id: 'log-14004',
@@ -101,23 +103,25 @@ export const SET_14 = [
   {
     id: 'log-14007',
     kind: 'choice',
-    situation: 'Which line best records the timeout?',
+    situation:
+      'An FTP LIST timed out after 30 seconds. Login worked. The connector runs in active mode and the server sits behind a firewall. Which line best records the timeout?',
     options: [
+      'FTP LIST timed out host=ftp.store-net.example timeoutMs=30000 loginOk=true dir=/out next=retry next run',
       'FTP LIST timed out host=ftp.store-net.example passive=false timeoutMs=30000 loginOk=true',
-      'FTP LIST timed out host=ftp.store-net.example timeoutMs=30000 loginOk=true',
-      'FTP broken again',
-      'LIST failed for user marrow-int with password …',
+      'FTP connection timed out host=ftp.store-net.example passive=false timeoutMs=30000',
+      'FTP LIST timed out host=ftp.store-net.example passive=false timeoutMs=30000 loginOk=true next=switch to active mode',
     ],
-    answer: 0,
-    explain: 'loginOk=true with passive=false points straight at the data channel. The second line leaves out the mode, which is the one fact that explains the timeout.',
+    answer: 1,
+    explain:
+      'loginOk=true with passive=false points straight at the data channel. The line with dir=/out leaves out the mode, the one fact that explains the timeout. "FTP connection timed out" without loginOk reads like the host is down. The line that says switch to active mode is wrong: the connector already runs active, and behind a firewall passive mode is the usual fix.',
   },
   {
     id: 'log-14008',
     kind: 'multi',
-    situation: 'Which connector settings are worth logging once at startup?',
-    options: ['Host and port', 'Passive or active mode', 'Transfer mode', 'The password'],
-    answers: [0, 1, 2],
-    explain: 'Settings that change behaviour, never secrets.',
+    situation: 'Marrow & Pine logs the FTP connector settings once at startup, to explain later transfer problems. Which belong on that line?',
+    options: ['Passive or active mode', 'The password, masked to its last 4 characters', 'Transfer type, ASCII or BINARY', 'Host and port'],
+    answers: [0, 2, 3],
+    explain: 'Settings that change behaviour belong there. Even part of a password is part of a secret, and it explains nothing about a transfer.',
   },
   {
     id: 'log-14009',
@@ -178,23 +182,26 @@ export const SET_14 = [
   {
     id: 'log-14012',
     kind: 'choice',
-    situation: 'Which line best records the unknown result?',
+    situation:
+      'The upload of sales_20261118.dat timed out after the data was sent, so the flow cannot tell if the file arrived. The receiver loads every file it finds. Which line best records this?',
     options: [
+      'Upload failed path=/in/sales_20261118.dat runId=R-1118 errorType=FTP:CONNECTIVITY next=upload again as sales_20261118_r1.dat',
       'Upload result unknown path=/in/sales_20261118.dat runId=R-1118 errorType=FTP:CONNECTIVITY next=check final file before retry',
-      'Upload failed, sending again as sales_20261118_r1.dat',
-      'Timeout!!',
-      'Sales: <file content>',
+      'Upload failed path=/in/sales_20261118.dat runId=R-1118 errorType=FTP:CONNECTIVITY next=retry with same name',
+      'Upload result unknown path=/in/sales_20261118.dat errorType=FTP:CONNECTIVITY next=check final file before retry',
     ],
-    answer: 0,
-    explain: 'It says the result is unknown and what the flow does to avoid a duplicate.',
+    answer: 1,
+    explain:
+      'It says the result is unknown and what the flow does to avoid a duplicate. Calling it failed is wrong, the file may be there. A new name like _r1 makes the receiver load the sales twice. A blind retry with the same name can also load twice if the receiver already picked up the first copy. The unknown result line without runId, so the receiver cannot match a repeat.',
   },
   {
     id: 'log-14013',
     kind: 'multi',
-    situation: 'Which facts help the planning platform skip a repeat?',
-    options: ['A run ID', 'The final file name', 'A sequence number per file', 'The FTP password'],
-    answers: [0, 1, 2],
-    explain: 'The same run ID, file name or sequence twice means a repeat. A password never belongs in a log.',
+    situation:
+      'An upload with an unknown result may be sent a second time. Which facts, on the log line and in the file, let the planning platform spot a repeat?',
+    options: ['The time of the upload', 'A run ID', 'A sequence number per file', 'The final file name'],
+    answers: [1, 2, 3],
+    explain: 'The same run ID, file name or sequence twice means a repeat. A retry has a new upload time, so the time cannot show it is the same data.',
   },
   {
     id: 'log-14014',
@@ -252,23 +259,31 @@ export const SET_14 = [
   {
     id: 'log-14017',
     kind: 'choice',
-    situation: 'Which line best records the cut value?',
+    situation:
+      'In a fixed width export, record 612 (store S612) has a storeName of 47 characters. The field is 40 wide, so the flow cuts the name and keeps the record in the file. Which line best records it?',
     options: [
+      'Field truncated file=locations_20261118.dat field=storeName width=40 originalLength=47 count=1',
+      'Record rejected file=locations_20261118.dat record=612 field=storeName width=40 originalLength=47 store=S612',
+      'Field truncated file=locations_20261118.dat record=612 field=storeName width=40 store=S612',
       'Field truncated file=locations_20261118.dat record=612 field=storeName width=40 originalLength=47 store=S612',
-      'Truncated',
-      'Name too long: Marrow & Pine Home Riverside Retail Park …',
-      'Field truncated file=locations_20261118.dat field=storeName width=40 originalLength=47',
     ],
-    answer: 0,
-    explain: 'Which record, field and lengths. The business can then shorten the name at source. The last line has no record or store, so nobody can tell which name to fix.',
+    answer: 3,
+    explain:
+      'Which record, field and lengths, so the business can shorten the name at source. The line with count=1 has no record or store, so nobody can tell which name to fix. "Record rejected" is false: the record was sent with a cut name. The line without originalLength hides how much was lost.',
   },
   {
     id: 'log-14018',
     kind: 'multi',
-    situation: 'Which checks belong before a fixed width file is uploaded?',
-    options: ['Every record has the exact length', 'The record count matches the trailer', 'Truncated fields are reported', 'Every record is logged at INFO before upload'],
-    answers: [0, 1, 2],
-    explain: 'Catch problems before the receiver rejects the whole file. Logging every record floods the log and checks nothing.',
+    situation: 'Before a fixed width file goes to the receiver, which checks should the flow run, and log when they fail?',
+    options: [
+      'The record count matches the trailer',
+      'Every record is trimmed of trailing spaces',
+      'Every record has the exact length',
+      'Truncated fields are reported',
+    ],
+    answers: [0, 2, 3],
+    explain:
+      'Catch problems before the receiver rejects the whole file. Trimming trailing spaces breaks a fixed width record, because the padding is part of its length.',
   },
   {
     id: 'log-14019',
@@ -329,23 +344,25 @@ export const SET_14 = [
   {
     id: 'log-14022',
     kind: 'choice',
-    situation: 'Which line best records the daily reconciliation?',
+    situation:
+      'The daily check compares hub sales with finance. 260 stores were expected and all sent files: 180 by FTP, 72 by SFTP and 8 by file share. Both totals are 1,750,000.00. Which line best records it?',
     options: [
-      'Sales reconciled date=2026-11-18 stores=260 expected=260 ftp=180 sftp=72 share=8 hubTotal=1750000.00 financeTotal=1750000.00',
-      'Recon ok',
-      'Stores: <260 store totals>',
       'Sales reconciled date=2026-11-18 stores=260 expected=260 ftp=180 sftp=72 share=8 hubTotal=1750000.00',
+      'Sales reconciled date=2026-11-18 stores=260 hubTotal=1750000.00 financeTotal=1750000.00 difference=0.00 status=MATCHED',
+      'Sales reconciled date=2026-11-18 stores=260 expected=260 ftp=180 sftp=72 share=8 hubTotal=1750000.00 financeTotal=1750000.00',
+      'Sales reconciled date=2026-11-18 files=260 ftp=180 sftp=72 share=8 hubTotal=1750000.00 financeTotal=1750000.00',
     ],
-    answer: 0,
-    explain: 'Counts by source and both totals in one line. The last line has no finance total, so it does not show what the hub was checked against.',
+    answer: 2,
+    explain:
+      'Counts by source, the expected count and both totals in one line. The line without financeTotal, so it does not show what the hub was checked against. The MATCHED line has no counts by source, so on a bad day nobody can see where a gap starts. The line with files=260 has no expected count, so a missing store does not show.',
   },
   {
     id: 'log-14023',
     kind: 'multi',
-    situation: 'Which facts help find where a gap starts?',
-    options: ['Counts by source', 'Totals by source', 'Stores missing', 'Each sale line'],
-    answers: [0, 1, 2],
-    explain: 'Narrow it to a source or a store first.',
+    situation: 'Hub sales are 12,400.00 below finance for one day. Which facts on the reconciliation lines help find where the gap starts?',
+    options: ['Counts by source', 'The total difference only', 'Stores missing', 'Totals by source'],
+    answers: [0, 2, 3],
+    explain: 'Narrow it to a source or a store first. The total difference says how big the gap is, not where it is.',
   },
   {
     id: 'log-14024',
@@ -407,23 +424,25 @@ export const SET_14 = [
   {
     id: 'log-14027',
     kind: 'choice',
-    situation: 'Which line best records the pool timeout?',
+    situation: 'Orders API calls fail after waiting 5 seconds for a database connection. The pool holds 5 connections. Which line best records it?',
     options: [
-      'DB pool exhausted db=orders maxPoolSize=5 waitMs=5000 errorType=DB:CONNECTIVITY correlationId=7f3c2a',
-      'jdbc:sqlserver://sqlprod01:1433;user=app;password=… failed',
-      'DB slow',
+      'DB query timed out db=orders queryTimeoutSec=5 errorType=DB:CONNECTIVITY correlationId=7f3c2a',
       'DB pool exhausted db=orders maxPoolSize=5 errorType=DB:CONNECTIVITY correlationId=7f3c2a',
+      'DB pool exhausted db=orders maxPoolSize=5 waitMs=5000 errorType=DB:CONNECTIVITY correlationId=7f3c2a',
+      'DB pool exhausted db=orders maxPoolSize=5 waitMs=5000 errorType=DB:CONNECTIVITY url=jdbc:sqlserver://sqlprod01:1433;user=app',
     ],
-    answer: 0,
-    explain: 'The pool size and wait time show the cause. Never log the connection string. The last line has no wait time, so you cannot tell a small pool from a slow database.',
+    answer: 2,
+    explain:
+      'The pool size and wait time show the cause. "DB query timed out" sends people to tune a query that never started. The line without waitMs cannot tell a small pool from a slow database. Never log the connection string, even without the password, and that line also lost the correlation ID.',
   },
   {
     id: 'log-14028',
     kind: 'multi',
-    situation: 'Which facts help size the pool correctly?',
-    options: ['maxPoolSize', 'How long requests waited', 'How many replicas run', 'The database password'],
-    answers: [0, 1, 2],
-    explain: 'Pool size times replicas must fit the server limit.',
+    situation: 'The orders app runs on 4 replicas against a SQL Server that allows it 100 connections. Which facts help size the pool?',
+    options: ['How long requests waited', 'The JDBC driver version', 'maxPoolSize', 'How many replicas run'],
+    answers: [0, 2, 3],
+    explain:
+      'Pool size times replicas must fit the server limit, and the wait shows whether the pool is too small. The driver version does not change the sizing.',
   },
   {
     id: 'log-14029',
@@ -486,23 +505,25 @@ export const SET_14 = [
   {
     id: 'log-14032',
     kind: 'choice',
-    situation: 'Which line best records the whole load?',
+    situation:
+      'A bulk load of 2,000,000 rows into sales_stage ran in 2,000 blocks. 3 blocks failed and were loaded row by row, and 7 rows were rejected. Which line best records it?',
     options: [
       'Bulk load finished table=sales_stage rows=2000000 blocks=2000 fallbackBlocks=3 rejected=7 durationMs=1260000',
-      'Load done',
-      'Inserted: <2 million rows>',
+      'Bulk load finished table=sales_stage loaded=2000000 blocks=2000 fallbackBlocks=3 rejected=7 durationMs=1260000',
+      'Bulk load finished table=sales_stage rows=2000000 rejected=7 durationMs=1260000 rowsPerSec=1587',
       'Bulk load finished table=sales_stage rows=2000000 blocks=2000 fallbackBlocks=3 durationMs=1260000',
     ],
     answer: 0,
-    explain: 'Rows, blocks, fallbacks, rejects and time in one summary. The last line has no reject count, so 7 rows that never loaded stay hidden.',
+    explain:
+      'Rows, blocks, fallbacks, rejects and time in one summary. loaded=2000000 is false, only 1,999,993 rows went in. The line with rowsPerSec has no fallback count, which is what slows a load down. The line without rejected=7 has no reject count, so 7 rows that never loaded stay hidden.',
   },
   {
     id: 'log-14033',
     kind: 'multi',
-    situation: 'Which facts show the load is getting slower over time?',
-    options: ['durationMs per run', 'Rows per run', 'Fallback blocks per run', 'The server name'],
-    answers: [0, 1, 2],
-    explain: 'Rows per second and fallbacks per run show trends.',
+    situation: 'The nightly bulk load took 21 minutes last month and 34 minutes now. Which facts, kept for each run, show why?',
+    options: ['Rows per run', 'durationMs per run', 'The target table name', 'Fallback blocks per run'],
+    answers: [0, 1, 3],
+    explain: 'Rows per second and fallbacks per run show trends. The table name is the same every night.',
   },
   {
     id: 'log-14034',
@@ -564,23 +585,25 @@ export const SET_14 = [
   {
     id: 'log-14037',
     kind: 'choice',
-    situation: 'Which line best records the deadlock?',
+    situation:
+      'An UPDATE on the stock table for store S041, item ITM-7731 was chosen as deadlock victim (SQL Server error 1205). The flow retries in 200 ms. Which line best records it?',
     options: [
-      'Deadlock victim, retrying table=stock key=S041-ITM-7731 attempt=1 sqlError=1205 next=retry in 200ms',
-      'UPDATE stock SET qty = 12 WHERE store = ’S041’ AND item = ’ITM-7731’ failed',
-      'Deadlock!!!',
       'Deadlock victim, retrying table=stock attempt=1 sqlError=1205 next=retry in 200ms',
+      'Deadlock victim, retrying table=stock key=S041-ITM-7731 attempt=1 sqlError=1205 next=retry in 200ms',
+      'Lock timeout, retrying table=stock key=S041-ITM-7731 attempt=1 sqlError=1222 next=retry in 200ms',
+      'Deadlock victim, retrying table=stock key=S041-ITM-7731 attempt=1 sqlError=1205 params=[12,S041,ITM-7731] next=retry in 200ms',
     ],
-    answer: 0,
-    explain: 'Table, key, attempt and code. Not the SQL with its values. The last line has no key, so the DBA cannot match it to the deadlock graph.',
+    answer: 1,
+    explain:
+      'Table, key, attempt and code. The line without key=S041-ITM-7731, so the DBA cannot match it to the deadlock graph. Error 1222 is a lock request timeout, a different problem from a deadlock. The SQL parameter values do not belong in the log.',
   },
   {
     id: 'log-14038',
     kind: 'multi',
-    situation: 'Which facts help the DBA find the cause?',
-    options: ['The table', 'The key', 'The time', 'The application password'],
-    answers: [0, 1, 2],
-    explain: 'The DBA matches these with the deadlock graph.',
+    situation: 'The DBA wants to match deadlock lines with the SQL Server deadlock graph. Which facts on the line help?',
+    options: ['The table', 'The new quantity being written', 'The key', 'The time, to the millisecond'],
+    answers: [0, 2, 3],
+    explain: 'The DBA matches table, key and time with the graph. The quantity is a data value and plays no part in the lock.',
   },
   {
     id: 'log-14039',
@@ -642,23 +665,25 @@ export const SET_14 = [
   {
     id: 'log-14042',
     kind: 'choice',
-    situation: 'Which line best records the delta extract?',
+    situation:
+      'A delta extract read item changes from 23:55:00 to 00:00:01, with a 5 minute overlap on the last window. It found 410 rows in 2.1 seconds. Which line best records it?',
     options: [
+      'Delta extracted table=item from=2026-11-17T23:55:00 to=2026-11-18T00:00:01 rows=410 durationMs=2100',
+      'Delta extracted table=item from=2026-11-17T23:55:00 to=2026-11-18T00:00:01 rows=410 overlapMin=5 itemIds=ITM-1001,ITM-1002,…',
       'Delta extracted table=item from=2026-11-17T23:55:00 to=2026-11-18T00:00:01 rows=410 overlapMin=5 durationMs=2100',
-      'Extracted items',
-      'Items: <410 items>',
       'Delta extracted table=item rows=410 overlapMin=5 durationMs=2100',
     ],
-    answer: 0,
-    explain: 'The window read and the overlap show no gap was left. The last line has no from and to, so nobody can check the windows join up.',
+    answer: 2,
+    explain:
+      'The window read and the overlap show no gap was left. The line without overlapMin has no overlap. The line with itemIds puts 410 keys in one line and still loses the time. The line with only rows, overlap and time has no from and to, so nobody can check the windows join up.',
   },
   {
     id: 'log-14043',
     kind: 'multi',
-    situation: 'A change went missing. Which facts on the extract lines help prove why?',
-    options: ['The from and to of each window', 'The overlap', 'The rows read', 'The ERP user who made the change'],
-    answers: [0, 1, 2],
-    explain: 'If windows touch but the row is outside both, the watermark rule is wrong.',
+    situation: 'An item change made at 23:58 never reached the hub. Which facts on the extract lines help prove why?',
+    options: ['The total rows in the item table', 'The from and to of each window', 'The overlap', 'The rows read'],
+    answers: [1, 2, 3],
+    explain: 'If the windows touch but the row is outside both, the watermark rule is wrong. The size of the whole table says nothing about one window.',
   },
   {
     id: 'log-14044',
@@ -719,23 +744,25 @@ export const SET_14 = [
   {
     id: 'log-14047',
     kind: 'choice',
-    situation: 'Which line best records the duplicates?',
+    situation:
+      'The forecast stage held 28 rows in groups with the same store, item and week. The flow removed 14 and kept the latest of each. Which line best records it?',
     options: [
       'Duplicate keys removed table=fcst_stage key=store+item+week duplicates=14 rule=keep latest',
-      'Duplicates',
-      'Rows: <all 28 duplicate rows>',
       'Duplicate keys removed table=fcst_stage duplicates=14 rule=keep latest',
+      'Duplicate keys removed table=fcst_stage key=store+item+week duplicates=28 rule=keep latest',
+      'Duplicate keys removed table=fcst_stage key=store+item+week duplicates=14 rows=S041/ITM-7731/W47,S052/ITM-0090/W47,…',
     ],
     answer: 0,
-    explain: 'The table, key, count and rule. The reject report holds the rows. The last line does not name the key columns, so the sender cannot tell which fields repeat.',
+    explain:
+      'The table, key, count removed and rule. The line without key does not name the key columns, so the sender cannot tell which fields repeat. duplicates=28 counts the kept rows too, so it overstates what was removed. The rows belong in the reject report, not the log.',
   },
   {
     id: 'log-14048',
     kind: 'multi',
-    situation: 'Which facts belong on the MERGE summary?',
-    options: ['Rows inserted', 'Rows updated', 'Rows unchanged or deleted', 'Each row merged'],
-    answers: [0, 1, 2],
-    explain: 'MERGE can return counts by action. They show what changed.',
+    situation: 'A MERGE loads the forecast stage into the plan table. Which counts belong on the summary line?',
+    options: ['Rows updated', 'Rows inserted', 'The key of each row merged', 'Rows deleted by the MERGE'],
+    answers: [0, 1, 3],
+    explain: 'MERGE can return counts by action. They show what changed. The key of every row floods the log.',
   },
   {
     id: 'log-14049',

@@ -10,7 +10,7 @@ export default {
       type: 'single',
       prompt: 'The Process API gets **401** from the Inventory SAPI in Test, though the same code works in Dev. Most likely cause?',
       options: [
-        'Client ID Enforcement is misconfigured in Test',
+        'The Test instance has a lower rate limit than Dev',
         'The app\'s contract covers only the Dev instance',
         'The Test instance uses a different version of the RAML',
         'The mobile app\'s credentials have expired in Test',
@@ -54,15 +54,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Where should the Process API store its client ID/secret?',
+      prompt: 'The `orders-papi` client secret is encrypted in `secure-prod.yaml` with the Secure Properties module, and that file is in Git. Where should the decryption key come from when the app runs on CloudHub 2.0?',
       options: [
-        'Hard-coded in the HTTP Request config',
-        'In secure properties per environment, encrypted',
-        'In the RAML spec, under the security scheme',
-        'In a plain `config.yaml` committed to Git',
+        'From `config.yaml` in the same repo, next to the other properties',
+        'From the `key` attribute of `secure-properties:config` in the XML',
+        'From a plain Runtime Manager property, set per environment',
+        'From a protected Runtime Manager property, set at deployment',
       ],
-      answer: 1,
-      explain: 'Use environment-specific properties, encrypted with Secure Properties or supplied as secure properties at deploy time. Never hard-code or commit secrets in plain text.',
+      answer: 3,
+      explain: 'Encrypted values may sit in Git only if the key does not. Reference the key as a property such as `${secure.key}` and supply it at deploy time as a protected (hidden) property in Runtime Manager or through the pipeline, per environment. A key in `config.yaml` or in the XML sits in Git next to the values it unlocks. A plain Runtime Manager property works, but anyone who can view the app sees the key. Never hard-code or commit secrets in plain text.',
     },
     {
       type: 'single',

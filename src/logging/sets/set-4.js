@@ -22,14 +22,14 @@ export const SET_4 = [
     kind: 'choice',
     situation: 'The Salesforce Query for all accounts in the North region has returned. Which message is best?',
     options: [
-      'Salesforce query done',
+      `Salesforce accounts queried query=SELECT Id, Name, Phone FROM Account WHERE Region__c = 'North' durationMs=380 correlationId=5d1e9a`,
       'Accounts queried: [{"Id":"001Kx00000AbCdE","Name":"Brightmoor Outdoor","Phone":"+1 555 0100"}]',
       'Salesforce accounts queried region=North records=42 durationMs=380 correlationId=5d1e9a',
-      'Query returned some results for North correlationId=5d1e9a',
+      'Salesforce accounts queried region=North returned some results durationMs=380 correlationId=5d1e9a',
     ],
     answer: 2,
     explain:
-      'It says what was queried, how many records came back and how long it took. The second option dumps the records, with a phone number in them. "Some results" gives no count to compare with.',
+      'It says what was queried, how many records came back and how long it took. The line that dumps the records has a phone number in it. "Some results" gives no count to compare with.',
   },
   {
     id: 'log-4003',
@@ -97,11 +97,11 @@ export const SET_4 = [
       'Price cache miss, loaded from database sku=KH-2207 objectStore=price-cache ttlMinutes=30 correlationId=c41b7e',
       'Price cache miss, loaded from database objectStore=price-cache ttlMinutes=30 correlationId=c41b7e',
       'Stored in OS: {"sku":"KH-2207","price":19.99,"cost":11.20,"supplierId":"SUP-88"}',
-      'MISS!!!',
+      'Price cache hit, served from cache sku=KH-2207 objectStore=price-cache ttlMinutes=30 ageSeconds=1260 correlationId=c41b7e',
     ],
     answer: 0,
     explain:
-      'It says it was a miss, where the value came from, which key and which store. The second option has no SKU, so nobody can tell which product missed. The third option writes the whole cached value, including the cost price, which other teams should not see.',
+      'It says it was a miss, where the value came from, which key and which store. The cache miss line without sku= has no SKU, so nobody can tell which product missed. The "Stored in OS" line writes the whole cached value, including the cost price, which other teams should not see.',
   },
   {
     id: 'log-4008',
@@ -131,9 +131,9 @@ export const SET_4 = [
     situation: 'In the Price API, after every Object Store Retrieve that finds the key. Pick every problem.',
     code: '<logger level="INFO" message=\'#["Cache hit for $(vars.cacheKey) value=$(write(payload))"]\' />',
     options: [
-      'Object Store keys must never be logged',
+      'The SKU in the cache key counts as personal data, so it should be masked',
       'At hundreds of reads a minute, an INFO line for every hit floods the production log',
-      'A cache hit is a failure, so it needs ERROR',
+      'A cache hit means the database was skipped, so it deserves WARN',
       'write(payload) puts the whole cached value in the log',
       'There is no correlation ID',
     ],
@@ -147,14 +147,14 @@ export const SET_4 = [
     situation:
       'A product was never cached, so the Object Store Retrieve has no value for it. The flow loads the price from the database. Which message is best?',
     options: [
-      'ERROR: key not found in object store!!!',
+      'Price lookup failed errorType=OS:KEY_NOT_FOUND sku=KH-3310 objectStore=price-cache next=500 to caller correlationId=c41b7e',
       'Price not cached, loading from database sku=KH-3310 objectStore=price-cache correlationId=c41b7e',
-      'OS:KEY_NOT_FOUND',
+      'Price not cached sku=KH-3310 objectStore=price-cache',
       'Price not cached sku=KH-3310 customer=ann.lee@example.com correlationId=c41b7e',
     ],
     answer: 1,
     explain:
-      'A missing key is expected for a new product and the flow handles it. Set a default value on the Retrieve, or catch OS:KEY_NOT_FOUND, and log what the flow does next. The last option adds an email that has nothing to do with the price.',
+      'A missing key is expected for a new product and the flow handles it. Set a default value on the Retrieve, or catch OS:KEY_NOT_FOUND, and log what the flow does next. The line with customer=ann.lee@example.com adds an email that has nothing to do with the price.',
   },
 
   // ---------- lg-078 ServiceNow incidents ----------
@@ -173,7 +173,7 @@ export const SET_4 = [
     situation: 'After the call that creates a ServiceNow incident. Pick every problem.',
     code: '<logger level="INFO" message=\'#["Incident created"]\' />',
     options: [
-      'Creating an incident is always an ERROR',
+      'INFO is too low, because a new incident means something broke and needs ERROR',
       'It does not give the incident number, so nobody can find the ticket',
       'It does not say which device or alert the ticket is for',
       'The message must start with output application/json',
@@ -214,12 +214,12 @@ export const SET_4 = [
     options: [
       'ServiceNow incident not created alertId=AL-7781 reason="assignment group not found" correlationId=0e6b2d',
       'Incident not created: {"short_description":"Scanner 14 offline","caller_id":"j.ortiz@harborline.example","assignment_group":"WH-NETWORK"}',
-      'Something went wrong with ServiceNow',
+      'ServiceNow incident not created alertId=AL-7781 errorType=HTTP:BAD_REQUEST group=WH-NETWORK next=retry in 5 minutes correlationId=0e6b2d',
       'ServiceNow incident not created alertId=AL-7781 reason="assignment group not found" group=WH-NETWORK next=held for mapping fix correlationId=0e6b2d',
     ],
     answer: 3,
     explain:
-      'It names the alert, the reason, the bad value and what happens next, so the team knows which mapping to fix. The first option leaves out the group and that the alert is held. The second option dumps the request with a person in it.',
+      'It names the alert, the reason, the bad value and what happens next, so the team knows which mapping to fix. The line with only the reason leaves out the group and that the alert is held. The "Incident not created" line dumps the request with a person in it.',
   },
   {
     id: 'log-4015',
@@ -254,12 +254,12 @@ export const SET_4 = [
     options: [
       'Stock decreased sku=PG-5521 quantity=2 affectedRows=1 correlationId=91ad3f',
       'Stock decreased storeId=S-118 sku=PG-5521 quantity=2 affectedRows=1 durationMs=14 correlationId=91ad3f',
-      'UPDATE stock SET qty = qty - 2 WHERE store_id = ? AND sku = ? executed',
-      'Stock updated rows: 1',
+      'Stock decreased sql=UPDATE stock SET qty = :newQty WHERE store_id = :storeId AND sku = :sku durationMs=14 correlationId=91ad3f',
+      'Stock decreased storeId=S-118 sku=PG-5521 quantity=2 durationMs=14 correlationId=91ad3f',
     ],
     answer: 1,
     explain:
-      'It names the store, the SKU and the change, and affectedRows=1 shows that one row really changed. The first option has no store, and the same SKU is stocked in every store. The SQL text says what was run, not for which item.',
+      'It names the store, the SKU and the change, and affectedRows=1 shows that one row really changed. The line without storeId has no store, and the same SKU is stocked in every store. The SQL text says what was run, not for which item.',
   },
   {
     id: 'log-4018',
@@ -326,13 +326,13 @@ export const SET_4 = [
     situation: 'A Salesforce Upsert on the external ID field Web_Lead_Id__c returned one successful item for a lead. Which message is best?',
     options: [
       'Lead upserted webLeadId=WL-20931 salesforceId=00QKx000004mR2t successful=true correlationId=a7c3e1',
-      'Lead for Maria Gomez maria.gomez@example.com upserted',
-      'Upsert OK',
+      'Lead upserted for Maria Gomez email=maria.gomez@example.com successful=true correlationId=a7c3e1',
+      'Lead created webLeadId=WL-20931 salesforceId=00QKx000004mR2t created=true correlationId=a7c3e1',
       'Lead upserted: [{"id":"00QKx000004mR2t","successful":true,"statusCode":null,"message":null}] correlationId=a7c3e1',
     ],
     answer: 0,
     explain:
-      'Your ID and the Salesforce ID let anyone find the lead in both systems. The Upsert answers with a Bulk Operation Result whose items hold Id, Successful, Status Code and Message, so successful=true is the flag to log. The item says nothing about whether the record was new. The second option logs a name and an email.',
+      'Your ID and the Salesforce ID let anyone find the lead in both systems. The Upsert answers with a Bulk Operation Result whose items hold Id, Successful, Status Code and Message, so successful=true is the flag to log. The item says nothing about whether the record was new. The line for Maria Gomez logs a name and an email.',
   },
   {
     id: 'log-4023',
@@ -381,13 +381,13 @@ export const SET_4 = [
       'The whole Salesforce Upsert call failed with SALESFORCE:CONNECTIVITY. The batch of leads goes back to the queue for another try. Which message is best?',
     options: [
       'Salesforce lead upsert failed batchId=B-0412 leads=50 errorType=SALESFORCE:CONNECTIVITY correlationId=a7c3e1',
-      'Upsert failed for leads: Maria Gomez, Tom Reyes, Lin Zhou and 47 more',
-      'Error occurred in upsert',
+      'Salesforce lead upsert failed for Maria Gomez, Tom Reyes, Lin Zhou and 47 more next=retry from queue',
+      'Salesforce lead upsert failed batchId=B-0412 leads=50 errorType=SALESFORCE:CONNECTIVITY next=leads dropped, not retried correlationId=a7c3e1',
       'Salesforce lead upsert failed batchId=B-0412 leads=50 errorType=SALESFORCE:CONNECTIVITY next=retry from queue correlationId=a7c3e1',
     ],
     answer: 3,
     explain:
-      'It gives the batch, the size, the error type and the next step, so the reader knows nothing is lost yet. The first option has no next step, so it reads as if 50 leads were lost. Names of people do not help anyone fix a connection.',
+      'It gives the batch, the size, the error type and the next step, so the reader knows nothing is lost yet. The line with no next= has no next step, so it reads as if 50 leads were lost. Names of people do not help anyone fix a connection.',
   },
 
   // ---------- lg-081 SAP sales orders by BAPI ----------
@@ -407,7 +407,7 @@ export const SET_4 = [
     code: '<logger level="INFO" message=\'#["SAP BAPI called"]\' />',
     options: [
       'A BAPI can end without a Mule error and still fail: the RETURN table may hold a TYPE E message',
-      'SAP always raises SAP:INVALID_INPUT when a business rule fails, so this line always means success',
+      'A business rule failure inside the BAPI raises a Mule error, so reaching this line means the order exists',
       'The line should carry the document number the BAPI returned, such as sapOrderNo',
       'The whole BAPI XML response belongs at INFO, so nothing is lost',
       'Without the order ID and correlationId, the call cannot be matched to the request',
@@ -445,14 +445,14 @@ export const SET_4 = [
     situation:
       'The BAPI RETURN table holds a message of TYPE W: the requested delivery date was moved by two days. The sales order was created. Which message is best?',
     options: [
-      'SAP warning',
+      'SAP sales order not created sapMessageType=W sapMessage="delivery date moved" orderId=FT-88213 correlationId=3b7d0c',
       'SAP sales order created with warning sapOrderNo=0000123456 orderId=FT-88213 sapMessageType=W sapMessage="delivery date moved" correlationId=3b7d0c',
       'SAP RETURN: <RETURN><item><TYPE>W</TYPE><MESSAGE>...</MESSAGE></item><item>...</item></RETURN>',
       'SAP sales order created sapOrderNo=0000123456 orderId=FT-88213 correlationId=3b7d0c',
     ],
     answer: 1,
     explain:
-      'The order exists, so the line says created, and the warning text tells the sales team why the date changed. The raw RETURN table is long and hard to search. The last option drops the warning, so the moved date is never explained.',
+      'The order exists, so the line says created, and the warning text tells the sales team why the date changed. The raw RETURN table is long and hard to search. The created line with no sapMessage drops the warning, so the moved date is never explained.',
   },
   {
     id: 'log-4030',
@@ -487,11 +487,11 @@ export const SET_4 = [
       'ORDERS05 IDoc sent to SAP orderId=GP-55120 correlationId=d2e8f4',
       'IDoc: <ORDERS05><IDOC BEGIN="1"><EDI_DC40 SEGMENT="1">...</EDI_DC40>...',
       'ORDERS05 IDoc sent to SAP idocNumber=0000000004418273 orderId=GP-55120 correlationId=d2e8f4',
-      'Sent the IDoc to SAP for the order, all good',
+      'ORDERS05 IDoc sent to SAP idocNumber=0000000004418273 orderId=GP-55120 status=53 posted correlationId=d2e8f4',
     ],
     answer: 2,
     explain:
-      'The IDoc number is what SAP support types into WE02 to find it. The order ID and the correlation ID tie it to your side. The first option has no IDoc number, so SAP support cannot find it. The XML is long and full of partner data.',
+      'The IDoc number is what SAP support types into WE02 to find it. The order ID and the correlation ID tie it to your side. The line without idocNumber has no IDoc number, so SAP support cannot find it. The XML is long and full of partner data.',
   },
   {
     id: 'log-4033',
@@ -614,11 +614,11 @@ export const SET_4 = [
       'Workday Get_Workers failed errorType=WSC:SOAP_FAULT correlationId=7a90bd',
       'Workday error: <soapenv:Envelope><soapenv:Header><wsse:Security>...</wsse:Security></soapenv:Header>...',
       'Workday Get_Workers failed errorType=WSC:SOAP_FAULT reason="no permission for Job Data domain" next=sync stopped, HR systems team to grant access correlationId=7a90bd',
-      'Workday is broken again',
+      'Workday Get_Workers failed errorType=WSC:SOAP_FAULT reason="no permission for Job Data domain" next=retry every 10 minutes until it works attempt=1 correlationId=7a90bd',
     ],
     answer: 2,
     explain:
-      'It names the operation, the error type, the reason and who must act. The first option has no reason and no next step, so nobody knows the fix is a permission. The second option dumps a SOAP envelope whose security header can hold credentials.',
+      'It names the operation, the error type, the reason and who must act. The line with only the errorType has no reason and no next step, so nobody knows the fix is a permission. The "Workday error" line dumps a SOAP envelope whose security header can hold credentials.',
   },
   {
     id: 'log-4040',
@@ -663,11 +663,11 @@ export const SET_4 = [
       'NetSuite invoice created invoiceNo=OV-INV-30418 amount=1240.00 currency=USD correlationId=e5c1a8',
       'NetSuite invoice created invoiceNo=OV-INV-30418 netsuiteId=88231 amount=1240.00 currency=USD correlationId=e5c1a8',
       'NetSuite response: <addResponse><writeResponse><status isSuccess="true"/>...',
-      'Invoice OK for Oakvale customer Dana Whitfield',
+      'NetSuite invoice created invoiceNo=OV-INV-30418 netsuiteId=88231 customer=Dana Whitfield correlationId=e5c1a8',
     ],
     answer: 1,
     explain:
-      'Your invoice number and the NetSuite internalId find the invoice in both systems. The first line leaves out the internalId, so nobody can open the new record in NetSuite from the log. The amount helps finance check totals. A customer name is personal data and finds nothing.',
+      'Your invoice number and the NetSuite internalId find the invoice in both systems. The line without netsuiteId leaves out the internalId, so nobody can open the new record in NetSuite from the log. The amount helps finance check totals. A customer name is personal data and finds nothing.',
   },
   {
     id: 'log-4043',
@@ -750,11 +750,11 @@ export const SET_4 = [
       'Points transfer committed transferId=TR-55012 fromMemberId=M-1182 toMemberId=M-2290 points=500',
       'Inserted debit row and credit row: [{"memberId":"M-1182","points":-500},{"memberId":"M-2290","points":500}]',
       'Points transfer committed transferId=TR-55012 fromMemberId=M-1182 toMemberId=M-2290 points=500 correlationId=6f2a9c',
-      'Points moved for member jane.doe@example.com',
+      'Points transfer committed transferId=TR-55012 from=jane.doe@example.com to=M-2290 points=500 correlationId=6f2a9c',
     ],
     answer: 2,
     explain:
-      'It says the transfer is committed, which is only true after the Try scope ends, and gives the IDs and the amount. The first option has no correlation ID, so it cannot be joined to the request that asked for the transfer. The last option uses an email instead of a member ID.',
+      'It says the transfer is committed, which is only true after the Try scope ends, and gives the IDs and the amount. The committed line that ends at points=500 has no correlation ID, so it cannot be joined to the request that asked for the transfer. The line with from=jane.doe@example.com uses an email instead of a member ID.',
   },
   {
     id: 'log-4048',
@@ -786,7 +786,7 @@ export const SET_4 = [
     code: '<logger level="INFO" message=\'#["Points transfer committed transferId=$(vars.transferId) correlationId=$(correlationId)"]\' />',
     options: [
       'Nothing is committed yet: the commit happens when the Try scope ends without an error',
-      'A Logger inside a transaction makes the transaction fail',
+      'The Logger joins the transaction, so its line is rolled back with the inserts if the second one fails',
       'If the second insert fails, the log says committed for a transfer that was rolled back',
       'The correlation ID is missing',
       'Move the line after the Try scope, or reword it as "debit row inserted" at DEBUG',
@@ -874,9 +874,9 @@ export const SET_4 = [
     kind: 'choice',
     situation: 'A DB:CONNECTIVITY error from the full connection pool reached the error handler of the Claims API. Which message is best?',
     options: [
-      'DB error',
+      'Database server down errorType=DB:CONNECTIVITY host=claims-db.internal claimId=CL-40917 next=503 to caller correlationId=2c8e5f',
       'Database connection not available: {"errorType":"DB:CONNECTIVITY","stackTrace":"java.sql.SQLTransientConnectionException at ... (212 lines)"}',
-      'DB is down, call the DBA!!!',
+      'Database connection not available errorType=DB:CONNECTIVITY claimId=CL-40917 next=retry every second until the pool frees up correlationId=2c8e5f',
       'Database connection not available errorType=DB:CONNECTIVITY pool=claims-db maxPoolSize=10 claimId=CL-40917 next=503 to caller correlationId=2c8e5f',
     ],
     answer: 3,
@@ -922,13 +922,13 @@ export const SET_4 = [
     situation: 'The Bulk API 2.0 job reached the state JobComplete. Which message is best?',
     options: [
       'Salesforce bulk job complete jobId=750Kx00000Abc12 object=PricebookEntry operation=upsert processed=400000 failed=0 durationMs=1840000 correlationId=8d3b6a',
-      'Job 750Kx00000Abc12 state JobComplete',
-      'Bulk job finished',
+      'Salesforce bulk job 750Kx00000Abc12 state=JobComplete object=PricebookEntry operation=upsert',
+      'Salesforce bulk job complete jobId=750Kx00000Abc12 object=PricebookEntry operation=upsert records=400000 state=JobComplete durationMs=1840000 correlationId=8d3b6a',
       'Bulk results: sf__Id,sf__Created,Product2Id,UnitPrice ... (400,000 rows)',
     ],
     answer: 0,
     explain:
-      'It gives the job ID, the object, the operation and the counts. The second option has the ID but not the counts or the correlation ID, so nobody can tell if every record loaded.',
+      'It gives the job ID, the object, the operation and the counts. The line with state=JobComplete and no counts has the ID but not the counts or the correlation ID, so nobody can tell if every record loaded.',
   },
   {
     id: 'log-4058',
@@ -963,7 +963,7 @@ export const SET_4 = [
       'Log every record of the job at INFO, so a failed row can be found later',
       'Log each poll of the job state at DEBUG and the final state at INFO or WARN',
       'A job in state Failed or Aborted needs an ERROR line with the job ID and the reason',
-      'A bulk job uses no API calls, so the job ID is not worth logging',
+      'The job ID changes each time the job state is polled, so log it only at the end',
     ],
     answers: [0, 2, 3],
     explain:
@@ -1009,8 +1009,8 @@ export const SET_4 = [
     situation: 'A Change Data Capture event for an Account arrived. Which message is best?',
     options: [
       'CDC event: {"ChangeEventHeader":{...},"Name":"Priya Nair","Phone":"+1 555 0199","BillingStreet":"12 Elm Road"}',
-      'Got an event',
-      'Account updated by Priya Nair priya.nair@quillstone.example',
+      'Account change received changeType=UPDATE entity=Account changedFields=Name,Phone,BillingStreet correlationId=4e1f7d',
+      'Account change received changeType=UPDATE entity=Account changedBy=Priya Nair priya.nair@quillstone.example',
       'Account change received changeType=UPDATE entity=Account recordIds=001Kx00000QzT8p replayId=18733 correlationId=4e1f7d',
     ],
     answer: 3,
@@ -1049,7 +1049,7 @@ export const SET_4 = [
       'Log the event name and your order ID after the publish, so a missing update in a subscriber can be traced',
       'Log the full event body at INFO, with the customer phone number, so subscribers can be checked',
       'High-volume Platform Events are kept for a retention window, so a subscriber that was down can replay them from a replay ID',
-      'A Platform Event publish can never fail, so the error handler needs no logger',
+      'A failed publish is queued and retried by Salesforce on its own, so the error handler needs no logger',
       'The correlation ID can travel in a custom field of the event, so the subscriber can log the same value',
     ],
     answers: [0, 2, 4],
@@ -1097,12 +1097,12 @@ export const SET_4 = [
     options: [
       'Salesforce composite booking created opportunityId=006Kx00000Lp3Rz lineItems=2 durationMs=640 correlationId=b9a4c2',
       'Composite response: {"compositeResponse":[{"body":{...},"httpStatusCode":201,"referenceId":"newOpp"},...]}',
-      'Created opportunity for traveller Tom Reyes, born 1984-03-12',
+      'Salesforce composite booking created opportunityId=006Kx00000Lp3Rz traveller=Tom Reyes born=1984-03-12',
       'Salesforce composite booking created bookingId=DT-77105 opportunityId=006Kx00000Lp3Rz lineItems=2 durationMs=640 correlationId=b9a4c2',
     ],
     answer: 3,
     explain:
-      'It names your booking, the main record Salesforce created and how many items came with it. The first option leaves out your booking ID, so a booking complaint cannot be matched to it. The third option logs a name and a date of birth.',
+      'It names your booking, the main record Salesforce created and how many items came with it. The line without bookingId leaves out your booking ID, so a booking complaint cannot be matched to it. The line with traveller= and born= logs a name and a date of birth.',
   },
   {
     id: 'log-4068',
@@ -1134,10 +1134,10 @@ export const SET_4 = [
       'A Salesforce call failed with REQUEST_LIMIT_EXCEEDED: the org has used its 24-hour API allocation. Pick every true statement.',
     options: [
       'Later calls from every app in the org fail until usage drops, so this is ERROR',
-      'Retrying right away in a tight loop fixes it',
+      'Retry the call at once a few times, because the allocation resets every hour',
       'The line should name the limit and what happens to the booking, such as next=held in queue',
       'On normal calls to the REST API, logging the Sforce-Limit-Info header at DEBUG shows usage climb',
-      'A limit error is the caller\'s fault, so WARN is enough',
+      `A limit error is the caller's fault, so WARN is enough`,
     ],
     answers: [0, 2, 3],
     explain:
@@ -1186,11 +1186,11 @@ export const SET_4 = [
       'Bulk insert result: [1,1,1,1,1,1,1,1,1,1,1,1,...]',
       'Tracking scans inserted rows=5000 durationMs=930 correlationId=1a7e3d',
       'Tracking scans inserted table=tracking_scans blockNo=12 rows=5000 durationMs=930 correlationId=1a7e3d',
-      'Scans inserted for driver Sam Okafor, mobile +44 7700 900456',
+      'Tracking scans inserted table=tracking_scans blockNo=12 rows=5000 driver=Sam Okafor mobile=+44 7700 900456',
     ],
     answer: 2,
     explain:
-      'It names the table, the block, the row count and the time. The second option has no block number, so a slow or failed block cannot be found. The first option logs the raw result, one count per row, which tells a reader nothing at a glance.',
+      'It names the table, the block, the row count and the time. The line without blockNo has no block number, so a slow or failed block cannot be found. The "Bulk insert result" line logs the raw result, one count per row, which tells a reader nothing at a glance.',
   },
   {
     id: 'log-4073',
@@ -1222,7 +1222,7 @@ export const SET_4 = [
     options: [
       'Bulk Insert returns one update count for each row in the batch',
       'Some JDBC drivers return -2 for a row, which means it worked but the count is not known',
-      'A negative count always means the rows were rolled back',
+      'A negative count means those rows were rolled back by the database',
       'Log the number of rows sent, and treat a -2 count as written',
       'sizeOf(payload) is the number of rows that failed',
     ],

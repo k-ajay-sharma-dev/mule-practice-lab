@@ -85,16 +85,16 @@ export default {
     {
       type: 'multi',
       detail: true,
-      prompt: 'Which statements about configuration history and rollback are correct?',
+      prompt: 'A release on CloudHub 2.0 went wrong and the team plans to roll back from the Config changes tab. Which statements about configuration history and rollback are correct?',
       options: [
-        'The Config changes tab includes the last 10 configuration deployments, each identified by a unique hash',
+        'The Config changes tab keeps every configuration deployment since the app was first created',
         'When you roll back, the configuration moves to the top of the history with a new deployment date and keeps its original hash',
         'You can change the runtime version of a previous configuration as part of the rollback',
         'On the first deployment of an app there is no rollback version, so a failed deployment stays in failed status',
         'A rollback generates a new hash, so the old configuration can no longer be traced',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Rollback is a redeployment of a previous configuration. Because you can adjust settings before clicking Deploy, you can roll back and still keep a newer runtime version.',
+      answer: [1, 2, 3],
+      explain: 'Rollback is a redeployment of a previous configuration. It moves to the top of the history with a new deployment date and keeps its original hash, so it stays traceable. Because you can adjust settings before clicking Deploy, you can roll back and still keep a newer runtime version. On a first deployment there is nothing to roll back to, so a failed deployment stays failed. The tab does not keep the whole history: it holds the last 10 configuration deployments, each with a unique hash.',
     },
     {
       type: 'multi',

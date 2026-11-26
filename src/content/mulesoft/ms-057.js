@@ -50,9 +50,9 @@ export default {
       prompt: 'Which alert would have named the culprit fastest?',
       options: [
         'An error-rate alert on the Inventory SAPI app',
-        'A CPU alert on the Mobile EAPI',
+        'A CPU alert on the Mobile EAPI, where the 502s appeared',
         'A weekly usage report per client application',
-        'A memory alert on the Orders PAPI',
+        'A memory alert on the Orders PAPI, which calls the SAPI',
       ],
       answer: 0,
       explain: 'A downstream SAPI error-rate alert explains the upstream 502s and points straight at the failing layer.',

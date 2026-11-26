@@ -9,15 +9,15 @@ export default {
     {
       type: 'single',
       detail: true,
-      prompt: 'Where does the Anypoint mocking service get its response data?',
+      prompt: 'The mobile team calls the mock for `GET /orders/42` and then `GET /orders/999`. Both calls return the same order, with ID 42. Why?',
       options: [
-        'From a recorded sample of production traffic',
-        'From the examples declared in the spec',
-        'From random values generated from the types',
-        'From a test database the provider team loads',
+        'The mock caches the first response for each resource path',
+        'The provider team loaded only one test order into the mock',
+        'The mock builds values from the types with a fixed seed',
+        'The mock returns the example declared in the spec, for any ID',
       ],
-      answer: 1,
-      explain: 'It returns the status codes and example payloads defined in the spec for the matching method and response. Random values from the types appear only if the caller sends the `MS2-Randomize` header and no example exists. That is one more reason good specs include examples.',
+      answer: 3,
+      explain: 'The mocking service returns the status codes and example payloads defined in the spec for the matching method and response. It has no data store, so the path parameter does not change the answer. It does not cache earlier calls and nobody loads data into it. Random values from the types appear only if the caller sends the `MS2-Randomize` header and no example exists. That is one more reason good specs include examples.',
     },
     {
       type: 'single',

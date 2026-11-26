@@ -73,15 +73,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Where should ADRs be stored?',
+      prompt: 'A year after the team adopted ADRs, a new developer still cannot find why the customer sync uses Anypoint MQ. The ADRs exist, but they sit in the slides of past design reviews. Where should they live so this stops happening?',
       options: [
-        'In each architect\'s personal notes',
-        'As numbered files in Git, linked from the Exchange asset',
-        'In the slide deck of the design review',
-        'In code comments of the flow they affect',
+        'In the minutes of the weekly design review, kept by the architecture team',
+        'In code comments on the flows that each decision affects',
+        'In the description of the backlog story that delivered each decision',
+        'As numbered files in Git, linked from the Exchange asset of the API',
       ],
-      answer: 1,
-      explain: 'Kept in the Git repo of the app or a central architecture repo, next to the code or API asset, ADRs are findable by new developers and consumers.',
+      answer: 3,
+      explain: 'Numbered files in the Git repo of the app, or in a central architecture repo, sit next to the code and are linked from the Exchange asset, so developers and API consumers find them where they already look, and a superseded record stays in the chain. Meeting minutes and backlog stories get buried as time passes, the same way the slides did. Code comments are scattered over many flows and have no room for the context and the rejected alternatives of a cross-team decision.',
     },
   ],
   description: `

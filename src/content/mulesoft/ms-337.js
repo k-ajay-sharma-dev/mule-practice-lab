@@ -20,21 +20,23 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which limits protect a flow that unpacks archives?',
+      prompt: 'Which limits protect a flow that unpacks archives against a zip bomb?',
       options: [
         'A maximum total size after unpacking',
         'A maximum number of entries',
         'A maximum ratio of unpacked to packed size',
         'A maximum size of the zip file as received',
+        'A check of the unpacked size each entry header states, before you unpack',
+        'Rejecting entry names that hold ../ or an absolute path',
       ],
       answer: [0, 1, 2],
-      explain: 'A 5 MB bomb passes any limit on the received size. Count bytes while you unpack, and stop when a limit is passed. Do not trust the sizes in the zip headers alone.',
+      explain: 'Limits on total unpacked size, entry count and ratio stop a bomb, as long as you count bytes while you unpack and stop when a limit is passed. A 5 MB bomb passes any limit on the received size. The sizes in the entry headers can lie, so checking them alone does not help. Rejecting ../ and absolute paths is right too, but it stops zip slip, not a zip bomb.',
     },
     {
       type: 'single',
       prompt: 'An entry in a zip is named ../../app/conf/settings.yaml. What is the danger?',
       options: [
-        'None, since a zip library always writes entries under the target folder',
+        'None, since the path is cut down to settings.yaml when the entry is written',
         'Zip slip: the entry name escapes the target folder and can overwrite other files',
         'The entry is a symbolic link that points at the app configuration',
         'The YAML entry is loaded as app config as soon as the zip is opened',
@@ -48,7 +50,7 @@ export default {
       options: [
         'It is more secure, since a gzip file cannot hold scripts',
         'It compresses one stream, so it is written and read without an index at the end',
-        'It always gives a smaller file than zip for the same data',
+        'It gives a smaller file than zip, since its compression method is stronger',
         'It keeps folder paths, so the receiver can rebuild the layout',
       ],
       answer: 1,
@@ -70,10 +72,10 @@ export default {
       type: 'single',
       prompt: 'Where do you unpack received archives?',
       options: [
-        'In the app folder, next to the app’s own files',
+        'In the app folder, so later steps find the files by a known path',
         'In a temp folder per run with its own disk limit, removed at the end',
         'In a shared folder, so other flows can pick the files up',
-        'In memory only, so nothing is ever written to disk',
+        'In memory, so no unpacked file is left on disk after the run',
       ],
       answer: 1,
       explain: 'A per run folder makes cleanup and limits clear.',

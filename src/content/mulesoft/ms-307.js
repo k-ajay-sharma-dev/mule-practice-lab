@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'What is an Oracle package?',
+      prompt: 'The DBA fixes a bug by replacing only the body of PKG_OUTBOUND. The spec and its parameters are unchanged, and the package keeps no global state. What must change in the Mule app that calls PKG_OUTBOUND.START_RUN?',
       options: [
-        'A schema object that stores SQL scripts so a scheduler can run them in order',
-        'A named group of procedures, functions and types with a spec and a body',
-        'A tablespace that keeps the procedures of one application apart from others',
-        'A bundle of the JDBC driver and the connection settings for one schema',
+        'Nothing, since callers depend on the spec and the body can change behind it',
+        'The app must be redeployed, so the Stored procedure operation reads the new body',
+        'The call must name the new body, such as PKG_OUTBOUND_BODY.START_RUN',
+        'The EXECUTE grant must be given again, since replacing the body drops it',
       ],
-      answer: 1,
-      explain: 'The spec is public and the body is private. You call a member as PACKAGE.PROCEDURE. The spec is the contract, so the body can change without breaking callers.',
+      answer: 0,
+      explain: 'The spec is the public contract and the body is private. You call a member as PACKAGE.PROCEDURE, and the body can change without touching callers. The next call runs the new body, with no redeploy. A body has no name of its own to call. Replacing a body keeps the grants on the package.',
     },
     {
       type: 'single',
@@ -62,9 +62,11 @@ export default {
         'If the app restarts, work in flight is lost, so the job row stays in RUNNING until something checks it',
         'The Async scope keeps the HTTP response open until the procedure ends, so callers still time out',
         'Many requests at once can start many long runs, so limit concurrency or reject a second run of the same type',
+        'The procedure joins the transaction of the calling flow, so a later error rolls it back',
+        'The Async work is kept in a persistent queue, so a restart runs the procedure twice',
       ],
       answer: [0, 1, 3],
-      explain: 'A database job with DBMS_SCHEDULER survives a Mule restart. A watchdog can mark old RUNNING rows as failed.',
+      explain: 'Errors in an Async scope never reach the caller, work in flight is lost on a restart, and parallel requests can start many long runs. The HTTP response goes back at once, which is why Async is used. An Async scope cannot join the caller transaction. Its work is held in memory, not a persistent queue, so a restart loses it rather than repeating it. A database job with DBMS_SCHEDULER survives a Mule restart. A watchdog can mark old RUNNING rows as failed.',
     },
     {
       type: 'single',

@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'The West region consumer should only take messages with `region = WEST`. Where can a JMS message selector look?',
+      prompt: 'A developer sets the WEST listener selector to `order.region = \'WEST\'`, to match a field inside the JSON body. The WEST app receives nothing and `STORE.REPLEN` keeps growing. What is the right fix?',
       options: [
-        'JMS headers and message properties set by the publisher',
-        'Any field in the message body, JSON or XML',
-        'Only the JMSMessageID and JMSCorrelationID headers',
-        'The HTTP headers of the request that started it',
+        'Set the listener inbound MIME type to application/json, so the selector reads the body',
+        'Drop the selector, read every message and discard non-WEST ones in a Choice router',
+        'Have the publisher copy region into a message property and select on that property',
+        'Quote the path as `"order.region" = \'WEST\'`, so the selector parses it as one name',
       ],
-      answer: 0,
-      explain: 'Selectors use a SQL-92-like syntax over headers (e.g. JMSPriority, JMSType) and properties only. The body is never inspected, so the publisher must copy routing values such as region into properties.',
+      answer: 2,
+      explain: 'Selectors use a SQL-92-like syntax over JMS headers (e.g. JMSPriority, JMSType) and message properties. They never read a JSON body, so the publisher must copy routing values such as region into properties. The MIME type only tells Mule how to read the payload; the broker evaluates the selector. Reading everything and discarding in a Choice would consume and lose the EAST and CENTRAL messages on the shared queue. Quoting does not help, because no property of that name exists.',
     },
     {
       type: 'single',

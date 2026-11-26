@@ -8,10 +8,17 @@ export default {
   quiz: [
     {
       type: 'multi',
-      prompt: 'Which values do you set in the connection of a Web Service Consumer configuration? Choose all that apply.',
-      options: ['The WSDL location', 'The service', 'The port', 'The SLA tier of the client'],
+      prompt: 'A water company builds one Web Service Consumer configuration for its meter service, which has the operations `GetMeterReading` and `ResetMeter`. Both are called from different flows. Which values belong in the connection of that configuration? Choose all that apply.',
+      options: [
+        'The WSDL location',
+        'The service',
+        'The port',
+        'The operation to call',
+        'The SOAP body of each request',
+        'The SOAP headers sent with each call',
+      ],
       answer: [0, 1, 2],
-      explain: 'The connection points at a WSDL and picks a service and a port from it. The address can be read from the WSDL or set per environment. SLA tiers belong to API Manager, not to the connector.',
+      explain: 'The connection points at a WSDL and picks a service and a port from it. The address can be read from the WSDL or set per environment. The operation is chosen on each Consume, so one configuration serves both `GetMeterReading` and `ResetMeter`. The body and the headers of a request also belong to the Consume, in its message, because they change with every call.',
     },
     {
       type: 'single',

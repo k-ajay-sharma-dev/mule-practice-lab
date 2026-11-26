@@ -37,10 +37,11 @@ export default {
         'Control files from the stores, so only complete files are read',
         'An archive directory per business date',
         'A check at the cut off time that lists stores whose files never arrived',
-        'Reading every file in the share on every run',
+        'Reading every file in the share on every run, and letting the target drop repeats',
+        'Deleting each file from the share as soon as it is read, before the SFTP send',
       ],
       answer: [0, 1, 2, 3],
-      explain: 'Reading everything on each run wastes time and transactions and risks duplicates. State, signals and a missing file check do the work.',
+      explain: 'A processed files table keyed by path, size and last write time stops a file being sent twice, and still notices a file that was replaced. Control files mean only complete files are read. An archive per business date keeps the history and lets support resend one day. A check at the cut off finds stores whose files never came. Reading everything on each run wastes time and transactions and risks duplicates. Deleting a file before the send succeeds loses it for good if the send then fails.',
     },
     {
       type: 'single',

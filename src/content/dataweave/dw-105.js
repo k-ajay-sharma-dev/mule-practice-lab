@@ -18,7 +18,7 @@ Work out each result before you choose.
       head: 'import countBy from dw::core::Arrays',
       body: '[1, 2, 3, 4] countBy ($ > 2)',
       right: '2',
-      wrong: ['[3, 4]', '4', '{"true": 2, "false": 2}'],
+      wrong: ['[3, 4]', '[false, false, true, true]', '{"true": 2, "false": 2}'],
       explain: '`countBy` returns how many items pass the condition, as a single number.',
     }),
     out({

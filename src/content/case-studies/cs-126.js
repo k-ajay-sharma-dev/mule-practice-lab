@@ -39,9 +39,11 @@ export default {
         'The API ignores a change ID it has already applied',
         'The device keeps a change until the API confirms it',
         'The device deletes each change as soon as it sends it',
+        'The API spots repeats by the time on the device when the change was made',
+        'The API applies the change, then records its change ID in a separate later step',
       ],
       answer: [0, 1, 2],
-      explain: 'Signal drops mid-request. The device must resend until confirmed, and the API must turn a repeat into a no-op. Deleting before confirmation loses work.',
+      explain: 'Signal drops mid-request. The device must resend until confirmed, and the API must turn a repeat into a no-op, which needs a unique change ID it stores. Deleting before confirmation loses work. Device time is not unique: two changes can share a second, and tablet clocks drift. If the API fails between applying the change and recording its ID, the resend is applied twice; record the ID in the same transaction as the change.',
     },
     {
       type: 'single',

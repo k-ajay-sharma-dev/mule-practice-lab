@@ -49,9 +49,10 @@ export default {
         'The matcher pattern expects .csv and the files end in .CSV',
         'A minimum age rule with a server clock in another time zone',
         'Auto delete is off, so the listener skips files it may not delete',
+        'Recursive is off, and the files sit in the watched folder itself',
       ],
       answer: [0, 1, 2],
-      explain: 'With auto delete off, files are still read. Without a watermark or a move, they are read again on the next poll, which is a different problem.',
+      explain: 'A watermark skips files older than the last one seen, the pattern match is case sensitive, so .csv misses .CSV, and a clock in another zone can make every file look too new. With auto delete off, files are still read. Without a watermark or a move, they are read again on the next poll, which is a different problem. Recursive only decides whether subfolders are read; files in the watched folder are read either way.',
     },
     {
       type: 'single',

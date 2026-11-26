@@ -46,7 +46,7 @@ export default {
       prompt: 'An app with an FTP listener runs in a two-node Mule cluster. Both nodes process the same files. What is the standard fix?',
       options: [
         'Set primaryNodeOnly="true" so only the primary node polls',
-        'Give each node a different polling frequency',
+        'Give the nodes different polling frequencies so they alternate',
         'Set lock="true" on the FTP read inside the flow',
         'Enable watermarking so both nodes share the last timestamp',
       ],
@@ -61,9 +61,11 @@ export default {
         'Set applyPostActionWhenFailed (default true) on purpose',
         'Record a processed-file key in a persistent object store',
         'Set autoDelete="true" and rely on the logs to recover files',
+        'Add a reconnection strategy with 3 attempts to the SFTP config',
+        'Turn on the listener watermark so a failed file is not picked up again',
       ],
       answer: [0, 1, 2],
-      explain: 'Use sftp:move in the error handler. Decide whether the post-action should also run when the flow fails. A key such as name + size + timestamp detects duplicates. Keep failed files somewhere visible and decide deliberately what the post-action does on failure. Deleting failed files and hoping the logs are enough loses data.',
+      explain: 'Use sftp:move in the error handler. Decide whether the post-action should also run when the flow fails. A key such as name + size + timestamp detects duplicates. Keep failed files somewhere visible and decide deliberately what the post-action does on failure. Deleting failed files and hoping the logs are enough loses data. A reconnection strategy retries a lost connection, not a file that failed in the flow. A watermark stops the repeats, but the failed file then sits in the folder with nobody told.',
     },
     {
       type: 'order',

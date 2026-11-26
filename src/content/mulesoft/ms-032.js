@@ -11,10 +11,10 @@ export default {
       needsScenario: true,
       prompt: 'Why does `payload map { id: $.column_0 }` fail on the pipe-delimited file?',
       options: [
-        'DataWeave cannot map over a CSV payload in any form',
+        'Headerless CSV rows are arrays, so the field must be read as `$[0]`',
         'The file has no declared MIME type, so it is read as binary',
         'Headerless columns must be called `$.col1`, not `$.column_0`',
-        'File Read always returns a Java String, not CSV rows',
+        'File Read returns the content as a Java String, not as CSV rows',
       ],
       answer: 1,
       explain: 'DataWeave picks its **reader** from the incoming MIME type. With an unknown type the content is binary, so DataWeave cannot navigate rows and columns, hence the coercion error.',
@@ -26,8 +26,8 @@ export default {
       options: [
         '`outputMimeType="application/csv; header=false; separator=|"`',
         '`mimeType="text/plain"` on the following Transform',
-        '`outputEncoding="csv"`',
-        '`targetValue="#[csv]"`',
+        '`outputEncoding="application/csv; header=false; separator=|"`',
+        '`outputMimeType="text/plain; header=false; separator=|"`',
       ],
       answer: 0,
       explain: 'Reader properties are passed as MIME type parameters on `outputMimeType`. With `header=false` the columns are named `column_0`, `column_1`, ...',

@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'How does `db:bulk-insert` differ from `db:insert` inside a For Each over 400,000 POS lines?',
+      prompt: 'The For Each with `db:insert` per line is replaced by `db:bulk-insert` per 1,000-line chunk, and the load drops from 2 hours to 6 minutes. The DBA asks whether the row trigger that fills POS_AUDIT and the check constraints still apply. What do you answer?',
       options: [
-        'It runs one statement as a JDBC batch, so far fewer round trips',
-        'It loads the rows through Oracle SQL*Loader under the hood',
-        'It skips constraints and triggers to insert rows faster',
-        'It opens several connections and inserts rows in parallel',
+        'No, bulk-insert loads by direct path, which bypasses triggers',
+        'Constraints apply, but row triggers are skipped in a JDBC batch',
+        'Yes, it is one statement run as a JDBC batch of normal inserts',
+        'Yes, the rows are inserted in parallel over pooled connections',
       ],
-      answer: 0,
-      explain: 'bulk-insert sends one parameterised statement with many parameter sets. A JDBC batch executes the same statement with many sets of bind values in one go, on one connection. It still runs normal conventional inserts, so constraints and triggers apply.',
+      answer: 2,
+      explain: 'bulk-insert sends one parameterised statement with many parameter sets. A JDBC batch executes the same statement with many sets of bind values in one go, on one connection, so the gain comes from far fewer round trips. It still runs normal conventional inserts, so constraints and triggers apply. Direct-path loading is a SQL*Loader feature, not what the connector does, and it does not spread rows over several connections.',
     },
     {
       type: 'single',
@@ -24,7 +24,7 @@ export default {
       options: [
         'DB:QUERY_EXECUTION, and some rows may already be inserted',
         'Oracle skips the bad row and inserts the other 999 rows',
-        'Nothing is inserted, because a bulk call is always atomic',
+        'Nothing is inserted, as the batch is applied as one unit',
         'Mule retries the chunk without the bad row automatically',
       ],
       answer: 0,
@@ -71,7 +71,7 @@ export default {
       prompt: 'The same store file is accidentally processed twice. Which safeguard prevents duplicate sales in Oracle?',
       options: [
         'A unique key on (STORE_ID, BUSINESS_DATE, TXN_ID, LINE_NO)',
-        'A larger chunk size so each file loads in fewer calls',
+        'A primary key filled from a sequence for each sales line',
         'Running the flow with maxConcurrency set to 1',
         'Deleting or moving each file right after reading it',
       ],

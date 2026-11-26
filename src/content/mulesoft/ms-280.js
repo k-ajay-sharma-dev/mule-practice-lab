@@ -50,9 +50,11 @@ export default {
         'A flag per partner for PGP, with key references',
         'One generic intake flow that reads this configuration',
         'A copy of the app per partner, built from a shared template',
+        'One app with a separate flow per partner, sharing common subflows',
+        'Partner settings kept in a DataWeave lookup object inside the intake flow',
       ],
       answer: [0, 1, 2],
-      explain: 'Copies of the app drift apart and multiply fixes. One flow plus configuration scales to many partners.',
+      explain: 'A partner table or property set holds folder, file pattern, target and schedule. A PGP flag with key references covers partners that encrypt. One generic intake flow reads this configuration, so a new partner is a new row. Copies of the app drift apart and multiply fixes. A flow per partner in one app still means new code and a release for each partner. Settings kept in a DataWeave object inside the flow are code too, so each change needs a release.',
     },
     {
       type: 'match',

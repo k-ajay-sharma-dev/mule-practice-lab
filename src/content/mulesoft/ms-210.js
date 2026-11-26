@@ -58,7 +58,7 @@ export default {
       prompt: 'A shipping flow builds one long LLM prompt by joining the output format, the rules and the customer message in a single expression. A small format change broke the flow, and the expression is hard to review. What is the best redesign?',
       options: [
         'Move the whole joined string into a variable, so that the expression is out of sight',
-        'Ask the customer to send the format and the rules along with each message',
+        'Load the joined string from a properties file, so a format change needs no redeploy',
         'Switch to `[Chat] Completions`, so that the model works out the format for itself',
         'Use a prompt template, keeping format and rules apart from the customer data',
       ],
@@ -71,9 +71,9 @@ export default {
       prompt: 'A Mule flow has a working Inference Connector text generation configuration. A developer adds `[Toxicity] Detection by Text` and cannot use it with that configuration. What is the likely cause?',
       options: [
         'The operation belongs to a moderation configuration, and fewer providers support it',
-        'The operation runs only inside a flow that has no LLM call in it at all',
-        'The operation needs a database connection before any text can be scored',
-        'The operation works only on replies, and this flow passes it customer input',
+        'The operation belongs to a vision configuration, which needs a model that reads images',
+        'The operation runs only with a locally hosted model, and this one is a cloud provider',
+        'The operation works only on LLM replies, so it rejects customer input with this setup',
       ],
       answer: 0,
       explain: 'Toxicity detection is listed under the connector\'s moderation configuration, and it has its own short list of supported providers. A provider that handles chat may not handle moderation.',

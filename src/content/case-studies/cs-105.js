@@ -26,12 +26,13 @@ export default {
       options: [
         'A documented legal basis and purpose for holding the address',
         'An entry in the data sharing register, approved by the data protection officer',
-        'A technical contact who can fix failed deliveries',
         'Agreement to receive only the fields it needs (for example, no previous addresses)',
-        'A budget code from the department, since subscribers pay per event',
+        'Consent from each citizen before their address change is sent to the department',
+        'Agreement to receive the full household record with each event, so it never has to ask again',
+        'Approval by the population register\'s integration team, which runs the event topic',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Legal basis, a register entry, minimal fields and an owner who can act on failures are what make sharing lawful and reliable. Charging per event has nothing to do with whether sharing is allowed.',
+      answer: [0, 1, 2],
+      explain: 'A legal basis and purpose make the sharing lawful. A register entry approved by the data protection officer makes it visible and checkable. Minimal fields keep to data minimisation. Consent is the wrong basis here: once-only sharing between public bodies rests on the law, and a citizen cannot freely refuse a public task. The full household record shares far more than an address change needs. The integration team runs the topic, but it does not decide who may lawfully receive data; that is the register and the data protection officer.',
     },
     {
       type: 'match',

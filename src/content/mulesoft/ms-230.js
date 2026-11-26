@@ -51,15 +51,17 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which statements about compressing data in a flow are true?',
+      prompt: 'A nightly flow compresses CSV reports, JSON dumps and a folder of JPEG photos before upload, and a later step must read the CSV. Which statements are true?',
       options: [
         'Compressed CSV or JSON is often much smaller than the original',
         'Compressing a JPEG or an already zipped file gains little',
         'Compression costs CPU time, so test it with real file sizes',
         'Compressed data can be read by DataWeave as CSV without decompressing it',
+        'Gzip can bundle the photo folder into one archive with an entry per file',
+        'The highest compression level costs the same CPU as the lowest, so always use it',
       ],
       answer: [0, 1, 2],
-      explain: 'Text compresses well and already compressed data does not. DataWeave needs the decompressed content to read CSV.',
+      explain: 'Text compresses well and already compressed data does not. Compression costs CPU, and higher levels cost more for a small extra gain, so test with real file sizes. Gzip compresses one stream, so several files need Zip to keep an entry per file. DataWeave needs the decompressed content to read CSV.',
     },
     {
       type: 'order',

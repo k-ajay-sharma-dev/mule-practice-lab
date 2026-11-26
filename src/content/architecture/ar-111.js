@@ -38,7 +38,7 @@ export default {
         '`/22`, listed as less than 600 vCores and less than 500 applications',
         '`/24`, because the block can be resized later',
         '`/23`, listed as less than 300 vCores and less than 200 applications',
-        '`/20`, the only block that allows more than 100 apps',
+        '`/21`, to leave room well beyond the three-year plan',
       ],
       answer: 0,
       explain: 'You cannot resize or change the CIDR block after creating the private space, so size it for the plan, not for today. MuleSoft also recommends `/22`. Note that the reference sizes are subject to change.',
@@ -56,7 +56,7 @@ export default {
       type: 'single',
       prompt: 'An organization on usage-based pricing has reached the limit of its global resource pool, the capacity shared by all its CloudHub apps. A team now tries to deploy a new app that does not use HPA (autoscaling). What happens?',
       options: [
-        'Running apps are stopped at random to free capacity',
+        'The oldest non-production apps are stopped to free the capacity',
         'The deployment is blocked until resources are available',
         'The deployment goes ahead, and the extra usage is billed later',
         'The new app deploys with a smaller replica size than requested',

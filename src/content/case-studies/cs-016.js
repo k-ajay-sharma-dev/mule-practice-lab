@@ -62,9 +62,11 @@ export default {
         'Whether it uses CloudHub persistent queues',
         'Whether log forwarding and retention still meet needs',
         'Whether its DataWeave scripts must be converted to a different DataWeave version',
+        'Whether it uses Object Store v2, which CloudHub 2.0 does not support',
+        'Whether it uses the Scheduler, which does not run on CloudHub 2.0',
       ],
       answer: [0, 1, 2],
-      explain: 'Ports, persistent queues and logging all change with the platform. After cutover, API Manager autodiscovery must also point to the new deployment. DataWeave versions are unrelated to the CloudHub move, because Mule 4 apps already use DataWeave 2.0.',
+      explain: 'Ports, persistent queues and logging all change with the platform. A hard-coded port breaks behind the CloudHub 2.0 ingress, CloudHub 2.0 has no persistent queues (Anypoint MQ is the usual replacement), and log forwarding is set up differently. After cutover, API Manager autodiscovery must also point to the new deployment. DataWeave versions are unrelated to the CloudHub move, because Mule 4 apps already use DataWeave 2.0. Object Store v2 is available on CloudHub 2.0, so it does not block the move. The Scheduler runs on CloudHub 2.0 too.',
     },
     {
       type: 'single',

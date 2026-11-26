@@ -39,9 +39,11 @@ export default {
         'A mocking service or sandbox so partners can try calls before going live',
         'Documented error codes with what the partner should do for each',
         'A support mailbox that answers questions within one working day',
+        'A PDF integration guide emailed to each distributor when they sign up',
+        'Changes released in place on the same version, so every partner always has the latest API',
       ],
       answer: [0, 1, 2],
-      explain: 'Good specs, a place to try calls and clear errors let partners build alone. A support mailbox helps, but it is a call to support, which is what the question asks to avoid.',
+      explain: 'Good specs, a place to try calls and clear errors let partners build alone. A support mailbox helps, but it is a call to support, which is what the question asks to avoid. A PDF sent once goes out of date with the first change and cannot be tried; a live spec in a portal stays current. Changing the API in place breaks partner code without warning, which creates support calls; version breaking changes and give notice.',
     },
     {
       type: 'single',

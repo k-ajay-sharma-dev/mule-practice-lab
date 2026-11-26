@@ -49,7 +49,7 @@ export default {
       detail: true,
       prompt: 'A DataWeave transformation fails. What should you expect in `error.errorMessage`?',
       options: [
-        'Always the input payload of the transformation',
+        'The input payload of the failed transformation',
         'Usually null, so read it with `default`',
         'The source text of the DataWeave script',
         'An HTTP 500 response built by the runtime',
@@ -72,15 +72,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'The downstream 422 body is a stream and you use it in both a Logger and the response Transform. What is the safe approach?',
+      prompt: 'In the error handler, a Logger reads `error.errorMessage.payload.code` and the response Transform then reads the same 422 body. The HTTP Request keeps the default streaming strategy. A reviewer says the second read will find the stream empty. Who is right?',
       options: [
-        'Nothing special, because error bodies are always strings',
-        'Read it once into a variable, then use that value twice',
-        'Use `error.description` instead of the body in both places',
-        'Call the card API again to get a fresh copy of the body',
+        'The reviewer, so the body must go into a variable before the Logger reads it',
+        'The reviewer, unless the Logger first coerces the body to a String for the Transform',
+        'Neither, because the error body is always a String, so no stream is involved',
+        'The author, as the default repeatable stream lets both steps read the full body',
       ],
-      answer: 1,
-      explain: 'The body may be a stream; consuming it once and storing the parsed value avoids an empty or failing second read.',
+      answer: 3,
+      explain: 'Mule 4 streams are repeatable by default, so the Logger and the Transform each read the whole body. Only a non-repeatable streaming strategy makes a second read fail. Coercing in the Logger does not change what the Transform receives. The body is a stream of the response, not always a String. Storing the parsed body in a variable is still a fair choice when several steps use it, but it is not needed for correctness here.',
     },
   ],
   description: `

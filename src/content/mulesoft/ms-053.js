@@ -57,7 +57,7 @@ export default {
       type: 'single',
       prompt: 'System APIs do not validate user tokens. How does the end-user customer ID reach them?',
       options: [
-        'It cannot; System APIs never need the user ID',
+        'The Process API stores it in Object Store for the SAPI',
         'The EAPI reads the token claims and passes them as headers',
         'API Manager injects the user ID into every request',
         'Each SAPI calls the IdP to look up the user per request',
@@ -72,10 +72,12 @@ export default {
         'OAuth on System APIs makes each Process API fetch tokens for no gain',
         'IP allowlist cannot work for mobile clients',
         'One identical rate limit ignores each layer\'s consumers and backend capacity',
-        'API Manager allows only one policy per API',
+        'Rate Limiting and IP Allowlist cannot be applied on one instance',
+        'SLA-based rate limits belong on the System APIs, closest to the backends',
+        'Partners cannot use OAuth 2.0, so the Partner EAPI must use basic auth',
       ],
       answer: [0, 1, 2],
-      explain: 'Consistency should come from standard policy sets **per layer**, ideally automated and checked by governance.',
+      explain: 'Consistency should come from standard policy sets **per layer**, ideally automated and checked by governance. OAuth between internal layers adds token calls for no gain, mobile users have no fixed IPs, and one rate limit fits no layer. Both policies can run on one instance, so that is not the problem. SLA tiers describe external consumers, so they belong on the Experience APIs, not on System APIs called only by Process APIs. Partners can use OAuth 2.0 with client credentials.',
     },
   ],
   description: `

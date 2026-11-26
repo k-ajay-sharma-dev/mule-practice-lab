@@ -44,15 +44,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which are common reasons a Mule app fails to start?',
+      prompt: 'A release deploys fine in Dev but fails to start in Test, which runs on CloudHub 2.0. Which of these differences in Test could cause that?',
       options: [
         'A property placeholder with no value in that environment',
         'A wrong key for secure properties, so encrypted values cannot be read',
         'A connector or feature that needs a newer runtime than the target runs',
-        'A spelling mistake inside a Logger message',
+        'A database that is down at deploy time, with failsDeployment left at its default',
+        'Another app in the same private space that also listens on port 8081',
       ],
       answer: [0, 1, 2],
-      explain: 'Missing values, unreadable secrets and version mismatches all stop startup. A typo in a Logger message only shows up as odd log text.',
+      explain: 'A placeholder with no value stops the app from building its configuration. A wrong secure properties key means encrypted values cannot be read, so startup fails. A connector that needs a newer runtime cannot load on the older one. A database that is down does not stop startup by default: the failed connectivity test is logged, the app starts, and the DB calls fail until the database is back. Only failsDeployment set to true turns it into a failed deployment. On CloudHub 2.0 each app runs in its own replicas, so two apps listening on 8081 do not clash. That clash happens when two apps share one standalone server.',
     },
     {
       type: 'single',

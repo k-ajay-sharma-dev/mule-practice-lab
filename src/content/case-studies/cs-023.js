@@ -11,8 +11,8 @@ export default {
       prompt: 'Documentation is poor and some services have no known consumers. How do you decide what to migrate?',
       options: [
         'Classify each service as retire, lift-and-shift or redesign from 3+ months of traffic',
-        'Migrate all 220 services 1:1 so nothing is missed',
-        'Trust the service catalogue spreadsheet from 2015',
+        'Migrate all 220 services 1:1 first, then retire the unused ones once on Mule',
+        'Classify each service from the 2015 service catalogue and the owners it lists',
         'Ask each consumer team to list what they use, and migrate only that',
       ],
       answer: 0,
@@ -24,8 +24,8 @@ export default {
       options: [
         'A routing layer in front of the services that sends each one to the old ESB or to Mule',
         'Ask every partner to switch to the new Mule endpoints on one agreed cutover date',
-        'Keep those services on the old ESB after the licence expires',
-        'Give each partner a new Mule endpoint and wait for them to adopt it',
+        'Leave those services for a final wave and move them all on the licence end date',
+        'Point the old ESB hostname at Mule with one DNS change once every service is rebuilt',
       ],
       answer: 0,
       explain: 'This is the strangler pattern. The routing layer can be a gateway, a load balancer or DNS. A facade keeps consumer endpoints stable while implementations move behind it, with rollback by switching the route. A single cutover date is exactly the big bang that 24/7 warehouses cannot tolerate.',
@@ -63,8 +63,8 @@ export default {
       options: [
         'Add the new broker early, bridge queues, and cut over queue by queue',
         'Switch every producer and consumer to the new broker on the same night',
-        'Keep using the old broker after decommissioning the ESB',
-        'Replace all queue messaging with synchronous HTTP calls',
+        'Keep using the old broker from Mule, and replace it after the ESB is switched off',
+        'Move all producers to the new broker first, then move all consumers a week later',
       ],
       answer: 0,
       explain: 'Start the queue by queue cutover with low volume flows. Bridging lets producers and consumers move independently, which is essential in a 24/7 operation. Switching everything at once is a big-bang risk, and the old broker disappears with the licence.',

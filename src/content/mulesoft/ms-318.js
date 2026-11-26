@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'Why are many teams moving Mule mail sending away from a user name and password?',
+      prompt: 'A Mule app has sent alerts through a cloud provider SMTP endpoint with a mailbox password for years. One morning every Send fails with 535 authentication unsuccessful. The password is unchanged and the mailbox still signs in on the web. What is the likely cause?',
       options: [
-        'A password login makes each SMTP session slower than a token does',
-        'Large cloud mail providers are retiring basic auth for SMTP and IMAP for OAuth',
-        'SMTP is being replaced by HTTPS, so password logins stop working',
-        'Mule 4 no longer accepts passwords in the Email connector configuration',
+        'The password expired overnight, and the web sign in still uses an old session',
+        'The truststore in the TLS context expired, so the relay refuses the login',
+        'The provider turned off basic auth for SMTP in the tenant, so it needs OAuth now',
+        'The relay moved submission to port 465, so a login on port 587 is refused',
       ],
-      answer: 1,
-      explain: 'Check the provider notices for your tenant. Dates and exceptions differ.',
+      answer: 2,
+      explain: 'Large cloud mail providers are retiring basic auth for SMTP and IMAP in favour of OAuth, and a 535 reply on a correct password is the usual sign. Check the provider notices for your tenant. Dates and exceptions differ. A certificate problem fails the TLS handshake before any login, and a closed port fails the connection, not the authentication. An expired password would also block a fresh web sign in.',
     },
     {
       type: 'single',
@@ -32,15 +32,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'How is an OAuth token used with SMTP or IMAP?',
+      prompt: 'The app has a fresh OAuth token for the right mailbox. The SMTP trace shows AUTH LOGIN with the token sent as the password, and the relay answers 535. What is wrong?',
       options: [
-        'In a custom X-Auth header added to each message',
-        'Through the SASL XOAUTH2 mechanism, sending the token instead of a password',
-        'In an HTTP Authorization header sent before the SMTP session starts',
-        'As the password in a plain AUTH LOGIN, with the user name left empty',
+        'The token belongs in an HTTP Authorization header sent before the SMTP session',
+        'The token must travel in a custom X-Auth header added to each message',
+        'The user name must be left empty, so the relay reads the password as a token',
+        'The token must go through the SASL XOAUTH2 mechanism, not as an AUTH LOGIN password',
       ],
-      answer: 1,
-      explain: 'The client must support it. Check that your Email connector version does, or use another route.',
+      answer: 3,
+      explain: 'SMTP and IMAP take an OAuth token through the SASL XOAUTH2 mechanism, which carries the user and the bearer token. AUTH LOGIN expects a password, so the relay rejects the token there, with or without a user name. SMTP has no HTTP headers before the session, and message headers are not read for login. The client must support XOAUTH2. Check that your Email connector version does, or use another route.',
     },
     {
       type: 'single',
@@ -60,11 +60,13 @@ export default {
       options: [
         'Client secret or certificate in secure properties or a vault, per environment',
         'A rotation plan before the secret expires, with an alert ahead of time',
-        'One shared secret across all environments',
+        'One shared secret across all environments, so rotation happens once',
         'Least rights: send as one service mailbox only',
+        'A long lived access token in secure properties instead of a client secret',
+        'Tenant wide send rights, so one app registration serves every team',
       ],
       answer: [0, 1, 3],
-      explain: 'Shared secrets across environments let test apps send as production.',
+      explain: 'A secret per environment in secure storage, a rotation plan with an early alert, and rights to one mailbox keep the damage small. Shared secrets across environments let test apps send as production. Access tokens expire, often within an hour, so the app must get new ones with its secret or certificate. Tenant wide rights let a leaked secret send as anyone.',
     },
     {
       type: 'single',

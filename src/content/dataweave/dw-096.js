@@ -38,7 +38,7 @@ Work out each result before you choose.
       payload: '{"qty": 5}',
       body: 'if (payload.qty > 5) "big" else "small"',
       right: '"small"',
-      wrong: ['"big"', 'true', 'null'],
+      wrong: ['"big"', 'false', FAILS],
       explain: '5 is not greater than 5, so the else branch runs. `if` is an expression, so it returns a value and always needs an `else`.',
     }),
     out({

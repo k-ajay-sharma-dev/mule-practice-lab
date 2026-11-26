@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'In a Mule cluster, what does primary node only mean for an SFTP listener?',
+      prompt: 'A two node Mule cluster runs an SFTP listener set to primary node only. The server of the primary node loses power at 04:10. What happens to polling?',
       options: [
-        'Every node polls, but only the primary node may move or delete files',
-        'Only the primary polls, and another node takes over if it fails',
-        'Only the primary polls, and polling stops until it is restarted',
-        'Every node polls, and the primary hands each file to one node',
+        'Polling stops until the old primary node is back and rejoins',
+        'The other node was polling all along, so nothing changes',
+        'The other node polls only the files listed before the failure',
+        'The other node becomes primary and starts polling the folder',
       ],
-      answer: 1,
-      explain: 'Only the primary node polls the folder. If it fails, another node becomes primary and takes over. Polling sources usually run on the primary node, so two nodes do not pick the same file.',
+      answer: 3,
+      explain: 'Only the primary node polls the folder. If it fails, the cluster makes another node primary, and that node starts the listener. The secondary does not poll while the primary is alive, which is how two nodes avoid picking the same file. A file that was in progress on the old primary may be picked again.',
     },
     {
       type: 'single',
@@ -35,13 +35,14 @@ export default {
       prompt: 'Which measures stop two pollers from processing the same file?',
       options: [
         'Run the poll on one node or one replica only',
-        'Take a lock in Object Store keyed by the file path before processing',
+        'Store the file path in a shared Object Store with Fail if present turned on, before processing',
         'Move the file to a processing folder first; a failed move means it is taken',
         'An idempotent message validator keyed by path and timestamp',
         'Poll more often, so each file is claimed sooner after it arrives',
+        'An idempotent message validator that uses each node\'s own in-memory object store',
       ],
       answer: [0, 1, 2, 3],
-      explain: 'The lock and the validator need an object store that every node shares. Polling more often makes clashes more likely, not less.',
+      explain: 'Running the poll on one node or one replica means only one poller sees each file. A store of the file path with Fail if present turned on lets one node claim a file, because a second store of the same key fails. A move to a processing folder works as a claim, since only one move can succeed. An idempotent validator keyed by path and timestamp drops the second pickup. The claim and the validator need an object store that every node shares. With an in-memory store on each node, each node only knows its own files, so both still process the same one. Polling more often makes clashes more likely, not less.',
     },
     {
       type: 'single',

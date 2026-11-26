@@ -25,7 +25,7 @@ export default {
       options: [
         'Use the smart meter monthly total if there is one, and flag gaps',
         'Fill each gap with zeros and send the claim as measured',
-        'Fill each gap with the highest half hour reading of that day',
+        'Fill each gap with the highest reading seen that day, so no homeowner is under paid',
         'Leave the home out of this month’s claims until the inverter is back',
       ],
       answer: 0,
@@ -39,9 +39,11 @@ export default {
         'The period and the kWh exported',
         'Whether any part was estimated',
         'The homeowner’s bank account number for the payment',
+        'Every 30-minute inverter reading for the month',
+        'The installer’s own customer number in place of the supply point',
       ],
       answer: [0, 1, 2],
-      explain: 'The supplier needs which meter, which period, how much, and whether it is estimated. The supplier already pays its own customer, so the installer has no reason to send bank details.',
+      explain: 'The supplier needs which meter, which period, how much, and whether it is estimated. The supplier already pays its own customer, so the installer has no reason to send bank details. Raw 30-minute readings are the installer’s working data; the claim carries the total for the period. The supplier matches a claim to its customer by the supply point number, not by the installer’s own IDs.',
     },
     {
       type: 'single',

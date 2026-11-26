@@ -97,10 +97,10 @@ export default {
       type: 'single',
       prompt: 'One replica of an order API crashes in EU-West. What covers this?',
       options: [
-        'A DR failover to EU-Central',
+        'A DR failover of the order API to EU-Central, started by the health check',
         'In-region HA: several replicas spread across availability zones',
-        'Restoring from the nightly backup',
-        'Nothing; it is an accepted outage',
+        'One replica is enough, because CloudHub 2.0 restarts a crashed replica',
+        'Runtime Manager redeploys the app to EU-Central until EU-West recovers',
       ],
       answer: 1,
       explain: 'DR is for losing the region or a critical dependency. Losing a replica is handled by running ≥ 2 replicas across availability zones inside the region.',
@@ -149,7 +149,7 @@ export default {
       options: [
         'Mule should reject new orders with 503 until SAP is back',
         'Orders wait in a queue or outbox, and the end-to-end RTO is bounded by SAP',
-        'Mule should call the SAP DR site and the primary in parallel',
+        'Mule retries each SAP call every few seconds until SAP answers again',
         'Mule should fail over to EU-Central too, so it is closer to the SAP DR site',
       ],
       answer: 1,
@@ -160,8 +160,8 @@ export default {
       prompt: 'A company runs the same Mule APIs in a primary region and a DR region. The two regions must stay the same after every release. What is the best way to do that?',
       options: [
         'One CI/CD pipeline deploys the same artifact and API Manager config to both regions',
-        'Each region has its own team, which builds the artifact and sets the config by hand',
-        'Settings are copied by hand to the DR region at the moment an outage happens',
+        'Each region has its own pipeline, which builds the artifact from the same branch',
+        'A script copies the primary settings to the DR region at the moment an outage happens',
         'The primary region is configured first, and the DR region only during a DR drill',
       ],
       answer: 0,

@@ -13,8 +13,8 @@ export default {
       options: [
         'The default `maxFailedRecords` is 0, so the first failure stops the job',
         'The default `maxFailedRecords` is -1, which means stop immediately',
-        'Batch jobs always stop on the first error; this cannot be changed',
-        'The default accept policy is ALL, which aborts on failure',
+        'The batch job uses the flow default error handler, which stops at the first error',
+        'The default accept policy is NO_FAILURES, which aborts the job on a failure',
       ],
       answer: 0,
       explain: 'Default `maxFailedRecords` is **0**. `-1` means unlimited (never stop). The default accept policy is NO_FAILURES, which only controls which records enter a step.',
@@ -54,7 +54,7 @@ export default {
       options: [
         'The Batch Job runs asynchronously, so the flow moves on at once',
         'The Logger runs before the Batch Job because of the processing strategy',
-        'Batch jobs block the caller, so the log line was in fact correct',
+        'The flow waits for Process Records, but logs before On Complete has run',
         'The Logger sat inside the Load and Dispatch phase of the job',
       ],
       answer: 0,
@@ -71,9 +71,10 @@ export default {
         'Batch Aggregator `size` aligned with the SAP limit of 500',
         'Setting `maxFailedRecords` to -1',
         'Mapping records to only the needed fields before the batch',
+        '`schedulingStrategy` set to `ROUND_ROBIN` instead of `ORDERED_SEQUENTIAL`',
       ],
       answer: [0, 1, 2, 4],
-      explain: '`maxFailedRecords` controls when the job stops, not how fast it runs. Block size, concurrency, aggregator size and smaller records all affect throughput and queue/memory cost.',
+      explain: '`maxFailedRecords` controls when the job stops, not how fast it runs. `schedulingStrategy` decides which job instance runs when several instances are queued, so it does not speed up one nightly run. Block size, concurrency, aggregator size and smaller records all affect throughput and queue/memory cost.',
     },
   ],
   description: `

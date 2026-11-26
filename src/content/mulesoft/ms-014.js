@@ -21,7 +21,7 @@ export default {
     {
       type: 'single',
       prompt: 'The rates API normally answers in 300 ms and the Order API SLA is 3 s. Which `responseTimeout` fits?',
-      options: ['About 1,500 to 2,000 ms', '30,000 ms', '300 ms exactly', 'Leave the default, as timeouts only matter for POST'],
+      options: ['About 1,500 to 2,000 ms', '30,000 ms', '300 ms exactly', 'Leave the default, which already fits inside the 3 s SLA'],
       answer: 0,
       explain: 'The timeout must fit inside the 3 s SLA with room for a fallback, while being well above normal latency. 300 ms exactly would fail on normal jitter.',
     },
@@ -31,7 +31,7 @@ export default {
       prompt: 'Why did a hanging rates API make the Order API stop answering **unrelated** requests?',
       options: [
         'Waiting calls piled up and used up connections and concurrency',
-        'Mule stops every flow while one of its connectors is unhealthy',
+        'Mule suspends the flows of an app while one of its connectors reconnects',
         'The HTTP Listener has a single thread that the call kept busy',
         'The rates API returned 503, which tripped the API gatekeeper',
       ],
@@ -56,7 +56,7 @@ export default {
       options: [
         'That `connectionIdleTimeout` is lower than the load balancer idle timeout',
         'That `responseTimeout` is higher than the load balancer idle timeout',
-        'That the response validator accepts 5xx status codes',
+        'That the response validator accepts the 5xx codes the load balancer returns',
         'That the TLS context trusts the new load balancer certificate',
       ],
       answer: 0,
@@ -65,10 +65,15 @@ export default {
     {
       type: 'single',
       detail: true,
-      prompt: 'The rates host is completely unreachable. Which error type is raised?',
-      options: ['`HTTP:CONNECTIVITY`', '`HTTP:NOT_FOUND`', '`HTTP:SERVICE_UNAVAILABLE`', '`MULE:EXPRESSION`'],
-      answer: 0,
-      explain: '`HTTP:CONNECTIVITY` (child of `MULE:CONNECTIVITY`). `SERVICE_UNAVAILABLE` means the server answered with 503.',
+      prompt: 'The flow has an On Error Continue for `HTTP:SERVICE_UNAVAILABLE` that returns cached rates. During a network change, the rates host refuses every connection. Does the cached-rates fallback run?',
+      options: [
+        'Yes, because a refused connection is reported as `HTTP:SERVICE_UNAVAILABLE`',
+        'Yes, because `HTTP:SERVICE_UNAVAILABLE` is the parent of `HTTP:CONNECTIVITY`',
+        'No, because the call raises `HTTP:TIMEOUT` once the response timeout ends',
+        'No, because the call raises `HTTP:CONNECTIVITY`, which that handler does not match',
+      ],
+      answer: 3,
+      explain: 'A refused connection raises `HTTP:CONNECTIVITY`, a child of `MULE:CONNECTIVITY`, so a handler for `HTTP:SERVICE_UNAVAILABLE` does not match it. `SERVICE_UNAVAILABLE` means the server answered with 503, and `HTTP:TIMEOUT` means the request was sent but no response came in time. Add `HTTP:CONNECTIVITY` to the fallback handler.',
     },
   ],
   description: `

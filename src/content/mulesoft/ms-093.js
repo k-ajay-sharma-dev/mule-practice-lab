@@ -13,7 +13,7 @@ export default {
       options: [
         'Mock the error and assert `payload.status`, with no `expectedErrorType`',
         'Set `expectedErrorType="HTTP:CONNECTIVITY"` and leave validation empty',
-        'Set `expectedErrorType` and also assert the payload',
+        'Set `expectedErrorType="HTTP:CONNECTIVITY"` and also assert `payload.status`',
         'Point the test at a closed port so the error happens naturally',
       ],
       answer: 0,
@@ -37,7 +37,7 @@ export default {
       prompt: 'A test mocks an HTTP request with `typeId="FTP:CONNECTIVITY"`, but no flow under test uses the FTP connector. What does the docs page say you get?',
       options: [
         '`MULE:UNKNOWN` instead of the configured error',
-        '`FTP:CONNECTIVITY` as configured',
+        '`FTP:CONNECTIVITY`, as configured in the mock',
         '`HTTP:CONNECTIVITY`, because the error is mapped to the mocked processor',
         'The mock is skipped and the real request runs',
       ],
@@ -62,9 +62,9 @@ export default {
       prompt: 'Error logic lives in a sub-flow that reads `error.description`. You want to test that sub-flow on its own. How do you provide the error?',
       options: [
         'In `munit:set-event`, add `munit:error` with an `id` and an `exception`',
-        'Mock the sub-flow with `then-return` and an error',
+        'Mock the sub-flow with `then-return`, adding an error to the event',
         'Add `expectedErrorType` to the test so the error is created',
-        'Set a variable called `error` in `munit:variables`',
+        'Set a variable called `error` in `munit:variables` with a description',
       ],
       answer: 0,
       explain: 'When error handling is extracted into a separate flow or sub-flow, the input event must carry an error. `<munit:error id="OS:INVALID_KEY" exception="#[java!java::lang::Exception::new(\'Invalid Key\')]"/>` is the documented form.',

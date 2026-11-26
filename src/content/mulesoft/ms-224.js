@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'The request path is `/customers/{customerId}/sims`. Where does the value for `customerId` go?',
+      prompt: 'A partner documents `GET /customers/{customerId}/sims?status=active` with an `X-Api-Key` header. How do you map the three values on the HTTP Request?',
       options: [
-        'In `http:uri-params`, as a map',
-        'In `http:query-params`, as a map',
-        'In `http:headers`, as a map',
-        'In the payload, as a field',
+        '`customerId` in query-params, `status` in uri-params, `X-Api-Key` in headers',
+        '`customerId` and `status` in query-params, `X-Api-Key` in headers',
+        '`customerId` in uri-params, `status` in query-params, `X-Api-Key` in headers',
+        '`customerId` in uri-params, `status` and `X-Api-Key` in query-params',
       ],
-      answer: 0,
-      explain: 'A name in curly brackets in the path is a URI parameter, set for example with `#[{ customerId: vars.customerId }]`. The connector puts the value into the path and encodes it.',
+      answer: 2,
+      explain: 'A name in curly brackets in the path is a URI parameter, set for example with `#[{ customerId: vars.customerId }]`. What follows `?` is a query parameter, and the key is sent as a header. The connector puts each value in its place and encodes it. A key in the query string also ends up in access logs.',
     },
     {
       type: 'single',
@@ -36,7 +36,7 @@ export default {
       options: [
         'Sets the payload to the 404 body and goes on',
         'Raises `HTTP:NOT_FOUND`',
-        'Retries three times, then goes on',
+        'Raises `HTTP:BAD_REQUEST`, as every 4xx maps to it',
         'Raises `HTTP:CONNECTIVITY`',
       ],
       answer: 1,
@@ -48,7 +48,7 @@ export default {
       options: [
         'Catch every error with an On Error Continue',
         'Wrap the call in Until Successful so 404 is retried',
-        'Change the method to HEAD so no body comes back',
+        'Set the success codes to 200..499 so no 4xx raises',
         'Add 404 to the success codes and branch on the status',
       ],
       answer: 3,
@@ -56,10 +56,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'After the request, where is the status code of the response?',
-      options: ['`attributes.statusCode`', '`payload.statusCode`', '`vars.statusCode`', '`error.statusCode`'],
-      answer: 0,
-      explain: 'The response body becomes the payload. The status code and headers sit in the attributes.',
+      prompt: 'The SIM lookup accepts 404 as a success. A Choice after the request tests `#[payload.statusCode == 404]`, and that route never runs, even on a 404. What is the fix?',
+      options: [
+        'Compare with the text `\'404\'`, as the status comes back as a String',
+        'Test `attributes.statusCode`, as the body is the payload and the status is not',
+        'Save the response in a target variable first, as a Choice cannot read it',
+        'Read `error.errorMessage.attributes.statusCode`, where a 404 is kept',
+      ],
+      answer: 1,
+      explain: 'The response body becomes the payload. The status code and headers sit in the attributes, and the status code is a Number. `error` is set only inside an error handler, and here the 404 raised no error. A Choice reads the current event, so no variable is needed.',
     },
     {
       type: 'match',

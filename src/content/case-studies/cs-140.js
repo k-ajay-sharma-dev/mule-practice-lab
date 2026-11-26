@@ -39,9 +39,11 @@ export default {
         'The same field names for IDs and status in every app',
         'Logs from every app in one place with search by field',
         'Full request and response payloads on every log line at INFO',
+        'Each team adds its own request ID, in a field name it chooses',
+        'Lower CPU and memory alert thresholds on every app so issues show sooner',
       ],
       answer: [0, 1, 2],
-      explain: 'One request seen across all its hops is what you need in an incident. That only works with one ID, one naming and one place to search. Full payloads raise cost and risk exposing personal data without linking the hops.',
+      explain: 'One request seen across all its hops is what you need in an incident. That only works with one ID, one naming and one place to search. Full payloads raise cost and risk exposing personal data without linking the hops. A request ID per team still breaks at each hop, because the next app uses another ID and another field. Lower CPU and memory thresholds add to the 900 ignored alerts and say nothing about which request failed.',
     },
     {
       type: 'single',

@@ -21,14 +21,14 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Larkspur Grocers: which line is best after the OrderPlaced message is published to Anypoint MQ?',
     options: [
-      'OrderPlaced published queue=larkspur-orders orderId=LG-88120 correlationId=c41d9e',
-      'Published to MQ: {"orderId":"LG-88120","customer":{"name":"Tom Reyes","phone":"+1 555 0100"},"items":[...]}',
       'OrderPlaced published queue=larkspur-orders orderId=LG-88120 messageId=3f9a1c07 correlationId=c41d9e',
-      'Publishing OrderPlaced now...',
+      'OrderPlaced published queue=larkspur-orders orderId=LG-88120 correlationId=c41d9e',
+      'OrderPlaced publishing queue=larkspur-orders orderId=LG-88120 messageId=3f9a1c07 correlationId=c41d9e',
+      'OrderPlaced published queue=larkspur-orders orderId=LG-88120 customerPhone=+1 555 0100 messageId=3f9a1c07',
     ],
-    answer: 2,
+    answer: 0,
     explain:
-      'It says what was published and where, with the order ID, the MQ message ID and the correlation ID. The first option has no message ID, so the message cannot be looked up in Anypoint MQ. The last option is written before the publish, so it cannot tell you the publish worked.',
+      'It says what was published and where, with the order ID, the MQ message ID and the correlation ID. Without the message ID the message cannot be looked up in Anypoint MQ. "OrderPlaced publishing" reads as a line written before the publish, so it cannot tell you the publish worked. The line with the phone number puts personal data in the log and has no correlation ID.',
   },
   {
     id: 'log-2003',
@@ -36,15 +36,15 @@ export const SET_2 = [
     situation: 'Larkspur Grocers: right after an Anypoint MQ Publish that worked, the flow has this logger. Pick every problem.',
     code: `<logger level="ERROR" message='#["MQ publish " ++ write(payload)]' />`,
     options: [
+      'The order is safe in this line, because the queue has encryption turned on',
       'ERROR is wrong for a publish that worked. INFO fits',
+      'The line does not name the queue',
       'write(payload) puts the whole order, with customer data, in the log',
       'There is no correlation ID and no message ID',
-      'Anypoint MQ rejects a publish when the flow logs the payload',
-      'The line does not name the queue',
     ],
-    answers: [0, 1, 2, 4],
+    answers: [1, 2, 3, 4],
     explain:
-      'Anypoint MQ does not know or care what you log, so option 4 is false. The rest are real problems: ERROR would raise alerts for good news, and the payload brings personal data. Write "OrderPlaced published queue=larkspur-orders orderId=$(vars.orderId) messageId=$(vars.messageId) correlationId=$(correlationId)".',
+      'Queue encryption protects the message inside Anypoint MQ, not the copy your Logger writes, so write(payload) still puts the whole order and its customer data in the log. ERROR would raise alerts for good news, and the line names no queue and has no message ID or correlation ID. Write "OrderPlaced published queue=larkspur-orders orderId=$(vars.orderId) messageId=$(vars.messageId) correlationId=$(correlationId)".',
   },
   {
     id: 'log-2004',
@@ -119,14 +119,14 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Halvorsen Freight: which line is best right after the VM Publish of a booking to bookings-q?',
     options: [
-      'VM publish OK',
+      'Booking queued for pricing queue=bookings-q bookingId=HF-55021',
+      'Booking queued for pricing queue=bookings-q bookingId=HF-55021 shipper=Ida Berg correlationId=9b2e71',
       'Booking queued for pricing queue=bookings-q bookingId=HF-55021 correlationId=9b2e71',
-      'Sent to VM: {"bookingId":"HF-55021","shipper":"Ida Berg","phone":"+47 400 00 000"}',
-      'Booking queued for pricing bookingId=HF-55021',
+      'Booking priced queue=bookings-q bookingId=HF-55021 correlationId=9b2e71',
     ],
-    answer: 1,
+    answer: 2,
     explain:
-      'The last option is close, but without the correlation ID it cannot be joined to the line the pricing flow writes. The third dumps the payload with a name and a phone number.',
+      'It says the booking was queued, on which queue, with the booking ID and the correlation ID that the pricing flow logs too. Without the correlation ID the line cannot be joined to the line the pricing flow writes. The shipper name is personal data, and "Booking priced" claims work the pricing flow has not done yet.',
   },
   {
     id: 'log-2009',
@@ -134,15 +134,15 @@ export const SET_2 = [
     situation: 'Halvorsen Freight: the first logger of the VM Listener flow that prices bookings. Pick every problem.',
     code: `<logger level="INFO" message='#["Booking received bookingId=$(payload.bookingId)"]' />`,
     options: [
-      'There is no correlation ID, so this line cannot be joined to the API line that queued the booking',
       'Logging payload.bookingId dumps the whole payload',
-      'It does not name the queue the booking came from',
-      'A Logger cannot be the first processor after a VM Listener',
+      'There is no correlation ID, so this line cannot be joined to the API line that queued the booking',
+      'The VM Listener starts a new correlation ID, so adding one would not join the lines',
       'INFO is too high for a booking that arrives',
+      'It does not name the queue the booking came from',
     ],
-    answers: [0, 2],
+    answers: [1, 4],
     explain:
-      'payload.bookingId is one field, not the whole payload, and INFO fits an arrival. The line needs the correlation ID, and the queue name helps when the app has several VM queues: "Booking received queue=bookings-q bookingId=$(payload.bookingId) correlationId=$(correlationId)".',
+      'payload.bookingId is one field, not the whole payload, and INFO fits an arrival. A VM Publish and a VM Listener in the same app keep the correlation ID of the event, so adding it joins this line to the API line. The queue name helps when the app has several VM queues: "Booking received queue=bookings-q bookingId=$(payload.bookingId) correlationId=$(correlationId)".',
   },
   {
     id: 'log-2010',
@@ -182,14 +182,14 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Northfield Rail: which line is best as the first logger after the JMS Listener on TICKETS.IN?',
     options: [
-      'Got JMS msg',
-      'Received from TICKETS.IN: {"ticketId":"NR-7731","passenger":"Mia Cole","seat":"C14"}',
-      'Ticket booking received queue=TICKETS.IN ticketId=NR-7731 correlationId=5d0c8a',
+      'Ticket booking received queue=TICKETS.IN jmsMessageId=ID:nf-broker-1-1-7 ticketId=NR-7731',
       'Ticket booking received queue=TICKETS.IN jmsMessageId=ID:nf-broker-1-1-7 ticketId=NR-7731 correlationId=5d0c8a',
+      'Ticket booking received queue=TICKETS.IN jmsMessageId=ID:nf-broker-1-1-7 ticketId=NR-7731 passenger=Mia Cole correlationId=5d0c8a',
+      'Ticket booking received queue=TICKETS.IN ticketId=NR-7731 correlationId=5d0c8a',
     ],
-    answer: 3,
+    answer: 1,
     explain:
-      'The JMS message ID finds the message on the broker, the ticket ID finds the booking, and the correlation ID joins the lines of this booking. The second option logs the passenger name. The third has no JMS message ID, which the broker team needs when a message is stuck or lost.',
+      'The JMS message ID finds the message on the broker, the ticket ID finds the booking, and the correlation ID joins the lines of this booking. Without the JMS message ID the broker team cannot find a stuck or lost message, and without the correlation ID the line stands alone. The passenger name is personal data.',
   },
   {
     id: 'log-2013',
@@ -197,15 +197,15 @@ export const SET_2 = [
     situation: 'Northfield Rail: the first logger after the JMS Listener. Pick every problem.',
     code: `<logger level="INFO" message='#["Ticket booking received " ++ write(attributes)]' />`,
     options: [
-      'attributes holds every JMS header and property, so the line is long and hard to search',
-      'It may carry custom properties the sender added, which nobody checked for personal data',
-      'There is no labelled ticketId and no correlation ID',
       'write(attributes) logs the message body as well',
-      'The JMS Listener clears attributes before the first processor runs',
+      'There is no labelled ticketId and no correlation ID',
+      'attributes holds every JMS header and property, so the line is long and hard to search',
+      'JMS headers and properties only hold broker data, so the line is long but safe',
+      'It may carry custom properties the sender added, which nobody checked for personal data',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 2, 4],
     explain:
-      'attributes holds the headers and properties, not the body, and it is there for the whole flow. Pick the facts you need: "Ticket booking received jmsMessageId=$(attributes.headers.messageId) ticketId=$(payload.ticketId) correlationId=$(correlationId)".',
+      'attributes holds the headers and properties, not the body. The properties are whatever the sender chose to add, so they can carry personal data that nobody checked. Pick the facts you need: "Ticket booking received jmsMessageId=$(attributes.headers.messageId) ticketId=$(payload.ticketId) correlationId=$(correlationId)".',
   },
   {
     id: 'log-2014',
@@ -271,28 +271,28 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Kestrel Energy: one meter reading is missing in the billing data. Which per-record line helps most to find out if it was read?',
     options: [
-      'Kafka record processed',
-      'Reading processed meterId=KE-40018',
-      'Reading processed topic=meter-readings partition=3 offset=918274 meterId=KE-40018 correlationId=e7a2f4',
+      'Reading processed topic=meter-readings partition=3 meterId=KE-40018 correlationId=e7a2f4',
       'Reading processed: {"meterId":"KE-40018","kWh":12.4,"household":"P. Novak"}',
+      'Reading processed topic=meter-readings offset=918274 meterId=KE-40018 correlationId=e7a2f4',
+      'Reading processed topic=meter-readings partition=3 offset=918274 meterId=KE-40018 correlationId=e7a2f4',
     ],
-    answer: 2,
+    answer: 3,
     explain:
-      'Topic, partition and offset point to one exact record in Kafka. With them you can check if that record was read, and read it again if needed.',
+      'Topic, partition and offset together point to one exact record in Kafka. An offset only has a meaning inside its partition, so an offset without the partition, or a partition without the offset, cannot find the record. With all three you can check if that record was read, and read it again if needed. The payload line adds a household name.',
   },
   {
     id: 'log-2018',
     kind: 'choice',
     situation: 'Kestrel Energy: a reading arrives with no kWh value. The flow skips it and goes on. Which line is best?',
     options: [
-      'Bad data from meter!!!',
-      'Reading skipped: kWh is missing meterId=KE-40018 partition=3 offset=918301 correlationId=e7a2f4',
-      'Reading skipped {"meterId":"KE-40018","kWh":null,"household":"P. Novak"}',
       'Reading skipped: kWh is missing meterId=KE-40018 correlationId=e7a2f4',
+      'Reading skipped meterId=KE-40018 partition=3 offset=918301 correlationId=e7a2f4',
+      'Reading skipped {"meterId":"KE-40018","kWh":null,"household":"P. Novak"}',
+      'Reading skipped: kWh is missing meterId=KE-40018 partition=3 offset=918301 correlationId=e7a2f4',
     ],
-    answer: 1,
+    answer: 3,
     explain:
-      'It says what was wrong and what the flow did, and the partition and offset let the meter team find the record. The first option blames and shouts, the third logs a household name, and the last has no partition or offset to find the record.',
+      'It says what was wrong and what the flow did, and the partition and offset let the meter team find the record. The line without a reason says a reading was skipped but not why, the line without partition and offset cannot find the record, and the payload line logs a household name.',
   },
   {
     id: 'log-2019',
@@ -300,15 +300,15 @@ export const SET_2 = [
     situation: 'Kestrel Energy: the first logger of the meter-readings listener flow, at 2,000 records a second. Pick every problem.',
     code: `<logger level="INFO" message='#["Reading $(attributes.key) value=$(payload)"]' />`,
     options: [
-      'One INFO line per record at this rate floods the log',
-      '$(payload) logs the whole record',
-      'There is no partition or offset, so the record cannot be found again on the topic',
       'attributes.key does not exist on a Kafka record',
-      'Kafka records cannot be logged until the offset is committed',
+      '$(payload) logs the whole record',
+      'Moving the line to DEBUG fixes every problem here, because DEBUG is off in production',
+      'There is no partition or offset, so the record cannot be found again on the topic',
+      'One INFO line per record at this rate floods the log',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 3, 4],
     explain:
-      'attributes.key is the record key, here the meter ID, and you may log a record whenever you like. The problems are the volume, the whole payload and the missing partition and offset.',
+      'attributes.key is the record key, here the meter ID. The problems are the volume, the whole payload and the missing partition and offset. DEBUG cuts the volume, but DEBUG is often turned on in production to troubleshoot, and the line would still hold the whole record and no partition or offset.',
   },
   {
     id: 'log-2020',
@@ -351,14 +351,14 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Bramblewood Insurance: the claim is stored and the flow has called Ack. Which line is best?',
     options: [
-      'Claim event acknowledged messageId=7c21e0aa claimId=BW-310442 deliveryCount=1 durationMs=640 correlationId=0f4b9d',
       'Claim event acknowledged messageId=7c21e0aa claimId=BW-310442 correlationId=0f4b9d',
+      'Claim event stored messageId=7c21e0aa claimId=BW-310442 deliveryCount=1 durationMs=640 next=ack correlationId=0f4b9d',
+      'Claim event acknowledged messageId=7c21e0aa claimId=BW-310442 deliveryCount=1 durationMs=640 correlationId=0f4b9d',
       'Message acknowledged, body={"claimId":"BW-310442","policyHolder":"R. Osei","injury":"broken wrist"}',
-      'Ack in progress step 4',
     ],
-    answer: 0,
+    answer: 2,
     explain:
-      'Once a message is acked, Anypoint MQ forgets it. This line is the proof it was finished, with the time it took and how many deliveries it needed. The second option leaves out both, so a slow or redelivered claim looks like any other. The third option logs health data.',
+      'Once a message is acked, Anypoint MQ forgets it. This line is the proof it was finished, with the time it took and how many deliveries it needed. The line without deliveryCount and durationMs makes a slow or redelivered claim look like any other. The line with next=ack is written before the Ack, so it does not prove the Ack happened. The body line logs health data.',
   },
   {
     id: 'log-2023',
@@ -367,15 +367,15 @@ export const SET_2 = [
       'Bramblewood Insurance: in the On Error Continue that calls Nack when the claims database is down for a moment. Pick every problem.',
     code: `<logger level="ERROR" message='#["NACK " ++ error.description]' />`,
     options: [
+      'error.description should be left out, because error.errorType alone is enough',
       'ERROR is too strong for a message that will be delivered again. WARN fits',
+      'A Nack means the claim is lost, so ERROR is the right level',
       'There is no message ID or claim ID',
       'It does not say what happens next, such as next=redelivery',
-      'error.description should never be logged',
-      'A Logger in an error handler cannot read error',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 3, 4],
     explain:
-      'error.description is exactly what the reader needs, and error is there in every error handler. Write "Claim event nacked messageId=$(vars.messageId) claimId=$(vars.claimId) errorType=$(error.errorType) next=redelivery correlationId=$(correlationId)".',
+      'A Nack hands the message back to Anypoint MQ, which delivers it again, so the claim is not lost and WARN fits. error.description is exactly what the reader needs: the type alone does not say what the database answered. Write "Claim event nacked messageId=$(vars.messageId) claimId=$(vars.claimId) errorType=$(error.errorType) next=redelivery correlationId=$(correlationId)".',
   },
   {
     id: 'log-2024',
@@ -442,29 +442,29 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Corvane Pharmacy: a separate flow subscribes to refills-dlq and raises a support ticket for each message. Which first line is best?',
     options: [
-      'DLQ message',
       'Refill event read from DLQ queue=refills-dlq messageId=a90d33e1 refillId=CP-20419 deliveryCount=5 correlationId=61be0c',
-      'Message in DLQ!!! someone check this',
+      'Refill event read from DLQ queue=refills-dlq refillId=CP-20419 deliveryCount=5 correlationId=61be0c',
+      'Refill event read from DLQ queue=refills-dlq messageId=a90d33e1 refillId=CP-20419 patient=L. Grant deliveryCount=5 correlationId=61be0c',
       'DLQ: {"refillId":"CP-20419","patient":"L. Grant","medication":"..."}',
     ],
-    answer: 1,
+    answer: 0,
     explain:
-      'The refill ID and the message ID let support find the refill and the message. The last option logs a patient name and a medicine, which is health data.',
+      'The refill ID and the message ID let support find the refill and the message, and deliveryCount shows how often it was tried. Without the message ID the message cannot be found in Anypoint MQ. A patient name, or a body with a medicine in it, is health data and does not belong in a log.',
   },
   {
     id: 'log-2028',
     kind: 'multi',
     situation: 'Corvane Pharmacy: which lines does the flow that reads refills-dlq and raises tickets need? Pick every one that applies.',
     options: [
+      'A line only when a ticket cannot be raised, because the ticket itself records each success',
       'A line when a message is read from the DLQ, with its message ID and refill ID',
-      'A line after the ticket is raised, with the ticket number',
       'An INFO line with the full refill payload, so support can read the prescription',
+      'A line after the ticket is raised, with the ticket number',
       'A line in the error handler if the ticket cannot be raised',
-      'No lines at all, because the DLQ itself is the record',
     ],
-    answers: [0, 1, 3],
+    answers: [1, 3, 4],
     explain:
-      'Once a ticket is raised the message leaves the DLQ, so the log is the only trace of what happened to it. The prescription stays out of the log: support reads it in the pharmacy system by refill ID.',
+      'Once a ticket is raised the message leaves the DLQ, so the log is the only trace of which message became which ticket. Lines on failure alone leave no such trace. The prescription stays out of the log: support reads it in the pharmacy system by refill ID.',
   },
   {
     id: 'log-2029',
@@ -531,14 +531,14 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Pellucid Telecom: the pricing app publishes a PriceChanged message to the JMS topic PRICES.CHANGED. Which line after the publish is best?',
     options: [
-      'Published to topic',
-      'PriceChanged published queue=PRICES.CHANGED planId=PT-UNL-40',
-      'Sending price change to all subscribers now',
+      'PriceChanged published topic=PRICES.CHANGED planId=PT-UNL-40 subscribers=3 eventId=pc-55120',
       'PriceChanged published topic=PRICES.CHANGED planId=PT-UNL-40 eventId=pc-55120 correlationId=3ac1f8',
+      'PriceChanged published queue=PRICES.CHANGED planId=PT-UNL-40 eventId=pc-55120',
+      'PriceChanged published topic=PRICES.CHANGED planId=PT-UNL-40 correlationId=3ac1f8',
     ],
-    answer: 3,
+    answer: 1,
     explain:
-      'The event ID is the key every subscriber can log too, so one price change can be followed to all of them. The second option calls the topic a queue and has no correlation ID.',
+      'The event ID is the key every subscriber can log too, so one price change can be followed to all of them. Without it the subscribers have nothing to match. A JMS publisher cannot see its subscribers, so subscribers=3 is a guess, and calling the topic a queue misleads anyone who searches the broker. Both of those lines also lack the correlation ID.',
   },
   {
     id: 'log-2033',
@@ -547,15 +547,15 @@ export const SET_2 = [
       'Pellucid Telecom: the billing, web shop and store apps each listen on PRICES.CHANGED, and each starts its flow with this logger. Pick every problem.',
     code: `<logger level="INFO" message="Price change received" />`,
     options: [
-      'It does not show if this is a redelivery, from attributes.headers.redelivered',
-      'There is no planId or eventId, so one price change cannot be followed to all three apps',
-      'There is no correlation ID',
-      'A topic subscriber is not allowed to log at INFO',
       'Each subscriber should log the full message so the three copies can be compared',
+      'There is no planId or eventId, so one price change cannot be followed to all three apps',
+      'Each app gets its own copy of the message, so each should make its own eventId',
+      'There is no correlation ID',
+      'It does not show if this is a redelivery, from attributes.headers.redelivered',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 3, 4],
     explain:
-      'INFO is fine for an arrival. Comparing copies is done with the event ID, not by logging the body three times: "Price change received eventId=$(vars.eventId) planId=$(vars.planId) redelivered=$(attributes.headers.redelivered) correlationId=$(correlationId)".',
+      'INFO is fine for an arrival. All three apps must log the eventId the publisher set, or one price change cannot be followed across them. Comparing copies is done with that ID, not by logging the body three times: "Price change received eventId=$(vars.eventId) planId=$(vars.planId) redelivered=$(attributes.headers.redelivered) correlationId=$(correlationId)".',
   },
   {
     id: 'log-2034',
@@ -563,13 +563,13 @@ export const SET_2 = [
     situation:
       'Pellucid Telecom: the web shop uses a non-durable topic subscriber. It was down for a restart from 02:00 to 02:06. The price changes published in those minutes never reached it, because a non-durable subscription keeps nothing while the app is off. Which log lines would have shown the gap? Pick every one that applies.',
     options: [
-      'The pricing app line after each publish, with eventId and the time',
+      'An ERROR line in the pricing app for every subscriber that is offline',
       'A web shop line for each price change received, with the same eventId',
       'A DEBUG line in the pricing app with the whole price list',
-      'An ERROR line in the pricing app for every subscriber that is offline',
+      'The pricing app line after each publish, with eventId and the time',
       'A WARN line in the web shop every time no message arrives for one second',
     ],
-    answers: [0, 1],
+    answers: [1, 3],
     explain:
       'Compare the event IDs on both sides and the missing ones stand out. A topic publisher cannot see its subscribers, so it cannot log who is offline. The fix is a durable subscription, which keeps messages while the app is down.',
   },
@@ -612,14 +612,14 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Redfern Logistics: which line is best after the Kafka Publish of a parcel status event?',
     options: [
-      'Parcel status published topic=parcel-status parcelId=RL-7781204 status=OUT_FOR_DELIVERY correlationId=d29e5b',
-      'Kafka publish success',
-      'Parcel status published topic=parcel-status',
+      'Parcel status published topic=parcel-status key=RL-7781204 status=OUT_FOR_DELIVERY',
       'Published: {"parcelId":"RL-7781204","recipient":"Jo Park","street":"12 Elm Road"}',
+      'Parcel status published topic=parcel-status parcelId=RL-7781204 status=OUT_FOR_DELIVERY correlationId=d29e5b',
+      'Parcel status published topic=parcel-status trackingRef=RL-7781204 status=OUT_FOR_DELIVERY correlationId=d29e5b',
     ],
-    answer: 0,
+    answer: 2,
     explain:
-      'It names the parcel with parcelId, the same name the Tracking app uses, so one search finds both sides. That value is also the Kafka key, so it tells you which partition order the event belongs to. The last option logs a name and a street.',
+      'It names the parcel with parcelId, the same name the Tracking app uses, so one search finds both sides. trackingRef and key hold the same value under another name, so that search misses them, and the key line has no correlation ID. parcelId is also the Kafka key, so it tells you which partition order the event belongs to. The body line logs a name and a street.',
   },
   {
     id: 'log-2038',
@@ -627,15 +627,15 @@ export const SET_2 = [
     situation: 'Redfern Logistics: the first logger of the Tracking app, which consumes parcel-status. Pick every problem.',
     code: `<logger level="INFO" message='#["Status event partition=$(attributes.partition) offset=$(attributes.offset)"]' />`,
     options: [
-      'There is no key, so the reader cannot see which parcel the event is for',
-      'There is no correlation ID',
       'It does not say what happened, such as Parcel status received',
-      'partition and offset are of no use in a log',
-      'The offset must be masked like a secret',
+      'Partition and offset already find the record, so the parcel key adds nothing',
+      'There is no key, so the reader cannot see which parcel the event is for',
+      'The offset changes when the record is read again, so it cannot point to one record',
+      'There is no correlation ID',
     ],
-    answers: [0, 1, 2],
+    answers: [0, 2, 4],
     explain:
-      'Partition and offset are good facts: they point to one record. Add the business key and the words: "Parcel status received parcelId=$(attributes.key) partition=$(attributes.partition) offset=$(attributes.offset) correlationId=$(correlationId)".',
+      'Partition and offset are good facts: they point to one record, and a record keeps its offset however often it is read. But support starts from a parcel number, not an offset, so the key is needed too. Add the business key and the words: "Parcel status received parcelId=$(attributes.key) partition=$(attributes.partition) offset=$(attributes.offset) correlationId=$(correlationId)".',
   },
   {
     id: 'log-2039',
@@ -699,14 +699,14 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Velora Furniture: which line is best after the Product API publishes to the exchange product-updates?',
     options: [
+      'Product update published queue=product-updates productId=VF-2209 messageId=5e01b7c2 correlationId=8d11fa',
       'Product update published to web-products, store-products and search-products productId=VF-2209',
-      'Published 3 messages',
+      'Product update published exchange=product-updates productId=VF-2209 correlationId=8d11fa',
       'Product update published exchange=product-updates productId=VF-2209 messageId=5e01b7c2 correlationId=8d11fa',
-      'Product update published exchange=product-updates',
     ],
-    answer: 2,
+    answer: 3,
     explain:
-      'The publisher sends one message to one exchange. It does not know the bindings, so naming three queues is wrong as soon as a fourth queue is bound. The bound queues each log their own arrival.',
+      'The publisher sends one message to one exchange. It does not know the bindings, so naming three queues is wrong as soon as a fourth queue is bound, and calling the exchange a queue sends the reader to look for a queue that does not exist. The messageId lets each bound queue be checked for the same message. The bound queues each log their own arrival.',
   },
   {
     id: 'log-2043',
@@ -714,13 +714,13 @@ export const SET_2 = [
     situation:
       'Velora Furniture: the store team says product VF-2209 never reached the stores. Which log lines let you find where it stopped? Pick every one that applies.',
     options: [
+      'One ERROR line in the publisher for each consumer that is slow',
       'The publisher line with the exchange, productId and messageId',
+      'A DEBUG line in the publisher that lists every bound queue from the MQ admin API',
       'The first line of each consumer flow, with the same productId and its own queue name',
       'A line in each consumer after its work is done, with the result',
-      'A DEBUG line in the publisher that lists every bound queue from the MQ admin API',
-      'One ERROR line in the publisher for each consumer that is slow',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 3, 4],
     explain:
       'With the same productId on every line you can follow the update into each queue and see which consumer received it but did not finish. The publisher cannot know how slow a consumer is.',
   },
@@ -796,14 +796,14 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Saltmarsh Utilities: which line is best after a statement is published to the queue statements?',
     options: [
-      'Statement published size=184220',
-      'Statement published queue=statements statementId=SU-88310 sizeBytes=184220 correlationId=4b7e90',
+      'Statement published queue=statements statementId=SU-88310 size=184220 correlationId=4b7e90',
       'Statement published JVBERi0xLjcKJeLjz9MKMSAwIG9iago8PC9UeXBlIC9DYXRhbG9n...',
       'Statement published statementId=SU-88310 sizeBytes=184220',
+      'Statement published queue=statements statementId=SU-88310 sizeBytes=184220 correlationId=4b7e90',
     ],
-    answer: 1,
+    answer: 3,
     explain:
-      'The size with its unit in the name shows how close messages are to the limit over time. The third option logs the start of the document itself.',
+      'The size with its unit in the name shows how close messages are to the limit over time: size=184220 could be bytes or KB. The line without the queue and the correlation ID cannot be joined to the run. The base64 text is the start of the document itself.',
   },
   {
     id: 'log-2049',
@@ -811,15 +811,15 @@ export const SET_2 = [
     situation: 'Saltmarsh Utilities: before the publish, the statement flow has this logger. Pick every problem.',
     code: `<logger level="DEBUG" message='#["Statement body: $(write(payload))"]' />`,
     options: [
-      'A statement of several MB in one log line can be cut off by the log tool or slow the app',
-      'The statement holds customer names, addresses and amounts',
-      'DEBUG is often turned on in production to troubleshoot, so this can reach production logs',
       'Logging sizeOf(payload) would leak the same data',
-      'DEBUG lines are never written to disk',
+      'DEBUG is often turned on in production to troubleshoot, so this can reach production logs',
+      'The statement holds customer names, addresses and amounts',
+      'Mule cuts each log line at 1 KB, so most of the statement never reaches the log',
+      'A statement of several MB in one log line can be cut off by the log tool or slow the app',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 2, 4],
     explain:
-      'sizeOf(payload) is a number, not the data, so it is safe and useful here. Log the statement ID and the size, never the body.',
+      'sizeOf(payload) is a number, not the data, so it is safe and useful here. Mule itself does not cut log lines, so the whole statement is written, and the log tool may then cut it. Log the statement ID and the size, never the body.',
   },
   {
     id: 'log-2050',
@@ -863,14 +863,14 @@ export const SET_2 = [
     situation:
       'Quillon Bank: Kafka delivers at least once, so after a rebalance a payment instruction can arrive twice. The validator raised MULE:DUPLICATE_MESSAGE and the flow skipped it. Which line is best?',
     options: [
-      'Duplicate!',
-      'Duplicate payment skipped debtorAccount=QB0099887766 amount=250.00',
-      'MULE:DUPLICATE_MESSAGE',
       'Duplicate payment instruction skipped paymentId=QB-PAY-661204 partition=1 offset=55021 correlationId=a3c07e',
+      'Duplicate payment instruction skipped paymentId=QB-PAY-661204 correlationId=a3c07e',
+      'Duplicate payment instruction failed errorType=MULE:DUPLICATE_MESSAGE paymentId=QB-PAY-661204 partition=1 offset=55021',
+      'Duplicate payment skipped paymentId=QB-PAY-661204 debtorAccount=QB0099887766 amount=250.00 correlationId=a3c07e',
     ],
-    answer: 3,
+    answer: 0,
     explain:
-      'The payment ID is the key the validator checked, and the partition and offset show which copy was skipped. An account number does not belong in a log.',
+      'The payment ID is the key the validator checked, and the partition and offset show which copy was skipped. Without them you cannot tell the two copies apart. Calling it "failed" makes a skipped copy look like a lost payment, and an account number does not belong in a log.',
   },
   {
     id: 'log-2053',
@@ -878,15 +878,15 @@ export const SET_2 = [
     situation: 'Quillon Bank: in the On Error Continue for MULE:DUPLICATE_MESSAGE on the payment consumer. Pick every problem.',
     code: `<logger level="ERROR" message='#["DUPLICATE PAYMENT!!! $(payload)"]' />`,
     options: [
-      'ERROR alerts someone for a duplicate the app already stopped',
+      'A duplicate here means the broker lost data, so ERROR is right',
       'payload holds the account numbers and the amount',
-      'Capitals and !!! do not help the reader',
       'The duplicate key, paymentId, is missing',
-      'Duplicates on Kafka mean the broker lost data',
+      'On Error Propagate fits better, so the duplicate fails the flow and gets noticed',
+      'ERROR alerts someone for a duplicate the app already stopped',
     ],
-    answers: [0, 1, 2, 3],
+    answers: [1, 2, 4],
     explain:
-      'With at-least-once delivery, duplicates are expected and the broker lost nothing. The validator did its job, so INFO or WARN with the payment ID.',
+      'With at-least-once delivery, duplicates are expected and the broker lost nothing. The validator did its job, so On Error Continue is right: failing the flow for an expected copy turns normal traffic into errors. Log at INFO or WARN with the payment ID, without the payload and without capitals and !!!.',
   },
   {
     id: 'log-2054',
@@ -952,14 +952,14 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Juniper Air: you want to prove the seat changes of one booking are applied in order. Which line is best when a message arrives?',
     options: [
-      'Seat change received',
-      'Seat change received for passenger Maria Lund seat=14C',
+      'Seat change received queue=seat-changes bookingRef=JA7Q2M receivedAt=2026-11-12T10:42:07.118Z messageId=0b77e4a1',
       'Seat change received queue=seat-changes bookingRef=JA7Q2M sequence=412 messageId=0b77e4a1 correlationId=c5f219',
-      'Seat change received bookingRef=JA7Q2M',
+      'Seat change received queue=seat-changes bookingRef=JA7Q2M messageId=0b77e4a1 correlationId=c5f219',
+      'Seat change received bookingRef=JA7Q2M sequence=412 passenger=Maria Lund seat=14C',
     ],
-    answer: 2,
+    answer: 1,
     explain:
-      'The sequence number is what proves the order. Line up the lines of one bookingRef and the sequence numbers should only go up.',
+      'The sequence number is what proves the order the changes were made in. Line up the lines of one bookingRef and the sequence numbers should only go up. An arrival time only shows the order the messages arrived in, which is the very thing in doubt, and a line without a sequence number cannot show the order at all. The passenger name is personal data.',
   },
   {
     id: 'log-2058',
@@ -967,15 +967,15 @@ export const SET_2 = [
     situation:
       'Juniper Air: the seat changes of one booking were applied in the wrong order. Which facts in the consumer log lines help to prove it? Pick every one that applies.',
     options: [
-      'The sequence number of each event',
-      'The bookingRef, so all events of one booking can be put side by side',
-      'A line when each event is received and another when it is applied',
       'The passenger name, to be sure it is the same person',
-      'The whole seat map before and after each change',
+      'The bookingRef, so all events of one booking can be put side by side',
+      'The time each line was written, which alone shows the order the changes were made in',
+      'The sequence number of each event',
+      'A line when each event is received and another when it is applied',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 3, 4],
     explain:
-      'Sequence numbers and two lines per event show both the order of arrival and the order of work. The booking reference already tells you it is the same booking, so no name is needed.',
+      'Sequence numbers and two lines per event show both the order of arrival and the order of work. Log times show when each line was written, not the order the changes were made in. The booking reference already tells you it is the same booking, so no name is needed.',
   },
   {
     id: 'log-2059',
@@ -1045,28 +1045,28 @@ export const SET_2 = [
     situation:
       'Tessaly Hotels: inside the transaction the flow publishes a confirmation to the JMS queue HOTEL.CONFIRM. It is only delivered when the transaction commits. Which line after the publish is most honest?',
     options: [
+      'Reservation confirmation published queue=HOTEL.CONFIRM reservationId=TH-90412 correlationId=2c8d55',
+      'Reservation confirmation queued, sent on commit queue=HOTEL.CONFIRM guest=Ana Ruiz room=412',
+      'Reservation confirmation delivered queue=HOTEL.CONFIRM reservationId=TH-90412 correlationId=2c8d55',
       'Reservation confirmation queued, sent on commit queue=HOTEL.CONFIRM reservationId=TH-90412 correlationId=2c8d55',
-      'Reservation confirmation delivered to guest',
-      'Confirmation published',
-      'Reservation confirmation queued queue=HOTEL.CONFIRM guest=Ana Ruiz room=412',
     ],
-    answer: 0,
+    answer: 3,
     explain:
-      'If the transaction rolls back, the confirmation is never sent. A line that says "delivered" would be wrong in exactly the case you are looking into.',
+      'Inside the transaction the message is only sent when the transaction commits. If it rolls back, the confirmation is never sent. A line that says "delivered" would be wrong in exactly the case you are looking into, and "published" lets the reader think the message has already left. The honest line says it waits for the commit, and names the reservation, not the guest.',
   },
   {
     id: 'log-2063',
     kind: 'choice',
     situation: 'Tessaly Hotels: which line is best in the On Error Propagate that rolls back the reservation transaction?',
     options: [
-      'Rollback',
-      'Transaction rolled back {"reservationId":"TH-90412","guest":"Ana Ruiz","card":"****"}',
-      'Error occurred, rolling back',
+      'Reservation transaction rolled back reservationId=TH-90412 jmsMessageId=ID:th-broker-1-9-3 errorType=DB:CONNECTIVITY next=message lost correlationId=2c8d55',
       'Reservation transaction rolled back reservationId=TH-90412 jmsMessageId=ID:th-broker-1-9-3 errorType=DB:CONNECTIVITY next=redelivery correlationId=2c8d55',
+      'Reservation transaction rolled back reservationId=TH-90412 errorType=DB:CONNECTIVITY correlationId=2c8d55',
+      'Transaction rolled back {"reservationId":"TH-90412","guest":"Ana Ruiz","card":"****"}',
     ],
-    answer: 3,
+    answer: 1,
     explain:
-      'It says what was undone, why, and what happens next. With the JMS message ID you can follow the same message through its next delivery.',
+      'It says what was undone, why, and what happens next. A rollback hands the message back to the broker, so it is delivered again, not lost. With the JMS message ID you can follow the same message through its next delivery, and the line without it and without next leaves the reader guessing. The body line logs a guest name.',
   },
   {
     id: 'log-2064',
@@ -1076,13 +1076,13 @@ export const SET_2 = [
   <logger level="WARN" message='#["Reservation failed, will be redelivered reservationId=$(vars.reservationId) correlationId=$(correlationId)"]' />
 </on-error-continue>`,
     options: [
+      'correlationId is empty inside an error handler',
+      'There is no error.errorType or error.description',
+      'On Error Continue rolls the transaction back, so the line is right',
       'The line says the message will be redelivered, but On Error Continue commits the transaction, so it will not be',
       'The reservation is lost and no line says so at ERROR',
-      'There is no error.errorType or error.description',
-      'WARN lines cannot be written inside a transaction',
-      'correlationId is empty inside an error handler',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 3, 4],
     explain:
       'On Error Continue ends the flow as a success, so the transaction commits and the message is gone. Use On Error Propagate to roll back, or keep On Error Continue and log at ERROR that the reservation was dropped.',
   },
@@ -1128,14 +1128,14 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Marlow Ride: which line is best for a record that is processed late?',
     options: [
-      'Consumer is SLOW',
-      'Late record: {"tripId":"MR-3310872","riderId":"u-55102","route":[...]}',
       'Consumer behind ageSeconds=540 targetSeconds=60 topic=scooter-trips partition=7 offset=4410288 correlationId=b8a0d6',
+      'Consumer behind ageSeconds=540 targetSeconds=60 topic=scooter-trips correlationId=b8a0d6',
+      'Late record: {"tripId":"MR-3310872","riderId":"u-55102","route":[...]}',
       'Consumer behind ageSeconds=540 topic=scooter-trips partition=7 offset=4410288 correlationId=b8a0d6',
     ],
-    answer: 2,
+    answer: 0,
     explain:
-      'The age next to the target says how far behind it is, and the partition shows if one partition or all of them are late. The last option has no target, so the reader cannot tell if 540 seconds is bad.',
+      'The age next to the target says how far behind it is, and the partition shows if one partition or all of them are late. The line without a partition cannot tell one slow partition from a slow consumer, and the line without a target leaves the reader to guess if 540 seconds is bad. The record body adds a rider ID and a route.',
   },
   {
     id: 'log-2068',
@@ -1144,15 +1144,15 @@ export const SET_2 = [
       'Marlow Ride: the listener uses MANUAL ack mode, and after each record the flow calls Commit. Thousands of records arrive each second. The logger after the Commit is below. Pick every problem.',
     code: `<logger level="INFO" message="Committed" />`,
     options: [
-      'It does not say which partition and offset were committed',
+      'Commit returns the record payload, so it should be logged',
       'There is no correlation ID',
       'An INFO line per commit at this rate floods the log. DEBUG fits',
-      'Commit returns the record payload, so it should be logged',
-      'A Logger cannot follow a Commit',
+      'Commit removes the record from the topic, so this line is the only trace of it',
+      'It does not say which partition and offset were committed',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 2, 4],
     explain:
-      'Commit only moves the group offset forward. A DEBUG line with the partition and offset is enough to check commits while you troubleshoot.',
+      'Commit only moves the group offset forward. The record stays on the topic until its retention ends. A DEBUG line with the partition and offset is enough to check commits while you troubleshoot.',
   },
   {
     id: 'log-2069',
@@ -1160,13 +1160,13 @@ export const SET_2 = [
     situation:
       'Marlow Ride: after a deployment, about 4,000 trips were processed twice. Which log lines would show why? Pick every one that applies.',
     options: [
-      'A line with partition and offset when each record is received',
-      'A line with partition and offset after each commit',
-      'An INFO line with the full record each time',
       'An ERROR line from the broker every time a record is read twice',
+      'A line with partition and offset when each record is received',
       'The consumer group ID in the start-up line, to confirm both workers share one group',
+      'An INFO line with the full record each time',
+      'A line with partition and offset after each commit',
     ],
-    answers: [0, 1, 4],
+    answers: [1, 2, 4],
     explain:
       'The same offset received twice, with no commit between, shows records read again after the restart. The broker does not flag a second read, and a group ID typo would make the two workers read everything twice.',
   },
@@ -1211,14 +1211,14 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Brightmoor Stores: which line is best when a record that cannot be read is sent to loyalty-points.dlt?',
     options: [
+      'Poison record skipped topic=loyalty-points partition=5 offset=330918 key=BM-88102 error="Unexpected character at 1:42" next=commit correlationId=f60b3d',
+      'Poison record sent to dead-letter topic key=BM-88102 value=7b22637573746f6d6572223a7b226e616d65223a...',
       'Poison record sent to dead-letter topic topic=loyalty-points partition=5 offset=330918 key=BM-88102 error="Unexpected character at 1:42" next=loyalty-points.dlt correlationId=f60b3d',
-      'Bad record: 7b22637573746f6d6572223a7b226e616d65223a...',
-      'Poison record!!!',
       'Poison record sent to dead-letter topic topic=loyalty-points key=BM-88102 next=loyalty-points.dlt correlationId=f60b3d',
     ],
-    answer: 0,
+    answer: 2,
     explain:
-      'Topic, partition and offset find the original record, and the error says what is wrong with it. The second option logs the raw bytes, which may hold personal data and help nobody. The last has no partition, offset or error, so the original record and the fault cannot be found.',
+      'Topic, partition and offset find the original record, the error says what is wrong with it, and next names the dead-letter topic where a copy now is. The line that says skipped and next=commit hides that the record went to loyalty-points.dlt. The raw bytes may hold personal data and help nobody. The line with no partition, offset or error cannot find the original record or the fault.',
   },
   {
     id: 'log-2073',
@@ -1227,15 +1227,15 @@ export const SET_2 = [
       'Brightmoor Stores: before the dead-letter topic existed, the loyalty-points listener had this in its On Error Propagate. The bad record failed again and again. Pick every problem.',
     code: `<logger level="WARN" message="Retrying record" />`,
     options: [
-      'The same offset fails again and again, and every record behind it on that partition waits',
-      'WARN on every attempt hides that the partition is stuck. After a few attempts it needs ERROR',
-      'There is no partition, offset or key, so the stuck record cannot be found',
       'Kafka moves a bad record to a dead-letter topic by itself after 3 attempts',
-      'Logging the offset leaks private data',
+      'There is no partition, offset or key, so the stuck record cannot be found',
+      'The same offset fails again and again, and every record behind it on that partition waits',
+      'More attempts would let the bad record through in the end',
+      'WARN on every attempt hides that the partition is stuck. After a few attempts it needs ERROR',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 2, 4],
     explain:
-      'Kafka has no dead-letter topic of its own: your flow must publish the record there and commit. An offset is a position, not private data, and it is the fact you need most here.',
+      'Kafka has no dead-letter topic of its own: your flow must publish the record there and commit. A record that cannot be read fails the same way on every attempt, so more attempts only keep the partition stuck for longer. Partition, offset and key are the facts you need most here.',
   },
   {
     id: 'log-2074',

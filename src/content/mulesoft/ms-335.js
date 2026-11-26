@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'What is the claim check pattern?',
+      prompt: 'Item files of 200 MB must reach 3 consumers over JMS. The broker handles messages of a few MB well. Which design fits the claim check pattern?',
       options: [
-        'A check that the sender is allowed to publish to the queue',
-        'Store the large content in blob storage and send a small message that points to it',
-        'Compress every message so it fits under the broker size limit',
-        'Split each message into many small ones and join them at the end',
+        'Raise the broker message size limit to 256 MB, so each file fits in one message',
+        'Compress each file before publishing, so it fits under the broker size limit',
+        'Split each file into 2 MB messages, and let each consumer join them in arrival order',
+        'Store the file in blob storage and publish a small message that points to it',
       ],
-      answer: 1,
-      explain: 'The queue carries the claim ticket. The blob store keeps the content.',
+      answer: 3,
+      explain: 'The queue carries the claim ticket. The blob store keeps the content. A higher limit treats the symptom: the broker still stores and moves 200 MB per message. Compression rarely takes 200 MB down to a few MB. Arrival order is not a safe way to join parts, and one lost part breaks the file.',
     },
     {
       type: 'multi',
@@ -25,10 +25,12 @@ export default {
         'Brokers handle small messages much better than very large ones',
         'The queue stays fast and its storage stays small',
         'The consumer can stream the blob instead of getting it all in memory',
-        'It removes the need for error handling',
+        'It removes the need for error handling, since the blob store retries failed reads',
+        'Duplicate checks are no longer needed, since each blob is written only once',
+        'A failed message needs no dead letter queue, since the blob can be read again',
       ],
       answer: [0, 1, 2],
-      explain: 'Error handling is still needed, now for two systems.',
+      explain: 'Brokers are built for many small messages, so a small pointer keeps the queue fast and its storage small, and the consumer can stream the blob. Error handling is still needed, now for two systems. The queue still delivers at least once, so the consumer still needs a duplicate check. A message that keeps failing still needs a dead letter queue, or it blocks or loops.',
     },
     {
       type: 'single',

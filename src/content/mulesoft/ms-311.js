@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'Which Mule connector sends email over SMTP?',
+      prompt: 'A job must send its report through a relay on port 465 that expects TLS from the first byte. How do you set up the Email connector?',
       options: [
-        'The HTTP connector, posting the message to the relay’s submission endpoint',
-        'The Email connector, with an SMTP or SMTPS configuration and the Send operation',
-        'The Sockets connector, writing SMTP commands to the relay over TCP',
-        'The JMS connector, publishing to the mail server’s outbound queue',
+        'An SMTPS configuration with a TLS context that trusts the relay, and the Send operation',
+        'An SMTP configuration on port 465 that upgrades the session with STARTTLS after connecting',
+        'An SMTP configuration on port 465 with no TLS context, since that port encrypts by itself',
+        'An IMAPS configuration with a TLS context, and its Send operation pointed at port 465',
       ],
-      answer: 1,
-      explain: 'The same connector also reads mail with IMAP and POP3 listeners and operations.',
+      answer: 0,
+      explain: 'Port 465 is SMTPS: TLS starts before any SMTP command, so the connector needs the SMTPS configuration and a TLS context. STARTTLS fits port 587, where the session starts plain and upgrades. The port does not encrypt anything by itself, the client has to speak TLS. IMAP is for reading mail, and sending goes through an SMTP or SMTPS configuration.',
     },
     {
       type: 'match',
@@ -30,15 +30,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'What is the difference between SMTPS and STARTTLS?',
+      prompt: 'A client sends to a relay on port 587 and treats STARTTLS as optional. A network device on the way strips the STARTTLS offer from the server reply. What happens?',
       options: [
-        'They are the same, and SMTPS is only the newer name for STARTTLS',
-        'SMTPS uses TLS from the first byte. STARTTLS starts plain, then upgrades to TLS',
-        'STARTTLS signs each message but does not encrypt the session',
-        'SMTPS encrypts only the body, while STARTTLS encrypts the whole session',
+        'The TLS handshake fails, so the send stops with a clear error and nothing leaks',
+        'The client moves to SMTPS on port 465 and sends the mail there over TLS',
+        'The relay refuses the mail, since it saw no TLS on a submission port',
+        'The client logs in and sends the mail in plain text without any error',
       ],
-      answer: 1,
-      explain: 'With STARTTLS the client sends plain SMTP commands first, then asks to switch to TLS. Make sure STARTTLS is required, not optional, so a failed upgrade does not send in plain text.',
+      answer: 3,
+      explain: 'With STARTTLS the client sends plain SMTP commands first, then asks to switch to TLS. If the offer is missing and TLS is optional, the client carries on in plain text and no error shows. Make sure STARTTLS is required, not optional, so a failed upgrade does not send in plain text. No handshake is even tried, a client does not switch ports by itself, and a relay that only offers STARTTLS accepts plain sessions.',
     },
     {
       type: 'single',
@@ -46,7 +46,7 @@ export default {
       options: [
         'The body is over the relay size limit, so the relay drops the session',
         'The relay certificate comes from an internal CA the Mule truststore does not trust',
-        'Port 587 does not support TLS, so the handshake always fails there',
+        'Port 587 allows only plain SMTP, so the relay refuses any TLS handshake there',
         'The SMTP password is wrong, so the relay ends the handshake',
       ],
       answer: 1,
@@ -54,15 +54,17 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'What do you set on the Send operation for a job report?',
+      prompt: 'A Send operation must deliver an HTML job report with a reject CSV to the support group. What do you set on the operation?',
       options: [
         'From address, to addresses and a subject',
         'A body with its content type, such as text/plain or text/html',
-        'Attachments when needed',
+        'The reject CSV in the attachments, keyed by its file name',
         'The mailbox folder where the sent message is saved',
+        'The SMTP host, port and TLS setting',
+        'A body content type of multipart/mixed, so the attachment fits',
       ],
       answer: [0, 1, 2],
-      explain: 'The Send operation does not save a copy to a folder. Folders belong to reading mail with IMAP.',
+      explain: 'Addresses, subject, body with its content type and the attachments map are set on the Send operation. The Send operation does not save a copy to a folder. Folders belong to reading mail with IMAP. Host, port and TLS sit on the SMTP connection of the config, not on the operation. The connector builds the multipart message itself, so the body keeps text/html.',
     },
     {
       type: 'single',

@@ -39,9 +39,11 @@ export default {
         'Policy start date and past claims count',
         'Device and channel the claim came from',
         'The full call recording of the customer’s first call',
+        'Card and bank details held on the policy',
+        'The whole policy document as a PDF',
       ],
       answer: [0, 1, 2],
-      explain: 'Send what the model uses and nothing more. A call recording is large, personal and not something the scoring model reads.',
+      explain: 'Send what the model uses and nothing more: what was claimed, the policy history and how the claim arrived. A call recording is large, personal and not something the scoring model reads. Card and bank details are sensitive and play no part in the score. A policy PDF is large and unstructured; send the few fields the model needs from it, such as the start date.',
     },
     {
       type: 'single',

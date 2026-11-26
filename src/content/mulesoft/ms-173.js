@@ -8,7 +8,7 @@ export default {
   quiz: [
     {
       type: 'multi',
-      prompt: 'The nodes of a Mule cluster share a distributed memory grid. Which three of these does the grid cover?',
+      prompt: 'A reviewer expects a new fourth node to receive the payment apps and a shared client address from the cluster as soon as it joins. Which three of these does the distributed memory grid actually cover?',
       options: [
         'Persistent and non-persistent object stores',
         'Persistent and transient VM queues',
@@ -61,7 +61,7 @@ export default {
       options: [
         'Queues become local, and the object store has no backups',
         'Object stores stop being shared between the nodes',
-        'The cluster stops electing a primary node',
+        'Distributed locks are turned off for file polling',
         'Hazelcast traffic between the nodes is compressed',
       ],
       answer: 0,
@@ -70,7 +70,7 @@ export default {
     {
       type: 'multi',
       detail: true,
-      prompt: 'Which statements about the Quorum feature are documented?',
+      prompt: 'The bank wants a quorum of 2 on its three-node cluster, so that a lone node cut off by a network split cannot corrupt shared data. Which statements about the Quorum feature are documented?',
       options: [
         'It can only be configured manually, with `mule.cluster.quorumsize` in `{MULE_HOME}/.mule/mule-cluster.properties`',
         'It is only supported in Object Store-related operations',
@@ -100,9 +100,9 @@ export default {
       prompt: 'A node logs `NoDataMemberInClusterException`. What does it mean, and what is the documented action?',
       options: [
         'No data member can serve a partition; restore enough nodes',
-        'The cluster license has expired; install a new one',
-        'A deployed app has no VM queue; redeploy the app',
-        'The JDBC object store is full; add disk space',
+        'Quorum is too high; set `mule.cluster.quorumsize` to 1 at once',
+        'The VM queue has no listener on this node; redeploy the app',
+        'The object store of the node is full; clear it and restart',
       ],
       answer: 0,
       explain: 'It follows node loss, split brain or lost quorum. Reduce the quorum only if you accept weaker consistency. The cluster overview gives this troubleshooting entry. Check `mule.cluster.quorumsize` and how many nodes are running.',

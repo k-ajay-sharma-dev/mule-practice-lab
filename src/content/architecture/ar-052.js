@@ -45,7 +45,7 @@ export default {
     {
       type: 'single',
       prompt: 'Basis allows 10 concurrent RFC connections for your user and the API runs on 2 replicas. How do you size the SAP connection pool?',
-      options: ['10 per replica', '5 per replica, so the total fits the allowance', '20 per replica to handle peaks', '1 per replica, so calls never overlap'],
+      options: ['10 per replica, since each replica opens its own RFC sessions', '5 per replica, so the total fits the allowance', '20 per replica, so peaks wait in the pool instead of failing', '1 per replica, so one RFC call runs at a time on each node'],
       answer: 1,
       explain: 'The limit applies to the SAP user across all replicas, so the per-replica pool must add up to at most 10.',
     },
@@ -54,9 +54,9 @@ export default {
       prompt: 'A System API wraps SAP, which allows only a limited number of concurrent RFC connections. A burst of consumer traffic could overwhelm SAP. Which measure protects it?',
       options: [
         'Apply a Spike Control or Rate Limiting policy, so callers get 429',
-        'Retry every failed call, including writes, until SAP accepts it',
+        'Wrap the RFC call in until-successful with 5 retries',
         'Raise the connection pool above the RFC allowance to absorb peaks',
-        'Fetch all customers on each call and filter them inside Mule',
+        'Scale the System API from 2 to 4 replicas to absorb the burst',
       ],
       answer: 0,
       explain: 'A Spike Control or Rate Limiting policy gives callers 429 instead of overloading SAP. Other protections are timeouts on the RFC call, caching code tables and short-TTL customer lookups in Object Store, and no blind retries on writes without idempotency. Filters should be pushed into the BAPI selection so SAP does the work, because pulling everything into Mule multiplies load.',
@@ -67,8 +67,8 @@ export default {
       options: [
         'Process APIs cannot run DataWeave on SAP data',
         'Each Process API would repeat the mapping and be coupled to SAP',
-        'Mapping runs faster in System APIs',
-        'It makes no difference where the mapping lives',
+        'Process APIs should only route calls, so they hold no DataWeave',
+        'The System API caches the mapping, so each request skips that work',
       ],
       answer: 1,
       explain: 'The System API is the one place that knows SAP. Containing SAP knowledge in one layer is what makes a SAP change or replacement cheap.',

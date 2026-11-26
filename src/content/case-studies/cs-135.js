@@ -39,9 +39,11 @@ export default {
         'A change to one job means redeploying all of them',
         'Teams lose clear ownership if unrelated jobs are mixed',
         'Merged apps cannot be monitored in Anypoint Monitoring',
+        'A merged app needs more vCores than the separate apps added together',
+        'Scheduled jobs in one app must all run on the same schedule',
       ],
       answer: [0, 1, 2],
-      explain: 'Merging trades cost for coupling. Group only jobs with the same owner, the same rhythm of change and a similar risk. A merged app is still monitored like any other app.',
+      explain: 'Merging trades cost for coupling: a fault spreads, a change redeploys everything, and mixed jobs blur ownership. Group only jobs with the same owner, the same rhythm of change and a similar risk. A merged app is still monitored like any other app. One app shares one runtime, so it needs less than the separate apps together; that saving is the reason to merge. Each flow has its own Scheduler, so jobs in one app keep their own times.',
     },
     {
       type: 'single',
@@ -49,7 +51,7 @@ export default {
       prompt: 'Sandbox environments run 24 hours a day with full copies of every app. What do you change?',
       options: [
         'Stop them out of hours, and keep only the apps each team is working on',
-        'Delete all sandbox environments and test directly in production',
+        'Remove the sandboxes and test new versions in production behind a feature flag',
         'Keep them running all day, and cut production capacity instead',
         'Merge every sandbox app into one large app per environment',
       ],

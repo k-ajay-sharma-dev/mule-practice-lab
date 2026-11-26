@@ -89,7 +89,7 @@ export default {
         'The truststore file can be at most 40 KB; the certificate count is not capped',
         'A truststore can hold at most 10 client certificates, whatever its size',
         'A truststore file can be at most 1 MB and hold up to 100 certificates',
-        'A private space has one truststore, shared by all its TLS contexts',
+        'A truststore can hold at most 100 certificates; the file size is not capped',
       ],
       answer: 0,
       explain: 'The limit is on the store file size, 40960 bytes, and not on the number of client certificates. Each TLS context can reference one keystore and one truststore.',

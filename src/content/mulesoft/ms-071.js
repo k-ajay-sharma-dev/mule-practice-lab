@@ -40,9 +40,10 @@ export default {
         'An XA data source for Oracle, used by the DB config',
         'transactionType="XA" where the transaction begins',
         'Setting ackMode="MANUAL" on the JMS listener',
+        'transactionalAction="ALWAYS_BEGIN" with transactionType="LOCAL" on the listener',
       ],
       answer: [0, 1, 2, 3],
-      explain: 'The pieces: `bti:transaction-manager`; the ActiveMQ XA Connection type in JMS connector 2.x (older 1.x versions used enableXA) or a generic XA connection; a Bitronix XA data source pool referenced by the DB config; and XA on the listener or Try that begins it. XA needs a transaction manager plus XA-capable resources, and the transaction must be begun as XA. MANUAL ack plays no part: in a transaction the message is acknowledged only after the transaction completes.',
+      explain: 'A LOCAL transaction is bound to one resource, so it cannot cover ActiveMQ and Oracle together. The pieces: `bti:transaction-manager`; the ActiveMQ XA Connection type in JMS connector 2.x (older 1.x versions used enableXA) or a generic XA connection; a Bitronix XA data source pool referenced by the DB config; and XA on the listener or Try that begins it. XA needs a transaction manager plus XA-capable resources, and the transaction must be begun as XA. MANUAL ack plays no part: in a transaction the message is acknowledged only after the transaction completes.',
     },
     {
       type: 'single',

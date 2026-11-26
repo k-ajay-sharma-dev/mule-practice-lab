@@ -33,7 +33,7 @@ export default {
       type: 'single',
       prompt: 'Max concurrency is 16 and the database pool has 5 connections. What happens in the load step?',
       options: [
-        'Nothing, since each thread holds a connection only for a moment',
+        'The threads take turns on the 5 connections, so all 16 keep full speed',
         'Most threads wait for a connection, so they add waiting, not speed',
         'The pool grows past 5 when threads wait, up to the concurrency',
         'The extra threads fail with a connection error and the records fail',
@@ -49,9 +49,11 @@ export default {
         'The DBA sees lock waits or a full scan on the staging table',
         'Indexes or triggers were added to the staging table',
         'The worker CPU is at 100 percent in DataWeave',
+        'The gap between blocks grew while the insert time per block stayed flat',
+        'Heap use and garbage collection pauses on the worker grew',
       ],
       answer: [0, 1, 2],
-      explain: 'High CPU in DataWeave points at the mapping, not at the database.',
+      explain: 'A longer insert for the same block size, lock waits or a full scan, and new indexes or triggers all put the time inside the database. High CPU in DataWeave points at the mapping, not at the database. A flat insert time with longer gaps means Mule takes longer to build each block. Heap and garbage collection trouble is on the worker too.',
     },
     {
       type: 'single',
@@ -69,7 +71,7 @@ export default {
       type: 'single',
       prompt: 'After the fix, how do you show it worked?',
       options: [
-        'Run it once in a test environment and time it with a stopwatch',
+        'Time one run in a test environment with a small sample of the supplier file',
         'Compare run time and records per second per step, before and after',
         'Check that no errors were logged during the next nightly run',
         'Check that the worker CPU is lower than before the fix',

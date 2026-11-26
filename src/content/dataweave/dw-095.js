@@ -23,7 +23,7 @@ Work out each result before you choose.
     out({
       body: '"a,b,,c" splitBy ","',
       right: '["a", "b", "", "c"]',
-      wrong: ['["a", "b", "c"]', '["a,b,,c"]', '"a b c"'],
+      wrong: ['["a", "b", "c"]', '["a,b,,c"]', '["a", "b", null, "c"]'],
       explain: '`splitBy` keeps the empty value between two commas. Forgetting this is a common cause of shifted columns when reading delimited text by hand.',
     }),
     out({
@@ -33,10 +33,10 @@ Work out each result before you choose.
       explain: 'The innermost call runs first: `trim` removes the outer spaces, `upper` changes the case, and then `++` adds the mark.',
     }),
     out({
-      body: 'sizeOf("DataWeave")',
-      right: '9',
-      wrong: ['8', '1', FAILS],
-      explain: '`sizeOf` on a String returns its number of characters. It also works on arrays and objects.',
+      body: 'sizeOf({ id: 1, note: null, (vip: true) if false })',
+      right: '2',
+      wrong: ['3', '1', FAILS],
+      explain: '`sizeOf` on an object counts its key and value pairs. A field set to null is still a pair, so `note` counts and the answer is not 1. A conditional field whose condition is false is never added, so `vip` does not count and the answer is not 3. Null fields disappear only on output, when a writer setting such as `skipNullOn` removes them.',
     }),
     out({
       body: '"10" + 5',

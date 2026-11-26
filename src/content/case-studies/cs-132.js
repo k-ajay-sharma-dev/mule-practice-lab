@@ -39,9 +39,11 @@ export default {
         'Round start and end points or times where the city agrees it is enough',
         'Give each city only trips in its own area',
         'Replace the rider ID with a fixed hashed ID that is the same on every trip',
+        'Remove the rider ID but keep exact start and end points, so city planning stays accurate',
+        'Share the full GPS trail of every trip, since cities ask for detailed routes',
       ],
       answer: [0, 1, 2],
-      explain: 'Cities need patterns of use, not people. No identity, coarser data where possible, and only their own area protect riders. A fixed hashed ID links all of one rider’s trips, so it still points to a person.',
+      explain: 'Cities need patterns of use, not people. No identity, coarser data where possible, and only their own area protect riders. A fixed hashed ID links all of one rider’s trips, so it still points to a person. Exact start and end points show a home and a workplace, which identify a rider even without an ID. A full GPS trail reveals even more; share it only coarsened and only where the permit really needs it.',
     },
     {
       type: 'single',

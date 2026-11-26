@@ -39,9 +39,11 @@ export default {
         'Hours are within sensible limits, such as no more than 24 in a day',
         'The pay period matches the one being run',
         'Every row has the same total hours as the previous pay period',
+        'The employee name matches the name held in payroll exactly',
+        'Hours are no more than each employee’s contracted hours',
       ],
       answer: [0, 1, 2],
-      explain: 'Wrong people, impossible hours and the wrong period all lead to wrong pay. Hours change honestly from period to period, so matching last period would block correct timesheets.',
+      explain: 'Wrong people, impossible hours and the wrong period all lead to wrong pay. Hours change honestly from period to period, so matching last period would block correct timesheets. Names are spelt differently across tools, with accents, initials or married names, so the employee ID is the key, not the name. Overtime is real work, so a limit at contracted hours would stop people being paid for it.',
     },
     {
       type: 'single',

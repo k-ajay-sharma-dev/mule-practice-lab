@@ -12,7 +12,7 @@ export default {
       prompt: 'How does the correlation ID travel from the Experience API to the System API?',
       options: [
         'The Listener reads or creates it, and HTTP Request sends it on',
-        'It must be copied into a header by hand on every HTTP Request',
+        'Each HTTP Request needs a header expression that copies it in by hand',
         'CloudHub gives each app a new ID, so the hops cannot be linked',
         'It travels in the query string as a `correlationId` parameter',
       ],
@@ -26,8 +26,8 @@ export default {
         'The `correlationId`',
         'App, flow and step names',
         'An `orderId`, status and elapsed time',
-        'The full payload, with card holder name and address',
-        'The access token of the calling client',
+        'The full order payload, so support can replay the order',
+        'All incoming request headers, so support can see the caller',
       ],
       answer: [0, 1, 2],
       explain: 'Structured logs with IDs and timing make cross-app search possible. Never log card data, personal data, passwords or tokens.',
@@ -38,7 +38,7 @@ export default {
       options: [
         'Use async loggers such as `AsyncRoot`, and stop logging huge payloads',
         'Set the root logger to DEBUG so the buffers flush more often',
-        'Add more replicas, and leave the logging setup as it is',
+        'Add more replicas so each one writes a smaller share of the log lines',
         'Write each log line with a Logger inside an Async scope',
       ],
       answer: 0,
@@ -62,7 +62,7 @@ export default {
       prompt: 'On **CloudHub 1.0** you add a Splunk appender to `log4j2.xml`. How do you keep logs visible in Runtime Manager too?',
       options: [
         'Disable CloudHub logs and also add the CloudHub appender to the config',
-        'Nothing, since CloudHub merges custom appenders by itself',
+        'Set the Splunk appender as the root ref, and Runtime Manager copies its output',
         'Use only the Splunk appender, as Runtime Manager reads from Splunk',
         'Keep CloudHub logs on, and the Splunk appender is added to them',
       ],

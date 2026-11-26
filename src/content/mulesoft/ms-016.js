@@ -32,10 +32,15 @@ export default {
     {
       type: 'single',
       detail: true,
-      prompt: 'How is the encrypted DB password referenced in the connector config?',
-      options: ['`${secure::db.password}`', '`${db.password}`', '`#[secure(db.password)]`', '`![db.password]`'],
-      answer: 0,
-      explain: 'The `secure::` prefix tells Mule to read the value from the secure properties config and decrypt it. `![...]` is how the **encrypted value** looks inside the file.',
+      prompt: 'The encrypted password sits in `secure-prod.yaml` as `db.password: "![k3J9fQ==]"`, and only a `secure-properties:config` loads that file. The DB config uses `${db.password}`. What happens when the app starts?',
+      options: [
+        'Mule decrypts it, because the `![...]` marker shows the value is encrypted',
+        'The app fails to start, because that value resolves only as `${secure::db.password}`',
+        'The connector sends the text `![k3J9fQ==]` to the database as the password',
+        'Mule decrypts it with the key set on the `secure-properties:config`',
+      ],
+      answer: 1,
+      explain: 'Values from a Secure Properties config resolve only with the `secure::` prefix, so `${db.password}` finds no property and the app fails to start. Use `${secure::db.password}`, which reads the value and decrypts it. `![...]` is how the **encrypted value** looks inside the file; it does not make a plain placeholder decrypt. The connector would send the encrypted text only if a plain `configuration-properties` also loaded the file.',
     },
     {
       type: 'single',

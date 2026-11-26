@@ -115,7 +115,7 @@ export default {
         'Firewall rules that let only the Private Space CIDR reach specific on-prem endpoints',
         'DNS settings so that Private Space apps can resolve internal hostnames',
         'Cloud apps that query the on-prem database directly, skipping the System API',
-        'A public port on the data center firewall that the cloud apps can call',
+        'Shared-space CloudHub 2.0 apps that reach on-prem over the same VPN',
       ],
       answer: [0, 1, 2],
       explain: 'CIDR overlaps are hard to fix later, so plan them early. The firewall allows only the Private Space CIDR, and internal DNS lets apps use names and not IPs. Tunnels are initiated from the cloud side, so nothing is exposed inbound from the internet. Cloud apps call the on-prem System API, never the database directly, and TLS (ideally mTLS) protects those calls.',

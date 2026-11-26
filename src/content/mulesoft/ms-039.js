@@ -44,15 +44,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'What delivery guarantee does an Anypoint MQ **standard** queue give, and what must consumers do?',
+      prompt: 'A consumer on an Anypoint MQ **standard** queue creates invoices in the ERP with AUTO ack. Ops find two invoices for one order, and no error was logged. What is the right fix?',
       options: [
-        'Exactly-once, so consumers need nothing special at all',
-        'At-least-once, so consumers must be idempotent',
-        'At-most-once, so consumers must retry what they missed',
-        'Exactly-once, as long as the subscriber uses AUTO ack',
+        'Switch the subscriber to IMMEDIATE ack, so a message is never delivered twice',
+        'Run the consumer on one replica, so two replicas cannot read the same message',
+        'Make the consumer idempotent, for example by a store of processed order IDs',
+        'Move to a FIFO queue, whose exactly-once delivery removes the need for checks',
       ],
-      answer: 1,
-      explain: 'Standard queues are documented as at-least-once, and duplicates can occasionally occur, so use a unique business key or a store of processed IDs. FIFO queues are documented as exactly-once, but a consumer that crashes after the side effect and before the ack still sees the message again once the acknowledgement timeout passes. So keep consumers idempotent there too.',
+      answer: 2,
+      explain: 'Standard queues are documented as at-least-once, and duplicates can occasionally occur, so use a unique business key or a store of processed IDs. IMMEDIATE ack trades duplicates for lost work, and one replica still gets the occasional duplicate. FIFO queues are documented as exactly-once, but a consumer that crashes after the side effect and before the ack still sees the message again once the acknowledgement timeout passes. So keep consumers idempotent there too.',
     },
     {
       type: 'single',
@@ -61,8 +61,8 @@ export default {
       options: [
         'Catch the error and write the message into Object Store',
         'Set a DLQ and a maximum delivery count on the queue',
-        'Use IMMEDIATE ack so that failed messages never repeat',
-        'Wrap the call in Until Successful with infinite retries',
+        'Use IMMEDIATE ack, and publish failed messages again from the handler',
+        'Wrap the call in Until Successful with N retries, then drop the message',
       ],
       answer: 1,
       explain: 'Queue-level max deliveries route poison messages to the DLQ automatically, from where they can be replayed. Ops move messages back after fixing the cause, and alert on DLQ depth.',

@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'An inbound adapter gets messages from a queue with an ID. Why check the ID in Oracle before loading?',
+      prompt: 'A Mule subscriber takes an order message from Anypoint MQ, loads it into Oracle, commits, and then acks. The worker crashes after the commit and before the ack. What happens next?',
       options: [
-        'The queue removes duplicates already, so the check only catches errors',
-        'Queues can redeliver and senders resend, so data can arrive twice',
-        'Oracle rejects a second insert with the same message ID by default',
-        'The check confirms the message was acknowledged on the queue',
+        'The broker sees no ack, but drops the message once its lock time passes',
+        'The broker redelivers it, and Oracle rejects the copy since its transaction is the same',
+        'The broker keeps it locked until the same worker comes back to ack it',
+        'The broker redelivers it after the lock expires, so the flow must skip a known message ID',
       ],
-      answer: 1,
-      explain: 'A check stops the same data from being loaded twice. Most brokers promise at least once delivery. The check makes the flow idempotent.',
+      answer: 3,
+      explain: 'Without an ack the message becomes visible again when its lock expires, and another worker loads it a second time. Delivery is at least once, so record the message ID in Oracle and skip repeats. An expired lock returns the message to the queue, it does not drop it, and no worker owns it after a crash. Oracle has no link between the new insert and the old transaction, so nothing rejects the copy unless you add a check.',
     },
     {
       type: 'single',
@@ -32,15 +32,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'What does an Oracle MERGE do?',
+      prompt: 'A partner resends item changes. ITEM_STAGE must keep one row per ITEM_ID with the newest values, and each block mixes known and new items. Which one statement fits?',
       options: [
-        'Inserts the source rows and skips any that would break a key',
-        'Updates target rows that match on a key and inserts the rest',
-        'Deletes target rows that match the source, then inserts all rows',
-        'Joins two tables and returns the combined rows, as a SELECT does',
+        'An INSERT with the IGNORE_ROW_ON_DUPKEY_INDEX hint, so a resent item does not fail',
+        'An INSERT ALL with a WHEN clause per row that tests whether the key exists already',
+        'A MERGE on ITEM_ID that updates matching rows and inserts the ones not found',
+        'A Bulk update operation by ITEM_ID, which inserts the rows that match nothing',
       ],
-      answer: 1,
-      explain: 'It compares source rows with a target on a key in one statement. MERGE INTO target USING source ON (key) WHEN MATCHED THEN UPDATE WHEN NOT MATCHED THEN INSERT.',
+      answer: 2,
+      explain: 'MERGE INTO target USING source ON (key) WHEN MATCHED THEN UPDATE WHEN NOT MATCHED THEN INSERT does both in one statement. The IGNORE_ROW_ON_DUPKEY_INDEX hint skips a duplicate row, so the newest values of a resent item are lost. The WHEN conditions of INSERT ALL test the source row, and it can only insert. A Bulk update runs an UPDATE per row and never inserts.',
     },
     {
       type: 'single',
@@ -62,9 +62,11 @@ export default {
         'A block no longer fails because of a key that was already loaded',
         'MERGE cannot fail on a row, so no reject table is needed',
         'The reject table gets fewer false rejects for resends',
+        'MERGE removes duplicate keys inside the same source batch',
+        'MERGE makes any replay safe, so the duplicate message check can be dropped',
       ],
       answer: [0, 1, 3],
-      explain: 'MERGE can still fail, for example on NOT NULL, length or duplicate source keys.',
+      explain: 'With MERGE a resent item updates its row, so the block does not fail on a known key and resends stop showing up as rejects. MERGE can still fail, for example on NOT NULL or length. Two rows with the same key in one source batch give ORA-30926, not a silent dedupe. A replay of an older message can overwrite newer data, so the duplicate message check still has a job.',
     },
     {
       type: 'single',

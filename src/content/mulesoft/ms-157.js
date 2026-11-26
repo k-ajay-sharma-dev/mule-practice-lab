@@ -72,16 +72,17 @@ export default {
     {
       type: 'multi',
       detail: true,
-      prompt: 'Which statements about cross-region failover are correct?',
+      prompt: 'The orders queue in us-east-1 has a dead-letter queue, and the business wants publishing and consuming to survive a regional outage. Which statements about cross-region failover are correct?',
       options: [
         'It is not enabled by default and needs the connector at version 4.0.7 or later and the `cross.region.failover.feature.enabled` property set to true',
-        'It supports standard queues only, not FIFO queues or message exchanges',
+        'It supports standard queues and message exchanges, but not FIFO queues',
         'It gives resiliency by switching to a fallback queue, not data redundancy: messages are not replicated',
         'If the queue has a dead-letter queue, failover must be enabled on the DLQ first',
-        'You choose the fallback region for each queue',
+        'You choose the fallback region and the fallback queue for each queue when you enable failover',
+        'The fallback queue starts with default settings, so message TTL must be set on it again',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'The server manages fallback queues and regions, and users cannot configure them. For example, the fallback region of us-east-1 is us-east-2. The fallback queue inherits settings such as message TTL.',
+      answer: [0, 2, 3],
+      explain: 'Failover is off by default and needs connector 4.0.7 or later with `cross.region.failover.feature.enabled` set to true. It switches to a fallback queue for resiliency, but messages are not replicated. With a DLQ, enable failover on the DLQ first. It supports standard queues only: FIFO queues and message exchanges are both left out. The server manages fallback queues and regions, and users cannot configure them. For example, the fallback region of us-east-1 is us-east-2. The fallback queue inherits settings such as message TTL, so you do not set them again.',
     },
     {
       type: 'order',

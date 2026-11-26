@@ -9,15 +9,15 @@ export default {
     {
       type: 'single',
       detail: true,
-      prompt: 'Which file do you edit to change the heap of an on-premises Mule runtime?',
+      prompt: 'An operator raised the heap of an on-premises runtime by editing `$MULE_HOME/conf/wrapper-additional.conf`, and it worked after a restart. Weeks later the change is gone. What is the right fix?',
       options: [
-        '`$MULE_HOME/conf/wrapper.conf`, then restart the runtime',
-        '`$MULE_HOME/conf/wrapper-additional.conf`, with no restart',
-        '`mule-artifact.json` in each app',
-        '`$MULE_HOME/conf/mule-agent.yml`',
+        'Make `wrapper-additional.conf` read-only, so nothing can rewrite it',
+        'Put the heap in each app\'s `mule-artifact.json`, then redeploy the apps',
+        'Put the heap in `mule-agent.yml`, so the agent applies it at each start',
+        'Set `wrapper.java.maxmemory` in `wrapper.conf`, then restart the runtime',
       ],
-      answer: 0,
-      explain: 'The Java Service Wrapper starts the JVM. Do not edit `wrapper-additional.conf`, because the runtime regenerates that file.',
+      answer: 3,
+      explain: 'The Java Service Wrapper starts the JVM from `wrapper.conf`, where `wrapper.java.maxmemory` sets the heap in megabytes. Do not edit `wrapper-additional.conf`, because the runtime regenerates that file, and locking it works against the runtime. `mule-artifact.json` describes an app, not the JVM, and `mule-agent.yml` configures the Runtime Manager agent.',
     },
     {
       type: 'single',
@@ -75,7 +75,7 @@ export default {
       options: [
         'The wrapper keeps one and ignores the other',
         'Mule refuses to start and logs a parse error',
-        'Both are passed to the JVM',
+        'Both are passed to the JVM, in file order',
         'The wrapper renumbers them automatically',
       ],
       answer: 0,

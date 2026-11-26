@@ -21,7 +21,7 @@ export default {
       type: 'single',
       prompt: 'The send runs inside an Async scope. The logs show nothing about it. Why might an error be invisible?',
       options: [
-        'Async retries a failed send in the background until it works',
+        'Async retries a failed send and logs only after the last retry',
         'An error inside Async does not reach the flow that started it',
         'Async runs on another worker, whose logs are kept apart',
         'Async drops its work when the flow that started it ends first',
@@ -45,10 +45,10 @@ export default {
       type: 'single',
       prompt: 'The mail server message trace shows the mail was delivered, but nobody sees it. Where do you look?',
       options: [
-        'In the Mule logs, for the SMTP reply the connector got',
+        'In the Mule logs, for the SMTP reply code the connector got on that send',
         'In quarantine, junk folders, mailbox rules and list membership',
-        'In the outbox table, for the status of the send',
-        'In the scheduler, for the time the report flow ran',
+        'In the outbox table, for the send status and the time of the last retry',
+        'In the scheduler logs, for the time the report flow ran on each day',
       ],
       answer: 1,
       explain: 'Delivered to the mailbox is not the same as seen by a person. The Mule side is already proven by the trace, so look at the recipients\' side.',
@@ -59,7 +59,7 @@ export default {
       options: [
         'The mail server rejects messages above its size limit, often with a 552 reply',
         'Send a summary with counts and a link to the full reject list instead of attaching it',
-        'Base64 encoding makes a 30 MB file smaller on the wire',
+        'Base64 encoding of the attachment makes a 30 MB file smaller on the wire',
         'Raise the timeout of the Email connector so the large send can finish',
       ],
       answer: [0, 1],

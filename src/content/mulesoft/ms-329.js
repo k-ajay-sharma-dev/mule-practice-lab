@@ -50,9 +50,11 @@ export default {
         'An attempt count',
         'The original error type',
         'A new random message ID',
+        'A new correlation ID for each attempt, so each try can be traced on its own',
+        'The payload as the failed flow had changed it, so the replay starts where it stopped',
       ],
       answer: [0, 1, 2],
-      explain: 'A new ID breaks duplicate checks and the trail in the job log.',
+      explain: 'The original message ID and correlation ID keep duplicate checks and the trail in the job log working. An attempt count lets the restart app stop after a limit. The original error type tells it whether a replay can help at all. A new message ID breaks duplicate checks. A new correlation ID per attempt splits one story into many in the logs. Replay the original message, not a half changed copy, or the flow runs on data it did not expect.',
     },
     {
       type: 'single',

@@ -53,15 +53,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'What do Anypoint business groups give the business units?',
+      prompt: 'Three business units share one Anypoint organisation. Retail wants to deploy to its own production without asking Corporate, Finance must not see Retail apps, and every unit must still reuse the shared sys-sap-* APIs. What fits?',
       options: [
-        'Separate Anypoint organisations, each with its own identity provider',
-        'Their own environments, vCore allocation and permissions under the root org',
-        'Their own private Exchange, with no sharing of assets across groups',
-        'Their own subscription and licence contract with MuleSoft',
+        'A separate Anypoint organisation per unit, each with its own identity provider',
+        'One environment per unit in the root organisation, with role-based access',
+        'One business group per unit, with its own environments, vCores and permissions',
+        'A private Exchange per unit, so each unit sees only its own assets',
       ],
-      answer: 1,
-      explain: 'Business groups balance BU autonomy with central control, and Exchange assets can still be shared so reuse crosses BG boundaries.',
+      answer: 2,
+      explain: 'Business groups sit under the root organisation and give each unit its own environments, vCore allocation and permissions, while Exchange assets can still be shared so reuse crosses business group boundaries. Separate organisations split identity and reuse. One environment per unit mixes dev and prod in the same place and does not split capacity. A private catalogue per unit blocks the reuse of the shared System APIs.',
     },
     {
       type: 'single',

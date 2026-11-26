@@ -12,8 +12,8 @@ export default {
       options: [
         'OpenID Connect OAuth 2.0 Token Enforcement, with Okta configured as a client provider in Access Management',
         'OAuth 2.0 Access Token Enforcement Using Mule OAuth Provider, pointed at the Okta validation URL',
-        'Basic Authentication: LDAP',
-        'Client ID Enforcement, with the Okta token as the client ID',
+        'JWT Validation, with the Okta JWKS URL, and each client application created by hand in Okta',
+        'Client ID Enforcement, with Okta client IDs copied into Anypoint client applications',
       ],
       answer: 0,
       explain: 'The Mule OAuth Provider policy works exclusively with the Mule OAuth provider, and using it with any other provider is not supported. The OpenID Connect policy needs the organization to use OpenID Connect dynamic client registration as its client management.',
@@ -25,7 +25,7 @@ export default {
       options: [
         'That the OpenID client provider is set in Access Management for the API',
         'That the API uses a RAML with a `securitySchemes` block',
-        'That Mule Gateway has restarted since the API was created',
+        'That the Mule Gateway runtime was restarted after the API instance was created',
         'That the runtime has the OAuth Module as a dependency',
       ],
       answer: 0,
@@ -75,7 +75,7 @@ export default {
         'Client ID Expression `#[authentication.principal]`, and leave Client Secret Expression empty',
         'Client ID Expression `#[attributes.headers.client_id]`, and require clients to send it too',
         'Client ID Expression `#[vars.claimSet.client_id]`',
-        'It cannot be combined with token enforcement',
+        'Client ID Expression `#[attributes.headers.authorization]`, so the bearer token acts as the client ID',
       ],
       answer: 0,
       explain: 'Both policy pages answer this. The identity is already validated, so the secret is not needed. `vars.claimSet` belongs to the JWT Validation policy.',

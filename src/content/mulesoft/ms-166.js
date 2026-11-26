@@ -9,10 +9,15 @@ export default {
     {
       type: 'single',
       detail: true,
-      prompt: 'A Java SDK connector has no `@JavaVersionSupport` annotation. On Mule 4.5.0 or later, which Java versions is it assumed to support?',
-      options: ['Java 8 and Java 11', 'Java 17 only', 'All Java versions that Mule supports', 'No version, so it does not load'],
-      answer: 0,
-      explain: 'So an app that moves to Java 17 fails if it contains such a connector: at deployment Mule verifies that all modules are compatible with the Java version, and if it finds an incompatibility, the application does not deploy.',
+      prompt: 'An app moves to Mule 4.9 on Java 17. It uses `ledger-connector`, a Java SDK connector built without the `@JavaVersionSupport` annotation. What happens when the app is deployed?',
+      options: [
+        'It deploys, because a connector without the annotation is assumed to support every Java version',
+        'It does not deploy, because the connector is assumed to support only Java 8 and Java 11',
+        'It deploys with a warning, and the connector runs in a Java 8 compatibility mode',
+        'It deploys, and the connector fails only when one of its operations is called',
+      ],
+      answer: 1,
+      explain: 'On Mule 4.5.0 or later, a Java SDK connector without `@JavaVersionSupport` is assumed to support Java 8 and Java 11. At deployment Mule verifies that all modules are compatible with the Java version, and if it finds an incompatibility, the application does not deploy. So the check happens at deployment, not at the first call, and there is no compatibility mode.',
     },
     {
       type: 'multi',
@@ -31,7 +36,7 @@ export default {
     {
       type: 'single',
       detail: true,
-      prompt: 'How do you confirm that a built connector carries the Java metadata?',
+      prompt: '`common-error-module` was rebuilt with `mule-extensions-maven-plugin` 1.9.0. Before anything is published, how do you confirm that the built JAR carries the Java metadata?',
       options: [
         '`supportedJavaVersions` in the JAR’s `mule-artifact.json`',
         'A `<java.version>` property in the connector POM',
@@ -49,7 +54,7 @@ export default {
         'Not supported; publish the library as an Exchange custom asset',
         'It works, as long as Exchange knows the Artifactory URL',
         'Declare it with `system` scope and a path in the repository',
-        'It works; Exchange downloads it from any repository in the POM',
+        'It works; Exchange resolves it from the `<repositories>` in the POM',
       ],
       answer: 0,
       explain: 'Mule 4 extensions that declare dependencies that do not exist in Maven Central or the MuleSoft Maven repositories are not currently supported. The section on dependencies external to Exchange says to publish Java libraries and POM files as custom assets. The SDK documentation adds that all Maven dependencies of a custom connector must be accessible from Exchange.',
@@ -60,9 +65,9 @@ export default {
       prompt: 'An app depends on version 2.3.0 of a connector that is in the `development` state and is not a SNAPSHOT. Why does the build fail to resolve it?',
       options: [
         'Maven cannot consume a development asset that is not a SNAPSHOT',
-        'Development assets are visible only in the EU control plane',
+        'The repository URL must use `/api/v2/` for assets in development',
         'The app must declare it with `<scope>provided</scope>`',
-        'The Maven Facade serves only stable assets of type `rest-api`',
+        'Maven resolves it only with `-U`, which forces a check for updates',
       ],
       answer: 0,
       explain: 'Either publish a stable version, or use a SNAPSHOT version during development. A SNAPSHOT asset stays in the `development` state permanently, and `mvn clean deploy` overwrites it without any errors.',
@@ -70,15 +75,17 @@ export default {
     {
       type: 'multi',
       detail: true,
-      prompt: 'Which settings are valid for a pipeline that consumes assets from Exchange?',
+      prompt: 'The pipeline of the 14 apps runs with a connected app and must resolve `ledger-connector` from Exchange. Which settings are valid?',
       options: [
         'A `<repository>` in the POM with the Maven Facade URL, and a `<server>` in `settings.xml` with the same `<id>`',
         'Username `~~~Client~~~`, and password `clientID~?~clientSecret` for a connected app',
         'Dependency coordinates with the group ID, artifact ID and version of the asset',
         'The `/api/v2/` REST URL of the Exchange API in `<repositories>`',
+        'Username `~~~Token~~~`, and the client secret of the connected app as the password',
+        'A `<server>` in `settings.xml` that matches the repository by its `<name>`',
       ],
       answer: [0, 1, 2],
-      explain: 'The `<id>` links the POM with the login information. The REST Exchange API is on v2 and is for calls over HTTP, and the Maven Facade API is the one for Maven clients.',
+      explain: 'The POM declares a `<repository>` with the Maven Facade URL, the dependency uses the GAV of the asset, and a connected app logs in with username `~~~Client~~~` and password `clientID~?~clientSecret`. `~~~Token~~~` is for an access token as the password, not a client secret. The `<id>` links the POM with the login information; the `<name>` plays no part. The REST Exchange API is on v2 and is for calls over HTTP, and the Maven Facade API is the one for Maven clients.',
     },
     {
       type: 'single',

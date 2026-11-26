@@ -27,14 +27,14 @@ Work out each result before you choose.
       payload: pair,
       body: 'payload pluck ((v, k) -> k)',
       right: '["a", "b"]',
-      wrong: ['[1, 2]', '{"a": "a", "b": "b"}', '"a"'],
+      wrong: ['[1, 2]', '{"a": "a", "b": "b"}', '[["a", 1], ["b", 2]]'],
       explain: '`pluck` turns an object into an array. This lambda returns the key, so the result is the list of keys.',
     }),
     out({
       payload: pair,
       body: 'payload filterObject ((v) -> v > 1)',
       right: '{"b": 2}',
-      wrong: ['[2]', '{"a": false, "b": true}', '2'],
+      wrong: ['[2]', '{"a": false, "b": true}', '{"a": 1}'],
       explain: '`filterObject` keeps the matching key and value pairs and still returns an object.',
     }),
     out({

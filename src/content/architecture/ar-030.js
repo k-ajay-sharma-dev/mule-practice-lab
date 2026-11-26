@@ -62,9 +62,11 @@ export default {
         'A trigger that sets LAST_MODIFIED on every update',
         'A weekly full reconciliation (hash of key fields per SKU)',
         'Rely on the watermark query to notice deleted rows',
+        'Use the highest product ID seen as the watermark instead of LAST_MODIFIED',
+        'Move the watermark back by a 10 minute overlap on each poll',
       ],
       answer: [0, 1, 2],
-      explain: 'A deleted row has no timestamp to query, so a timestamp-based delta can never see it. Fix at source where possible and reconcile for the rest.',
+      explain: 'A soft-delete flag or an audit table gives deletes a row Mule can read. A trigger sets LAST_MODIFIED for programs that forget, so the delta sees their changes. A weekly reconciliation catches whatever still slips through. A deleted row has no timestamp to query, so the watermark query can never see it. A product ID watermark finds new products only, and misses updates and deletes. An overlap catches rows committed late, but a row whose LAST_MODIFIED never changes stays invisible however far back you look.',
     },
     {
       type: 'single',

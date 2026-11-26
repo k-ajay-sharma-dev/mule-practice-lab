@@ -39,9 +39,10 @@ export default {
         'Alert when an expected store has no file by the cut off',
         'Archive with a single rename call instead of copy then delete',
         'Poll less often so each run sees fewer new files',
+        'Set maxresults to 5,000 on the listing, so one page always holds every file',
       ],
       answer: [0, 1, 2, 3],
-      explain: 'Key the processed record by path, size and last write time. Use the rename call where the API version supports it. Polling less often changes nothing about either cause, and it makes the listing bigger.',
+      explain: 'A processed record, keyed by path, size and last write time, stops a file that failed to archive from being sent again. Following the NextMarker until it is empty reads every page, so no file is missed on a busy day. An alert at the cut off catches a missing store before the planners do. Use the rename call where the API version supports it, so there is no gap between copy and delete. Polling less often changes nothing about either cause, and it makes the listing bigger. A larger maxresults only makes pages bigger: the service can still return a NextMarker, so the reader must still follow it.',
     },
     {
       type: 'order',

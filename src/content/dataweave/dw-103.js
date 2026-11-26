@@ -42,7 +42,7 @@ Work out each result before you choose.
     out({
       body: '"a1b22" scan /\\d+/',
       right: '[["1"], ["22"]]',
-      wrong: ['["1", "22"]', '"122"', '[1, 22]'],
+      wrong: ['["1", "22"]', '[["1", "22"]]', '[1, 22]'],
       explain: '`scan` returns one array per match, and each holds the match followed by any capture groups. That is why the result is nested.',
     }),
   ],

@@ -35,7 +35,7 @@ export default {
       options: [
         'An SMTPS connection on port 465 with a TLS configuration',
         'An SMTP connection with the port changed to 465',
-        'An IMAPS connection on port 465 with TLS',
+        'An SMTP connection on port 587 with a TLS configuration',
         'An SMTP connection on port 25 with a higher connection timeout',
       ],
       answer: 0,
@@ -62,10 +62,12 @@ export default {
         'email:move-to-folder',
         'email:mark-as-read',
         'Enable Watermark on the listener',
-        'email:send',
+        'email:send to an archive mailbox',
+        'A TLS-secured connection to the mailbox',
+        'A list operation that reads the mailbox on demand',
       ],
       answer: [0, 1, 2],
-      explain: 'Move, mark-as-read, delete, expunge and the watermark option belong to the IMAP side. `email:send` belongs to neither: it needs an SMTP or SMTPS configuration.',
+      explain: 'Move, mark-as-read, delete, expunge and the watermark option belong to the IMAP side. `email:send` belongs to neither: it needs an SMTP or SMTPS configuration. TLS is not IMAP only: POP3 has POP3S as IMAP has IMAPS. A list operation exists for both, as List IMAP and List POP3.',
     },
     {
       type: 'single',

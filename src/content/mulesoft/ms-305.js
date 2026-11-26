@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'What does an Oracle DATE column hold?',
+      prompt: 'A Select with WHERE SHIP_DATE = TO_DATE(:day, \'YYYY-MM-DD\') on a DATE column returns no rows for a day that had 300 shipments. Why?',
       options: [
-        'The day only, with no time part',
-        'The day and a time to the second, with no time zone',
-        'The day and a time to the second, in the database time zone',
-        'The day and a time to the millisecond, with no time zone',
+        'DATE keeps milliseconds, and the bound value has none, so no time can match',
+        'TO_DATE returns a TIMESTAMP, and Oracle never finds a TIMESTAMP equal to a DATE',
+        'SHIP_DATE also holds a time to the second, so only rows at exactly midnight match',
+        'DATE is stored in the database time zone, so the bound day is shifted by the offset',
       ],
-      answer: 1,
-      explain: 'A DATE always has a time part. A filter on DATE = a day misses rows with a time unless you use TRUNC or a range.',
+      answer: 2,
+      explain: 'A DATE always has a time part to the second, with no zone and no fractions. TO_DATE with a day mask gives midnight, so the filter matches only rows stamped 00:00:00. Use a range from the day to the next day. TO_DATE returns a DATE, not a TIMESTAMP. Milliseconds and a time zone belong to the TIMESTAMP types.',
     },
     {
       type: 'single',
@@ -32,10 +32,10 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Which column type keeps the offset the value was written with?',
-      options: ['DATE', 'TIMESTAMP', 'TIMESTAMP WITH TIME ZONE', 'TIMESTAMP WITH LOCAL TIME ZONE'],
-      answer: 2,
-      explain: 'WITH LOCAL TIME ZONE stores the value in the database time zone and shows it in the session time zone, without the original offset.',
+      prompt: 'Orders from shops in three time zones arrive as 2026-11-18T09:30:00+01:00. Support must later see each order in the shop local time with its offset. Which column type fits?',
+      options: ['TIMESTAMP WITH LOCAL TIME ZONE', 'TIMESTAMP WITH TIME ZONE', 'TIMESTAMP', 'DATE'],
+      answer: 1,
+      explain: 'TIMESTAMP WITH TIME ZONE stores the offset or region with the value, so +01:00 comes back as written. WITH LOCAL TIME ZONE stores the value in the database time zone and shows it in the session time zone, without the original offset. TIMESTAMP and DATE keep no zone at all, so the offset is lost.',
     },
     {
       type: 'single',

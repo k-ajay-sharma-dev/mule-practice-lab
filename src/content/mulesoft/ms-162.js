@@ -9,15 +9,15 @@ export default {
     {
       type: 'single',
       detail: true,
-      prompt: 'How do the docs say a parent POM reaches Exchange?',
+      prompt: 'The platform team wants `retail-parent`, with packaging `pom`, in Exchange so that all 40 apps can resolve it. Which publish setup do the docs describe?',
       options: [
-        'As a custom asset, published with `exchange-mule-maven-plugin`',
-        'As a Mule application, published with `mule-maven-plugin` and the `mule-application` classifier',
-        'As a Mule plugin, with `mule-extensions-maven-plugin`',
-        'Parent POMs cannot be stored in Exchange',
+        'Publish it with `mule-maven-plugin` and the `mule-application` classifier',
+        'Publish it with `maven-deploy-plugin` to the Maven Facade `/api/v3/` URL',
+        'Publish it as a custom asset with `exchange-mule-maven-plugin`',
+        'Publish it with `mule-extensions-maven-plugin`, as for a Mule plugin',
       ],
-      answer: 0,
-      explain: 'The Exchange page says parent POMs are published as custom assets, and that custom assets use `exchange-mule-maven-plugin`. Its latest version on that page is 0.1.7.',
+      answer: 2,
+      explain: 'The Exchange page says parent POMs are published as custom assets, and that custom assets use `exchange-mule-maven-plugin`. Its latest version on that page is 0.1.7. A parent POM is not a Mule application or a Mule plugin, so the other two Mule plugins do not fit. The same page says not to include `maven-deploy-plugin`, because it is not compatible with the required plugin.',
     },
     {
       type: 'single',
@@ -37,8 +37,8 @@ export default {
       prompt: 'The parent already declares `exchange-mule-maven-plugin`. A child Mule application is published with the Mule Maven plugin. What must be done?',
       options: [
         'Prevent the inheritance with `<inherited>false</inherited>` on that plugin',
-        'Add `maven-deploy-plugin` to the child to do the publish',
-        'Publish the child as a custom asset as well',
+        'Add `maven-deploy-plugin` to the child so it takes over the publish',
+        'Set the `mule-application` classifier on the inherited Exchange plugin',
         'Nothing, because the two plugins run one after the other',
       ],
       answer: 0,
@@ -51,7 +51,7 @@ export default {
       options: [
         'It fails to deploy; v2 and v3 cannot be mixed',
         'It works, and the value in the child wins',
-        'It works, because v2 and v3 are aliases',
+        'It works, because Exchange redirects v2 calls to v3',
         'It works only if the parent was published first',
       ],
       answer: 0,
@@ -87,8 +87,8 @@ export default {
       options: [
         'The latest version is used',
         'The earliest version is used',
-        'The build fails',
-        'Both versions go into the JAR',
+        'The build fails until one version is excluded',
+        'Both versions go into the JAR, one per dependency',
       ],
       answer: 0,
       explain: 'The note on the Package a Mule Application page says the latest version is used. Plain Maven mediation picks the nearest definition in the tree instead, so do not rely on either rule. Pin the version in `dependencyManagement` and check with `mvn dependency:tree`.',

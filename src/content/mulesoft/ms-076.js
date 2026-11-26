@@ -23,9 +23,9 @@ export default {
       prompt: 'Inside the transactional Try, the error handler uses **On Error Continue** for DB:QUERY_EXECUTION. What happens to the transaction?',
       options: [
         'It commits, since On Error Continue ends the Try successfully',
-        'It always rolls back, whatever the handler type',
-        'It stays open until the flow itself ends',
-        'Mule retries the failed statement before committing',
+        'It rolls back, since the Try still ended with an error',
+        'It stays open, and the flow commits it when it ends',
+        'It retries the failed statement, then commits the rest',
       ],
       answer: 0,
       explain: 'The inserts that worked are kept. On Error Propagate rolls the transaction back; On Error Continue treats the error as handled and commits. Using Continue here can leave a header without lines.',

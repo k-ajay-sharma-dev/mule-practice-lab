@@ -39,9 +39,11 @@ export default {
         'Respect each owner’s contact choice and opt out',
         'Keep a record of what was sent, so a rerun does not send twice',
         'Include the reason for the visit and the pet’s recent treatment',
+        'Send from the booking app’s own copy of the visit when the clinic link is down',
+        'Check the owner’s opt out once, when the booking is made',
       ],
       answer: [0, 1, 2],
-      explain: 'A reminder for a cancelled visit, an unwanted message or a double message all hurt trust. Medical details do not belong in a text or email that others may see.',
+      explain: 'A reminder for a cancelled visit, an unwanted message or a double message all hurt trust. Medical details do not belong in a text or email that others may see. The booking app’s copy misses changes made at the desk or by phone, which are 40% of bookings, so a reminder may go out for a cancelled visit; hold it and retry when the link is back. An owner can opt out after booking, so the choice must be checked at send time.',
     },
     {
       type: 'single',

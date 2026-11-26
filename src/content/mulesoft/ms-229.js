@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'A partner API uses the OAuth 2.0 client credentials grant. What does Mule send to the token URL?',
+      prompt: 'A partner gives you a client id, a client secret and a token URL, and says no person signs in at any point. What does Mule send to the token URL?',
       options: [
-        'A user name and password typed by a person',
+        'The user\'s name and password, and the client id of the app',
         'Its client id and client secret, and the scopes it asks for',
-        'The access token from the last call',
-        'Nothing, the partner pushes tokens to Mule',
+        'An authorization code, and the redirect URI it registered',
+        'A refresh token from the last call, and the scopes it asks for',
       ],
       answer: 1,
-      explain: 'Client credentials is a machine to machine grant. The app proves who it is with its own id and secret and gets an access token back.',
+      explain: 'With no person involved, this is the client credentials grant, a machine to machine grant. The app proves who it is with its own id and secret and gets an access token back. A user name and password belong to the password grant, and an authorization code to a grant where a person signs in. A refresh token is not part of the client credentials flow.',
     },
     {
       type: 'single',
@@ -32,15 +32,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'What does the client credentials grant type from the OAuth module add to an HTTP Request configuration?',
+      prompt: 'An HTTP Request config has the client credentials grant type. Before each call, the flow also calls the token URL itself and sets `Authorization: Bearer` by hand. What should change?',
       options: [
-        'It gets, keeps and sends the token as a bearer token',
-        'It checks bearer tokens sent to the HTTP listener',
-        'It signs each request body with the client secret',
-        'It registers a client application in API Manager',
+        'Keep both, as the grant type only fetches the token and does not send it',
+        'Remove the manual call and header, as the grant gets, keeps and sends the token',
+        'Move the grant type to the HTTP Listener config, where tokens are handled',
+        'Keep the manual call and drop the grant type, as it only checks inbound tokens',
       ],
-      answer: 0,
-      explain: 'Inside the authentication of an HTTP Request config, the grant type handles the token for the outbound calls. Checking inbound tokens is the job of a policy on the API.',
+      answer: 1,
+      explain: 'Inside the authentication of an HTTP Request config, the grant type gets the token, keeps it until it expires and sends it as a bearer token on the outbound calls. The manual call repeats that work and loads the token server. Checking inbound tokens is the job of a policy on the API, not of the Listener or of the grant type.',
     },
     {
       type: 'single',
@@ -60,8 +60,8 @@ export default {
       options: [
         'An encrypted secure property, with the key given at deploy time',
         'A secret store that the runtime reads',
-        'Plain text in the HTTP Request config in Git',
-        'A query parameter on the token URL',
+        'A plain property in config-prod.yaml, kept out of the flow XML',
+        'A query parameter on the token URL, read from a property',
       ],
       answer: [0, 1],
       explain: 'The secret proves the app\'s identity. Keep it encrypted or in a secret store. A query parameter can end up in access logs.',

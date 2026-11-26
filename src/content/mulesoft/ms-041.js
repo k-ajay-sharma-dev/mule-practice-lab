@@ -19,15 +19,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'How do you scale an app horizontally on CloudHub 2.0?',
+      prompt: 'An app runs on CloudHub 2.0 as 1 replica of 0.5 vCore. At peak its CPU is maxed out, and the business now also wants the API to stay up when a replica fails. Which change covers both needs?',
       options: [
-        'Increase the replica count',
-        'Increase the vCore size',
-        'Add a second DLB',
-        'Deploy a copy of the app with another name',
+        'Raise the vCore size to 1, so the one replica has twice the CPU',
+        'Enable clustering, so the work is spread across the replica cores',
+        'Raise the replica count to 2 or more, so load spreads and one can fail',
+        'Keep 1 replica, since CloudHub 2.0 restarts a failed replica for you',
       ],
-      answer: 0,
-      explain: 'Replica count is horizontal scaling; changing the vCore size is vertical scaling.',
+      answer: 2,
+      explain: 'More replicas is horizontal scaling: it adds capacity and also removes the single point of failure. A larger vCore is vertical scaling, so it helps CPU but one replica is still one failure away from an outage. Clustering coordinates several replicas and adds no capacity to a single one. CloudHub 2.0 does restart a failed replica, but the API is down until it is back.',
     },
     {
       type: 'single',

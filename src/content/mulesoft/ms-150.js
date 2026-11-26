@@ -71,7 +71,7 @@ export default {
       prompt: 'An organization runs apps on both CloudHub 1.0 and CloudHub 2.0, and its running apps use nearly all of its vCores. A team creates a CloudHub 2.0 app that needs more vCores than are free. What happens?',
       options: [
         'The app starts, because each CloudHub version has its own vCores',
-        'The platform refuses to create the app',
+        'The platform refuses to create the app until vCores are free',
         'The app starts with fewer vCores than requested',
         'The app is created but cannot start until vCores are free',
       ],

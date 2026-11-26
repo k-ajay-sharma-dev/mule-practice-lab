@@ -8,10 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'What is the default accept policy of a batch step?',
-      options: ['ALL', 'ONLY_FAILURES', 'NO_FAILURES', 'NONE'],
+      prompt: 'A job with maxFailedRecords="-1" has three steps: Validate, Enrich and LogRejects. None of them sets an accept policy. Record 42 fails in Validate. Which later steps does record 42 enter?',
+      options: [
+        'Enrich and LogRejects, since a step takes every record unless told otherwise',
+        'Only LogRejects, since the last step of a job takes failed records by default',
+        'Neither, since both steps take only records that have not failed so far',
+        'Enrich only, since a failed record is dropped after one more step',
+      ],
       answer: 2,
-      explain: 'By default a step only takes records that have not failed in an earlier step.',
+      explain: 'The default accept policy is NO_FAILURES: by default a step only takes records that have not failed in an earlier step. That is why LogRejects needs acceptPolicy="ONLY_FAILURES" to see record 42. ALL is a setting you choose, not the default, and the position of a step does not change its policy.',
     },
     {
       type: 'match',
@@ -29,7 +34,7 @@ export default {
       options: [
         'It fails the step and is counted as a failed record',
         'It skips this step and goes on to the next one, still a good record',
-        'It stops the job instance until the expression is fixed',
+        'It enters the step anyway, since the expression applies only to failed records',
         'It is removed from the job and not counted in the result',
       ],
       answer: 1,
@@ -37,15 +42,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'A step has both an accept policy and an accept expression. Which records enter it?',
+      prompt: 'A step has acceptPolicy="ONLY_FAILURES" and acceptExpression="#[payload.country == \'DE\']". Record 7 has country DE and has not failed in any step. Does it enter the step?',
       options: [
-        'Records that pass either one',
-        'Records that pass both',
-        'Only the expression counts',
-        'Only the policy counts',
+        'Yes, since the expression matches, and an expression overrides the policy',
+        'No, since it fails the policy, and a record must pass both checks',
+        'Yes, since passing either the policy or the expression is enough',
+        'Only if it then fails in this step, since the policy is checked after the step runs',
       ],
       answer: 1,
-      explain: 'The policy is checked first, then the expression.',
+      explain: 'A record enters only when it passes both. The policy is checked first, then the expression. Record 7 is a good record, so ONLY_FAILURES keeps it out before the expression is even looked at. The expression does not override the policy, and the policy is checked before the step, not after.',
     },
     {
       type: 'single',
@@ -53,8 +58,8 @@ export default {
       options: [
         'It cannot, since the error is cleared once the record is marked failed',
         'Batch functions in DataWeave, such as one that returns the record’s step exceptions',
-        'From the On Complete payload, which lists each failed record',
-        'From flow variables set by the error handler of the first step',
+        'From the On Complete payload, which lists each failed record with its exception',
+        'From the error object, which still holds the error raised in the earlier step',
       ],
       answer: 1,
       explain: 'Mule 4 offers batch functions for this, such as Batch::getStepExceptions(), which maps each failed step to its exception. From Mule 4.12 the error based versions such as Batch::getStepErrors() are the default, so check the functions for your runtime version.',
@@ -67,9 +72,11 @@ export default {
         'Let later steps skip it with the default policy',
         'Write it with the reason to a reject table in a last step with ONLY_FAILURES',
         'Catch the error in the step and set the payload to null',
+        'Write the failed records to the reject table from On Complete',
+        'Keep max failed records at its default, so failed records reach the reject step',
       ],
       answer: [0, 1, 2],
-      explain: 'Hiding the error with a null payload makes the record look good, and later steps fail in strange ways.',
+      explain: 'Raising an error marks the record failed, the default NO_FAILURES policy keeps it out of later steps, and an ONLY_FAILURES step writes it with its reason. Hiding the error with a null payload makes the record look good, and later steps fail in strange ways. On Complete gets only the result counts, not the records. The default max failed records is 0, so the first failed record stops the job, and it must be raised for this design.',
     },
   ],
   description: `

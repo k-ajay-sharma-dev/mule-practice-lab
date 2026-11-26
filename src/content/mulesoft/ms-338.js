@@ -20,15 +20,17 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'What uses heap in a large file flow?',
+      prompt: 'What can take a large share of heap in a large file flow?',
       options: [
         'In memory stream buffers',
         'DataWeave scripts that sort, group or read the payload twice',
         'Batch blocks and aggregator groups in progress',
         'The file attributes, such as name, size and time',
+        'A repeatable file store stream once the data grows past its in memory buffer',
+        'A non repeatable stream read once by a streaming writer',
       ],
       answer: [0, 1, 2],
-      explain: 'Find the step that holds the most data at once. It sets the size.',
+      explain: 'In memory buffers, DataWeave that sorts, groups or reads twice, and batch blocks and aggregator groups in progress all hold data on the heap. The attributes are a few small values. A file store stream keeps only its buffer in memory and moves the rest to temp disk, so it costs disk, not heap. A stream read once by a streaming writer keeps memory flat. Find the step that holds the most data at once. It sets the size.',
     },
     {
       type: 'single',
@@ -60,8 +62,8 @@ export default {
       options: [
         'Double the heap so the largest file fits with room to spare',
         'Find the step that keeps all the data, such as a Logger, a second read or a sort',
-        'Restart the app every night to clear what has built up',
-        'Tune garbage collection so the heap is freed sooner',
+        'Restart the app every night, so the heap that has built up is cleared',
+        'Tune garbage collection so the heap is freed sooner after each file',
       ],
       answer: 1,
       explain: 'A non streaming reader also keeps all the data. A bigger heap hides the problem until the next larger file.',

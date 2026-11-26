@@ -44,7 +44,7 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'How does a Mule app prove who it is to Anypoint MQ?',
+      prompt: 'A Mule app moves from Sandbox to Production and must publish to the Production queues. What does its Anypoint MQ connector config use to prove who it is?',
       options: [
         'With a developer\'s Anypoint user name and password',
         'With the client ID and secret of an MQ client app',
@@ -52,19 +52,21 @@ export default {
         'None are needed inside the same organization',
       ],
       answer: 1,
-      explain: 'Client apps are created in Anypoint MQ for each environment. Each has a client ID and secret, which should live in secure properties, not in plain text.',
+      explain: 'Client apps are created in Anypoint MQ for each environment, so Production needs its own. Each has a client ID and secret, which should live in secure properties, not in plain text. A person\'s login does not belong in an app, and being in the same organization does not skip the check.',
     },
     {
       type: 'multi',
-      prompt: 'Which statements about standard and FIFO queues in Anypoint MQ are true?',
+      prompt: 'Payment events for one account must be handled in the order they were sent, and the team is choosing an Anypoint MQ queue type. Which statements are true?',
       options: [
         'A FIFO queue keeps messages in the order they were sent',
         'A standard queue does not promise order',
         'A standard queue can deliver the same message more than once',
-        'A FIFO queue is always faster than a standard queue',
+        'A FIFO queue gives more throughput than a standard queue',
+        'A standard queue keeps order if the subscriber sets prefetch to 1',
+        'A FIFO queue lets several replicas handle one account\'s events in parallel and still in order',
       ],
       answer: [0, 1, 2],
-      explain: 'Standard queues aim for throughput and deliver at least once, without an order promise. FIFO queues keep order, which costs throughput.',
+      explain: 'A FIFO queue keeps messages in the order they were sent. Standard queues aim for throughput and deliver at least once, so they can send a message twice and make no order promise. Prefetch only changes how many messages a subscriber fetches at a time, so it does not add an order promise to a standard queue. FIFO keeps order, which costs throughput. If several replicas work on one account\'s events at the same time, they can finish in any order, so the queue order is lost in processing.',
     },
     {
       type: 'single',

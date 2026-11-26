@@ -12,9 +12,9 @@ export default {
       prompt: 'The claims intake API runs on one 0.1 vCore worker. It is fast at start-up and during occasional bursts, but response times are uneven under the steady daytime load. What do the docs say about this size?',
       options: [
         'Small workers burst only briefly; 1 vCore or more gives consistent speed',
-        '0.1 vCore workers are throttled only during the first hour after deployment',
-        'All worker sizes have identical CPU, and only the memory differs',
-        'Bursting is permanent as long as the worker has spare heap',
+        'Small workers burst only briefly; a second 0.1 vCore worker gives consistent speed',
+        'The 500 MB heap causes the pauses, so a 0.2 vCore worker gives consistent speed',
+        'Bursting lasts while the worker has spare heap, so tune the heap, not the size',
       ],
       answer: 0,
       explain: '0.1 and 0.2 vCore workers give limited CPU and I/O and can only burst for a short time. Bursting helps start-up times and infrequent, large workloads. It is not sustained capacity, so a steady load that needs consistent performance belongs on 1 vCore or more.',
@@ -38,7 +38,7 @@ export default {
       options: [
         'Move to a worker with two or more vCores, which has far more disk',
         'Add a second 0.2 vCore worker, because the disks of all workers are pooled',
-        'Raise the disk size in the application properties',
+        'Raise the disk size with an application property, and keep the 0.2 vCore worker',
         'Enable persistent queues, which moves local files off the worker',
       ],
       answer: 0,

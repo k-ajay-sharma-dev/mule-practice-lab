@@ -90,8 +90,8 @@ export default {
       options: [
         'Replace v1 with v2 on one agreed release date',
         'Publish 2.0.0 beside v1, serve v1 as an adapter, migrate one by one',
-        'Keep only v1 and squeeze every new field into `address`',
-        'Let each Process API call Salesforce directly for now',
+        'Publish 2.0.0 and redirect /api/v1 calls to /api/v2 with a 301',
+        'Publish 2.0.0 as a new asset, and switch v1 off after 30 days',
       ],
       answer: 1,
       explain: 'Publish 2.0.0 of the same Exchange asset with its own API instance, and serve /api/v1 as a thin adapter over the v2 logic. Running both side by side (often in one app) lets each Process API migrate in its own release cycle until v1 traffic reaches zero.',
@@ -104,7 +104,7 @@ export default {
         'Version the Experience APIs to v2 as well',
         'The Process APIs move to v2 but keep their own contracts unchanged',
         'Freeze Salesforce changes until consumers are ready',
-        'Ask external consumers to ignore the new fields',
+        'Run a v2 of each Process API beside v1 for the external consumers',
       ],
       answer: 1,
       explain: 'Each layer versions independently: a major version at one layer does not imply one above. This containment is the point of layering.',
@@ -125,7 +125,7 @@ export default {
       type: 'single',
       prompt: 'Why is URI major versioning (/v1, /v2) the most common choice in Anypoint?',
       options: [
-        'HTTP does not allow versions in headers',
+        'API Manager policies cannot read a version from request headers',
         'It maps cleanly to API instances, policies and APIkit routers',
         'It removes the need for semantic versioning',
         'Exchange cannot store header-versioned APIs',

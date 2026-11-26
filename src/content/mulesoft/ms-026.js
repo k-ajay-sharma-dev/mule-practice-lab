@@ -27,10 +27,12 @@ export default {
         'Payment System API failure rate > 5% for 5 minutes',
         'Outbound failures/timeouts to the payment provider above a threshold',
         'Business metric: technical failures per provider',
-        'CPU > 80% for 10 minutes',
+        'CPU above 80% on the payment app replicas for 10 minutes',
+        'An alert when the payment app status changes from RUNNING',
+        'A daily report of failed payments sent to customer service',
       ],
       answer: [0, 1, 2],
-      explain: 'Dependency errors and timeouts rarely move CPU. CPU alerts are for capacity, not for user-facing incidents.',
+      explain: 'The incident was 30% `HTTP:TIMEOUT` errors to one provider, so alert on the failure rate, on outbound timeouts and on failures per provider. Dependency errors and timeouts rarely move CPU. CPU alerts are for capacity, not for user-facing incidents. The app stayed running all night, so a status alert never fires. A daily report would arrive hours after customers had noticed.',
     },
     {
       type: 'match',
@@ -49,7 +51,7 @@ export default {
       options: [
         'Correlation IDs in every log line and per-dependency dashboards',
         'Raising the log level to DEBUG on all 45 apps during incidents',
-        'Restarting the apps one by one until the errors stop',
+        'Searching the logs of each app in Runtime Manager one by one',
         'Running more replicas per app so failures are spread out',
       ],
       answer: 0,
@@ -61,7 +63,7 @@ export default {
       options: [
         'Run a cheap check of the app and its critical dependencies',
         'Place a real payment, to prove that the full path works',
-        'Return 200 every time, so that monitoring always stays green',
+        'Return 200 once the app has started, without calling dependencies',
         'Return the JVM heap statistics to any caller that asks',
       ],
       answer: 0,

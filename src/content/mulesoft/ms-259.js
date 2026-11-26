@@ -8,10 +8,10 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'Which Event Grid event type tells you a blob was created or replaced?',
-      options: ['Microsoft.Storage.BlobCreated', 'Microsoft.Storage.FileUploaded', 'Azure.Blob.New', 'Microsoft.EventGrid.BlobWritten'],
-      answer: 0,
-      explain: 'Blob Storage publishes BlobCreated and BlobDeleted events, among others, through an Event Grid system topic for the account.',
+      prompt: 'A partner uploads a 3 GB file with Put Block calls and then Put Block List. The hub subscribes to Microsoft.Storage.BlobCreated. When does the event fire?',
+      options: ['Once for each Put Block, so the hub must wait for the last one', 'When the first block is staged, so the hub may read a partial file', 'Once, after Put Block List commits, so the file is complete', 'Never, as only a single Put Blob call raises the event'],
+      answer: 2,
+      explain: 'Blob Storage publishes BlobCreated and BlobDeleted events, among others, through an Event Grid system topic for the account. BlobCreated fires when a blob is created or replaced, which for a block upload is the Put Block List commit. Staged blocks are not part of the blob yet, so they raise no event. That is why the event cannot point to a half written file, unlike a notification sent too early.',
     },
     {
       type: 'single',
@@ -19,23 +19,24 @@ export default {
       options: [
         'Ignore it and return 200',
         'Answer with the validation code it received',
-        'Return 404 until the first real event',
-        'Forward it to the JMS queue',
+        'Answer with the subscription name header value',
+        'Forward it to the JMS queue like other events',
       ],
       answer: 1,
       explain: 'Answering with the code tells Event Grid the endpoint agrees to receive events. The validation handshake proves the endpoint owner wants the events. Without the right answer, the subscription is not created.',
     },
     {
       type: 'multi',
-      prompt: 'Which statements about Event Grid delivery are true?',
+      prompt: 'The hub adds an Event Grid webhook for BlobCreated. A partner uploads a file, then replaces it a minute later. Which must the hub flow be ready for?',
       options: [
-        'Delivery is at least once, so the same event can arrive twice',
-        'Events are not promised to arrive in order',
-        'Failed deliveries are retried for a while, and can be dead lettered to a storage container if configured',
-        'An event carries the full blob content',
+        'The same event arriving twice, as delivery is at least once',
+        'The event for the replacement arriving before the one for the first upload',
+        'Retries for a while if the listener is down, then dead lettering to a storage container if configured',
+        'Reading the file from the event data, as the event carries the blob content',
+        'Events waiting on the topic until the hub acks them, as on a JMS queue',
       ],
       answer: [0, 1, 2],
-      explain: 'Events point to the blob, much like a claim check. The consumer reads the blob itself and must handle repeats and order changes.',
+      explain: 'Delivery is at least once, and events are not promised to arrive in order. Events point to the blob, much like a claim check. The consumer reads the blob itself and must handle repeats and order changes. Event Grid retries for a limited time, then drops the event or dead letters it; it is not a queue that keeps events until someone reads them.',
     },
     {
       type: 'single',
@@ -43,8 +44,8 @@ export default {
       options: [
         'Filter in Mule only, after delivery',
         'Use subject filters on the path and .json',
-        'Create one storage account per container',
-        'It cannot be filtered at the source',
+        'Create the system topic on the inbound container',
+        'Pick BlobCreated as the only event type for inbound',
       ],
       answer: 1,
       explain: 'Use subject begins with the inbound container path and subject ends with .json. The event subject holds the container and blob path, so begins with and ends with filters narrow the stream at the source.',

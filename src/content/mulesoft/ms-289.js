@@ -8,15 +8,16 @@ export default {
   quiz: [
     {
       type: 'multi',
-      prompt: 'What can an attacker on the network path do with plain FTP?',
+      prompt: 'A supplier sends nightly price files to Mule over plain FTP across the internet. It PGP encrypts each file to the Mule public key, but does not sign it. What can an attacker on the path still do?',
       options: [
-        'Read the user name and password',
-        'Read the file content',
-        'Change the file in transit',
-        'Nothing, as long as the server uses passive mode',
+        'Read the FTP user name and password',
+        'Read the prices inside the encrypted file',
+        'Upload a fake price file encrypted to the same public key',
+        'Decrypt the file with the public key, since that key is shared',
+        'Log in later with the captured password and change the folder',
       ],
-      answer: [0, 1, 2],
-      explain: 'FTP sends everything in clear text, including PASS, and has no integrity check.',
+      answer: [0, 2, 4],
+      explain: 'FTP sends everything in clear text, including PASS, so the password can be read and reused. Encryption hides the prices, and only the Mule private key can decrypt them. But the public key is public, so anyone can encrypt a fake file to it. Without a signature Mule cannot tell who made the file.',
     },
     {
       type: 'single',
@@ -37,10 +38,12 @@ export default {
         'A dedicated account limited to one folder, with no shell or other access',
         'An IP allow list on the server for the Mule egress addresses',
         'Running the traffic through a private link or VPN',
-        'Switching the transfer to binary mode',
+        'Switching the transfer from ASCII to binary mode',
+        'Keeping the password in secure properties in the Mule app',
+        'Using passive mode, so the server never opens a connection to Mule',
       ],
       answer: [0, 1, 2],
-      explain: 'Limit what a stolen password can reach and who can reach the server. Binary mode only stops line ending changes. It does nothing for the password.',
+      explain: 'A locked down account limits what a stolen password can reach. An IP allow list limits who can use it. A private link or VPN keeps the clear text off the open network. Binary mode only stops line ending changes. Secure properties protect the password at rest in the app, but FTP still sends it in clear text on the wire. Passive mode only changes who opens the data connection.',
     },
     {
       type: 'single',
@@ -72,7 +75,7 @@ export default {
       options: [
         'The supplier is trusted and has never sent a bad file',
         'A recorded risk with an owner, controls in place and a dated exit plan',
-        'The files hold no personal data, so plain FTP is acceptable',
+        'The files hold no personal or payment data, so plain FTP is an acceptable risk',
         'The firewall allows only this supplier to reach the server',
       ],
       answer: 1,

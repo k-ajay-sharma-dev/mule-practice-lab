@@ -47,7 +47,7 @@ Work out each result before you choose.
       payload: lines,
       body: 'typeOf(payload groupBy $.region) as String',
       right: '"Object"',
-      wrong: ['"Array"', '"Key"', '"Null"'],
+      wrong: ['"Array"', '"Key"', '"Array<Object>"'],
       explain: '`groupBy` on an array returns an object, with one key per group. That is why you continue with `mapObject` or `pluck` and not `map`.',
     }),
   ],

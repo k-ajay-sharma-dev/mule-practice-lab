@@ -48,7 +48,7 @@ These questions cover the selectors you use most: \`.\`, \`.*\`, \`..\` and arra
       payload: '{"a": 1, "a": 2}',
       body: 'payload.*a',
       right: '[1, 2]',
-      wrong: ['1', '2', '[2]'],
+      wrong: ['1', '[[1, 2]]', '[2]'],
       explain: 'DataWeave objects can hold repeated keys. `.a` returns only the first value, and the multi-value selector `.*a` returns them all.',
     }),
   ],

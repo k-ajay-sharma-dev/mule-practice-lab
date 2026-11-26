@@ -39,9 +39,11 @@ export default {
         'Sample checks of totals against each platform’s own dashboard',
         'Currency and time zone kept per account and converted the same way',
         'Converting every platform’s dates to UTC and dropping the account time zone',
+        'Loading each day once, the next morning, and never loading it again',
+        'Converting spend to one reporting currency at load and keeping only the converted value',
       ],
       answer: [0, 1, 2],
-      explain: 'Load times explain changes, sample checks catch errors, and consistent currency and time zone make platforms comparable. Moving dates to UTC splits each account’s day across two dates, so totals no longer match the platform.',
+      explain: 'Load times explain changes, sample checks catch errors, and consistent currency and time zone make platforms comparable. Moving dates to UTC splits each account’s day across two dates, so totals no longer match the platform. Platforms correct numbers for several days, so a single load freezes the first, wrong figures; reload a window of recent days. Keeping only the converted value loses the amount the platform shows, so nobody can check it again or redo the conversion.',
     },
     {
       type: 'single',

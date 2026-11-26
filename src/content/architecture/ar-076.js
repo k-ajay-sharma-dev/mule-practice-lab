@@ -38,7 +38,7 @@ export default {
         'A unique key on the event id in a dedup table, written in the same transaction',
         'An idempotent message validator on a persistent, shared Object Store keyed on event id',
         'A delta update such as `qty = qty + :delta`, with no other check on the event',
-        'Trusting the broker to deliver each message only once, with no check in the consumer',
+        'A transacted JMS session, so the broker delivers each event to the consumer only once',
       ],
       answer: [0, 1, 2],
       explain: 'Absolute values with a sequence guard are naturally idempotent and order-tolerant, for example a MERGE that only updates when the incoming sequence is higher. A dedup table or a shared persistent Object Store prevents double application; give the Object Store entries a TTL longer than the redelivery window. A bare delta update double-counts on redelivery, and at-least-once brokers do deliver duplicates.',
@@ -48,7 +48,7 @@ export default {
       prompt: 'An event for SKU 123 / DC2 with sequence 41 arrives after sequence 42 was already applied. What should the consumer do?',
       options: [
         'Skip it and count it, because a newer state is already applied',
-        'Apply it, because every message must be processed exactly once',
+        'Apply it, because a message the broker delivers must be processed',
         'Throw an error so the broker redelivers it later in the right order',
         'Send it to the DLQ so an operator can apply it by hand',
       ],

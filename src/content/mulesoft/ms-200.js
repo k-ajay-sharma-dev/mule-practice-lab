@@ -61,7 +61,7 @@ export default {
         'Nothing, as a Model Proxy can be declared in the local files like an API',
         'A Model Proxy must run in a Mule app, so the team has to deploy one first',
         'It needs Managed Omni Gateway, or Self-Managed Omni Gateway in Connected Mode',
-        'It needs Mule Gateway, as Omni Gateway has no support for Model Proxy at all',
+        'It needs Mule Gateway in front, as a Model Proxy runs inside Mule runtime',
       ],
       answer: 2,
       explain: 'Model Proxy is available on Managed Omni Gateway and on Self-Managed Omni Gateway in Connected Mode. So a choice of mode can decide which features you can use later.',

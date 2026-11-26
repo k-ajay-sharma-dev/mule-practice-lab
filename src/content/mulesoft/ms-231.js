@@ -8,10 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'Which MuleSoft IDE is built on Visual Studio Code?',
-      options: ['Anypoint Studio', 'Anypoint Code Builder', 'Design Center flow designer', 'Runtime Manager'],
-      answer: 1,
-      explain: 'Anypoint Code Builder is built on Visual Studio Code. Anypoint Studio is built on Eclipse.',
+      prompt: 'A new team already works in Visual Studio Code every day and wants to build and debug Mule flows without a second editor. What fits?',
+      options: [
+        'Anypoint Studio, added to VS Code as a plugin',
+        'The DataWeave extension for VS Code, on its own',
+        'Anypoint Code Builder, installed in VS Code',
+        'Design Center flow designer, opened inside VS Code',
+      ],
+      answer: 2,
+      explain: 'Anypoint Code Builder is built on Visual Studio Code, as a desktop extension and as a cloud IDE. Anypoint Studio is built on Eclipse and is a separate desktop application. The DataWeave extension helps with scripts, but it does not build or debug Mule flows. Flow designer runs in Design Center in the browser.',
     },
     {
       type: 'single',
@@ -27,15 +32,17 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which statements about a Mule project are true whichever IDE you use?',
+      prompt: 'Half of a team works in Studio and half in Code Builder, on the same projects and the same CI pipeline. Which statements are true?',
       options: [
         'It is a Maven project with a pom.xml and a mule-artifact.json',
         'It should live in Git, not only inside the IDE workspace',
         'A CI pipeline can build and deploy it with Maven without any IDE',
-        'An app built in Studio cannot be built by Maven',
+        'Code Builder projects need a different packaging in the pom.xml than Studio projects',
+        'The CI build reads the Studio .project and .classpath files to find dependencies',
+        'The runtime version picked in each IDE decides which runtime the CI build targets',
       ],
       answer: [0, 1, 2],
-      explain: 'Both IDEs work on the same project shape. The build and deployment come from Maven, so the IDE is a choice for the developer, not for the pipeline.',
+      explain: 'Both IDEs work on the same project shape: a Maven project with a pom.xml and a mule-artifact.json, so the packaging is the same mule-application in both. Kept in Git, it is one shared source for both halves of the team. The CI build runs Maven from the pom.xml without any IDE. It does not read the Eclipse .project or .classpath files, which are only IDE settings. The runtime the app targets comes from the project and the deployment settings, not from the runtime each developer picked in the IDE.',
     },
     {
       type: 'single',

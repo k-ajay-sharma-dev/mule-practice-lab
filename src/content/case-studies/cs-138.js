@@ -39,9 +39,11 @@ export default {
         'Counts per cabin and per special meal type',
         'A version number or the time it was produced by the airline',
         'The name and seat of every passenger on the flight',
+        'Only the change since the last message, such as two more vegetarian meals',
+        'The time the caterer received it, used to pick the newest message',
       ],
       answer: [0, 1, 2],
-      explain: 'The kitchen needs which flight, what to make and whether it is newer. Passenger names are personal data it does not need.',
+      explain: 'The kitchen needs which flight, what to make and whether it is newer. Passenger names are personal data it does not need. A change on its own breaks when a message arrives twice or out of order, because it is added twice or in the wrong order; full counts can replace the old ones safely. The receive time follows the channel, not the airline, so an older message that arrives late would look newest.',
     },
     {
       type: 'single',

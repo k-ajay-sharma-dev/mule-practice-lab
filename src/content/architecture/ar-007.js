@@ -81,7 +81,7 @@ export default {
       options: [
         'Non-breaking, because it only adds a parameter',
         'Breaking, because old requests without it now get 400',
-        'Non-breaking, if the spec marks the new parameter as required',
+        'Non-breaking, if the Exchange asset gets a new minor version',
         'Breaking only for clients that send no other query parameters',
       ],
       answer: 1,
@@ -131,8 +131,8 @@ export default {
       options: [
         'Add `holder` in v1 and keep `holderName` as deprecated',
         'Rename the field in v1 and publish it as a patch version',
-        'Publish a new URL version for this and every later change',
-        'Remove `holderName` now and ask partners to update their code',
+        'Publish v2 with `holder` and retire v1 after a short notice',
+        'Replace `holderName` in v1 and announce it in the changelog',
       ],
       answer: 0,
       explain: 'Adding the new field is an additive change, so clients that read the old field keep working. Every URL version is another contract to secure, monitor and support. A policy of at most two live major versions also helps, and so do contract tests in CI that fail a breaking diff without a major bump.',

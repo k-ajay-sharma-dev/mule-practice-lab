@@ -20,15 +20,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Why add SET NOCOUNT ON at the top of a procedure called from JDBC?',
+      prompt: 'A procedure inserts audit rows, updates a run row, then selects the rejected rows. Called from Mule, the rejects result set is missing from the result, though SSMS shows it. What is the likely fix?',
       options: [
-        'It stops @@ROWCOUNT from being set, which saves a little CPU',
-        'It stops row count messages that drivers can return as extra results',
-        'It stops triggers from adding their own rows to the result set',
-        'It turns off the transaction log for the inserts in the procedure',
+        'Add SET NOCOUNT ON, so row counts do not come back as extra results first',
+        'Move the audit insert to a trigger, since inserts in a procedure hide its selects',
+        'Add WITH RESULT SETS to the EXEC call, so the driver learns the columns',
+        'Turn on streaming in the Mule operation, so the driver reads past the first result',
       ],
-      answer: 1,
-      explain: 'Those extra results can hide the result set or output values. @@ROWCOUNT is still set. Without it, each INSERT or UPDATE sends a count message that the client has to step through.',
+      answer: 0,
+      explain: 'Without SET NOCOUNT ON, each INSERT or UPDATE sends a row count message, and JDBC drivers can return these as extra results ahead of the result set. The client then has to step through them, and the real result can be hidden. SSMS shows counts as messages, so it looks fine there. Inserts do not hide selects, WITH RESULT SETS only renames or retypes columns, and streaming changes how rows are read, not which results come back.',
     },
     {
       type: 'single',
@@ -36,7 +36,7 @@ export default {
       options: [
         'Blocking from the other stores that load at the same time',
         'Parameter sniffing: a plan built for the first values is reused',
-        'Stale statistics, which are rebuilt only at a restart',
+        'Stale statistics: they are rebuilt only when the instance restarts',
         'A cold buffer cache, which fills only after the first run',
       ],
       answer: 1,
@@ -50,9 +50,11 @@ export default {
         'OPTIMIZE FOR a typical value, or OPTIMIZE FOR UNKNOWN',
         'Better indexes and up to date statistics',
         'Adding WITH (NOLOCK) to the slow queries',
+        'Running DBCC FREEPROCCACHE on the server every night',
+        'Raising the query timeout on the Mule Stored procedure operation',
       ],
       answer: [0, 1, 2],
-      explain: 'Each has a cost. RECOMPILE uses CPU per call. OPTIMIZE FOR picks one plan for all. Query Store can also force a known good plan.',
+      explain: 'Each right fix has a cost. RECOMPILE uses CPU per call. OPTIMIZE FOR picks one plan for all. Better indexes and fresh statistics make plans less sensitive to the value. Query Store can also force a known good plan. NOLOCK changes locking, not the plan. Clearing the plan cache only lets the next call sniff again, maybe with a bad value, and it hurts every other query. A longer timeout hides the slow plan.',
     },
     {
       type: 'single',
@@ -70,7 +72,7 @@ export default {
       type: 'single',
       prompt: 'Why can a RAISERROR or THROW inside the procedure be missed by the caller?',
       options: [
-        'Errors with a severity below 16 are never sent to the client',
+        'Errors below severity 16 reach the client only as info messages, not as errors',
         'After a result set, the driver may raise it only once that set is read',
         'THROW inside a procedure only writes to the SQL Server error log',
         'The Database connector maps SQL errors to warnings by default',

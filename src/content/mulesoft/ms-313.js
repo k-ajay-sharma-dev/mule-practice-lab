@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'An inbound job ends by sending a notification email. Why put the send in an Async scope?',
+      prompt: 'A nightly load commits, then sends its report mail. One night the relay hangs for 90 seconds and the Send fails, so the job is marked failed although the data loaded. The mail must never delay or fail the job. What fits?',
       options: [
-        'Because the Email connector Send operation must always run asynchronously',
-        'So a slow or failed send does not delay or fail the job that loaded the data',
-        'So the flow can wait for the reader’s reply before the job is closed',
-        'So the mail goes out in its own transaction that the relay can roll back',
+        'Wrap the Send in Until Successful, so the job waits until the relay takes the mail',
+        'Wrap the Send in a Try with On Error Continue, so its error no longer fails the job',
+        'Put the Send in an Async scope with its own error handling that logs the failure',
+        'Move the Send before the commit, so a failed mail rolls the load back with it',
       ],
-      answer: 1,
-      explain: 'The job result is the data load. The email reports it and should not change it.',
+      answer: 2,
+      explain: 'The job result is the data load. The email reports it and should not change it. In an Async scope the main flow carries on at once, and errors stay in the scope, so it needs its own handler. A Try with On Error Continue stops the failure, but the job still waits the 90 seconds. Until Successful makes the wait longer. Sending before the commit lets a mail problem undo good data.',
     },
     {
       type: 'single',
@@ -44,21 +44,23 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'What should a job report email contain?',
+      prompt: 'Support reads the nightly report mail at 07:00 to decide whether anything needs action. What belongs in that mail?',
       options: [
         'Job name, run ID, environment, start and end time, and status',
         'Counts: received, loaded, rejected, duplicates',
         'Every loaded record, so readers can check the data themselves',
         'Where to find details, such as the job log query or a report link',
+        'The raw payload of the first failed record, as an example',
+        'Nothing on a good night: send the mail only when the job fails',
       ],
       answer: [0, 1, 3],
-      explain: 'Payloads make emails large and can expose personal data.',
+      explain: 'Run identity, status, counts and a pointer to the details let support decide in a minute. Payloads make emails large and can expose personal data, and that holds for one record as much as for all of them. With no mail on good nights, a missing mail could mean success or a job that never ran, so support cannot tell.',
     },
     {
       type: 'single',
       prompt: 'The app is redeployed while an Async scope is waiting to send. What can happen?',
       options: [
-        'The mail is always sent, since Mule finishes Async work before it stops',
+        'The mail is still sent, since Mule waits for Async work to finish before it stops',
         'The work in the Async scope can be lost, since it is held only in memory',
         'Mule saves the pending send in the object store and sends it after restart',
         'The relay already holds a draft of the mail and sends it on its own',

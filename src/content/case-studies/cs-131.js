@@ -39,9 +39,11 @@ export default {
         'Storage needs such as chilled or frozen',
         'Food categories and approximate weight',
         'The retail price the store would have charged for the food',
+        'The exact weight of each item, to the gram',
+        'The store\'s own product code for each item',
       ],
       answer: [0, 1, 2],
-      explain: 'Matching needs where, when, how it must be kept and what it is. The retail price does not help decide which charity can collect and store the food.',
+      explain: 'Matching needs where, when, how it must be kept and what it is. The retail price does not help decide which charity can collect and store the food. An approximate weight tells a charity if it fits in a van or on foot; weighing each item to the gram slows store staff and adds nothing to the match. Product codes differ by chain and mean nothing to a charity, so the offer needs common food categories instead.',
     },
     {
       type: 'single',

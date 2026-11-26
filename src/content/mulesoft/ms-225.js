@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'Mule sends a payments file to a clearing partner and must keep it secret. Which key encrypts it?',
+      prompt: 'Mule PGP encrypts a payments file for a clearing partner, but the encrypt step was set up with our own public key instead of the partner\'s. What happens when the partner gets the file?',
       options: [
-        'Our private key',
-        'Our public key',
-        'The partner\'s public key',
-        'The partner\'s private key',
+        'The partner decrypts it with our public key, which it already holds',
+        'The partner cannot decrypt it, as only our private key opens it',
+        'The partner decrypts it, but it cannot check who sent the file',
+        'The partner decrypts it with its own private key, as both keys are PGP',
       ],
-      answer: 2,
-      explain: 'Anyone can encrypt with a public key, but only the holder of the matching private key can decrypt. The partner keeps its private key, so only the partner can read the file.',
+      answer: 1,
+      explain: 'Anyone can encrypt with a public key, but only the holder of the matching private key can decrypt. We used our own public key, so only our private key opens the file, and the partner cannot read it. A public key never decrypts, and the partner\'s private key matches only the partner\'s public key. Encrypt with the partner\'s public key.',
     },
     {
       type: 'single',
@@ -32,15 +32,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'The partner sends us an encrypted returns file. What does Mule need to decrypt it?',
+      prompt: 'The partner sends us a PGP encrypted returns file. The PGP config in Mule holds the partner\'s public key and our public key, and the decrypt step fails. What must be added?',
       options: [
-        'The partner\'s public key only',
-        'The partner\'s private key',
-        'Our public key only',
+        'The partner\'s private key, which the partner sends us',
+        'The partner\'s public key again, set as the decrypt key',
+        'Our public key, with the passphrase that protects it',
         'Our private key and its passphrase',
       ],
       answer: 3,
-      explain: 'The partner encrypted it with our public key, so only our private key can open it. The private key is protected by a passphrase.',
+      explain: 'The partner encrypted it with our public key, so only our private key can open it. The private key is protected by a passphrase. A partner never shares its private key, and a public key has no passphrase and cannot decrypt.',
     },
     {
       type: 'single',
@@ -59,9 +59,9 @@ export default {
       prompt: 'Where is it acceptable to keep the passphrase of our private key?',
       options: [
         'An encrypted secure property, with the encryption key given at deploy time',
-        'A plain value in config-prod.yaml in Git',
+        'A plain value in config-prod.yaml, as the Git repository is private to the team',
         'A secret store that the runtime reads, such as a vault service',
-        'Typed into the PGP config in the flow XML',
+        'A Base64 encoded value in the PGP config, so nobody can read it in the XML',
       ],
       answer: [0, 2],
       explain: 'The passphrase is the last guard on the private key. Keep it encrypted or in a secret store, and never in plain text in the code or the repository.',

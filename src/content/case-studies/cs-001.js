@@ -46,15 +46,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'A retailer is replacing its point-to-point integrations with APIs published in Anypoint Exchange. It wants new projects to reuse those APIs and not build new links. Which practice most directly makes that happen?',
+      prompt: 'Six months in, Exchange holds 25 well-documented System and Process APIs. Yet the last three projects each built their own direct link to the ERP, and their leads say they did not know an API existed. Which change fixes the cause?',
       options: [
+        'Add more examples and a fuller description to each of the 25 specs in Exchange',
+        'Set a KPI on the number of new APIs published to Exchange each quarter',
         'Every new integration starts by searching Exchange for an existing API',
-        'Each project team chooses its own error format and logging style',
-        'Each project builds its own copy of the ERP integration to stay independent',
-        'The main KPI is the number of Mule applications deployed',
+        'Apply client ID enforcement to the 25 APIs, so every consumer must register',
       ],
-      answer: 0,
-      explain: 'Searching Exchange first turns reuse into the normal starting point. Spec-first design in Exchange, central policies such as client ID enforcement and rate limiting, and KPIs for reuse count and lead time support it. Letting each team pick its own error model is how the point-to-point mess started, and private copies recreate it. An app count says nothing about reuse.',
+      answer: 2,
+      explain: 'The APIs were there and documented, but nobody looked. Making an Exchange search the first step of every new integration, checked in design review, turns reuse into the normal starting point. Better specs help only people who already search, so they treat the symptom. A KPI on APIs published measures supply, not reuse, and can even reward more duplicates. Client ID enforcement controls who calls an API that a team has found; it does nothing for a team that never found it.',
     },
     {
       type: 'match',

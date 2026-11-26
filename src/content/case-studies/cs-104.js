@@ -26,9 +26,9 @@ export default {
       options: [
         'Run old and new in parallel on the same inbound messages and compare the outbound messages field by field',
         'Replay a sample of archived production messages, including unusual ones (merges, cancellations, long notes), through the new interface',
-        'Check that the new interface deploys without errors',
+        'Check that the new interface deploys without errors and the receiving system returns an AA acknowledgement for each message',
         'Agree with the receiving department which differences are acceptable (for example timestamp precision) and record the sign-off',
-        'Compare message counts per day only',
+        'Compare message counts per day and per message type between the old and new engines for two weeks',
       ],
       answer: [0, 1, 3],
       explain: 'Field-by-field comparison on real traffic and on replayed edge cases shows the mappings match. A recorded sign-off on known differences is part of the clinical safety case. Deploying cleanly or matching counts proves nothing about content.',

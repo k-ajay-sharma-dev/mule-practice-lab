@@ -12,7 +12,7 @@ export default {
       options: [
         "The sub-flow's own error handler, defined inside the sub-flow",
         'The error handler of the flow or Try scope that called it',
-        "The application's default error handler, in every case",
+        "The application's default error handler, as sub-flows skip the caller",
         'None, because errors inside a sub-flow are swallowed',
       ],
       answer: 1,
@@ -44,10 +44,10 @@ export default {
       type: 'single',
       prompt: 'A teammate says "make everything a sub-flow: they are faster". What is the best reply?',
       options: [
-        'Agreed, sub-flows avoid thread switches so they are always the right choice',
+        'Agreed, sub-flows skip a thread switch on each call, so they scale better under heavy load',
         'The performance difference is negligible; choose by error handling and configuration needs',
-        'Sub-flows are slower because they create a new event',
-        'Sub-flows cannot be reused across flows, so they are a bad choice',
+        'Disagree, sub-flows are slower, because each call creates a new event with its own variables',
+        'Disagree, sub-flows cannot be called from another XML file, so reuse across files would break',
       ],
       answer: 1,
       explain: 'Speed is not a meaningful reason. Pick a sub-flow when the caller should handle errors, and a private flow when the logic needs its own error handler or flow-level settings.',

@@ -119,10 +119,10 @@ export default {
       needsScenario: true,
       prompt: 'In case B, why not put the aggregation of SAP, PIM and WMS inside the mobile Experience API?',
       options: [
-        'Experience APIs may call only one API each',
+        'Experience APIs cannot run a Scatter-Gather across System APIs',
         'Web, kiosk and partners would each have to repeat it',
         'It would be slower than in a Process API',
-        'Aggregation is allowed only in System APIs',
+        'The three calls would bypass the policies on the System APIs',
       ],
       answer: 1,
       explain: 'Reusable composition belongs in the Process layer so every channel gets the same product view.',
@@ -131,7 +131,7 @@ export default {
       type: 'single',
       prompt: 'What is the main risk of Experience → System directly?',
       options: [
-        'API Manager does not allow it',
+        'API Manager cannot apply policies to a System API called by an Experience API',
         'Logic creeps into the Experience API and is copied per channel',
         'System APIs cannot take traffic from outside the network',
         'It doubles the vCore cost of the integration',

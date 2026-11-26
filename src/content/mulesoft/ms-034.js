@@ -12,7 +12,7 @@ export default {
       options: [
         'The ERP rejected them silently, without any error back',
         'The queue is TRANSIENT, so in-memory messages were lost',
-        'VM queues always drop messages that are older than one hour',
+        'VM messages expire after one hour by default, so old ones were dropped',
         'The HTTP Listener returned 202 before it published them',
       ],
       answer: 1,
@@ -45,15 +45,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'What does `vm:publish-consume` do?',
+      prompt: 'The Order API hands each order to a `price-order` flow that has a `vm:listener` on the `pricing` queue, and it needs the computed price for its own response. Which operation fits?',
       options: [
-        'Publishes and returns at once, in the same way as `vm:publish`',
-        'Publishes and waits for the reply of the listener flow',
-        'Publishes the message to every queue defined in the config',
-        'Reads one message from the queue without needing a listener',
+        '`vm:publish`, then read the price from the payload once it returns',
+        '`vm:publish`, then `vm:consume` on the `pricing` queue for the reply',
+        '`vm:consume` on the `pricing` queue, which sends the order and waits',
+        '`vm:publish-consume`, which waits for the reply of the listener flow',
       ],
-      answer: 1,
-      explain: 'It is synchronous request-reply over VM: it waits for the response the listener flow produces, with a timeout. On timeout the caller gets an error. Reading without a listener is `vm:consume`.',
+      answer: 3,
+      explain: 'It is synchronous request-reply over VM: it waits for the response the listener flow produces, with a timeout. On timeout the caller gets an error. `vm:publish` returns at once with no reply, and a `vm:consume` on the same queue would read a pending order, not the price. `vm:consume` only reads, it never sends.',
     },
     {
       type: 'match',

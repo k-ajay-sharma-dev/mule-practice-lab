@@ -39,9 +39,9 @@ export default {
       options: [
         'A data protection review and contract with the vendor before the tool is enabled',
         'LTI settings that share only the claims the tool needs (for example no email address for an anonymous survey tool)',
-        'Enabling the tool for every course at once so faculties do not need to request it',
+        'Enabling the tool for every course once it passes review, so faculties do not need to request it',
         'An inventory of tools, the data each receives and the owner who approved it',
-        'Giving each tool the LMS administrator API key so it can read what it needs',
+        'Giving each tool an LMS administrator API key, rotated every term, so it can read course rosters',
       ],
       answer: [0, 1, 3],
       explain: 'Review, minimal claims and an inventory with owners keep student data under control. Enabling everywhere and sharing an admin key give tools far more data and power than they need.',

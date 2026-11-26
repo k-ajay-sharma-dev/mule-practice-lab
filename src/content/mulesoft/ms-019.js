@@ -12,8 +12,8 @@ export default {
       options: [
         'Mark the ERP key as an External ID and upsert on that field',
         'Query each Account by name first, then create or update it',
-        'Delete all the Accounts each night and then recreate them',
-        'Use `update` only, since it creates any missing records too',
+        'Use `create` and let the Salesforce duplicate rules update the match',
+        'Use `update` with the ERP key, which inserts the Accounts it cannot find',
       ],
       answer: 0,
       explain: 'Mark `ERP_Account_Number__c` as an External ID and set it as `externalIdFieldName`. Upsert on an External ID matches and inserts-or-updates in one idempotent call; reruns do not create duplicates.',
@@ -36,9 +36,9 @@ export default {
       prompt: 'Some records fail but the flow "succeeds". Why?',
       options: [
         'Salesforce returns a result per record, and those do not fail the call',
-        'The Salesforce connector swallows every error by default',
-        'On Error Continue is the default handler of every Mule flow',
-        'Salesforce retries the failed records later on its own',
+        'The connector raises record errors only once a whole batch has failed',
+        'The default error handler of the flow catches record errors and continues',
+        'Salesforce retries the failed records later, so the call reports success',
       ],
       answer: 0,
       explain: 'Record-level errors do not make the operation fail. Inspect each result (success flag + errors), or the Bulk job failed results, and route failures somewhere visible, or raise a custom error.',

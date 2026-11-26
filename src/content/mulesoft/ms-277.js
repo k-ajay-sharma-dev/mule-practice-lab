@@ -38,9 +38,11 @@ export default {
         'sizeOf(payload) before the main map',
         'A plain map that writes each row once',
         'Referring to the payload twice in a way that needs it all at once',
+        'A filter that drops rows with zero stock as the rows go by',
+        'A map that looks up each store name in a small fixed object',
       ],
       answer: [0, 1, 3],
-      explain: 'A forward only map can stream. Anything that needs all rows at once forces DataWeave to keep them.',
+      explain: 'groupBy and orderBy need every row before they can return the first one. sizeOf must count every row before the map starts. Reading the payload twice means DataWeave must keep it to read it again. Anything that needs all rows at once forces DataWeave to keep them. A forward only map can stream. A filter also looks at each row once and passes it on or drops it. A lookup in a small fixed object adds nothing that depends on the size of the input.',
     },
     {
       type: 'single',

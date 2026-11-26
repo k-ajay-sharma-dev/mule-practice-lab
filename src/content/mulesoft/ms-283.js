@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'Why is passive mode the usual choice when Mule runs in a cloud or behind a firewall?',
+      prompt: 'A Mule app on CloudHub 2.0 uses active mode to reach a partner FTP server. Login works, but every listing hangs and then times out. What is happening?',
       options: [
-        'It sends data on the control connection, so only port 21 is used',
-        'The client opens both connections, so nothing connects in to Mule',
-        'The server opens the data connection from port 20, which firewalls allow',
-        'It encrypts the data channel, which cloud firewalls require',
+        'The server opens the data connection in to the worker, and nothing routes in to it',
+        'Active mode sends the listing on the control connection, which times out on big folders',
+        'The worker connects to the server on port 20, which the partner opens only for passive',
+        'Login uses port 21, but active mode needs the partner to open port 22 for the data',
       ],
-      answer: 1,
-      explain: 'Active mode needs the server to connect in to the client, which a firewall or NAT in front of the Mule worker usually blocks.',
+      answer: 0,
+      explain: 'In active mode the client announces an address and port, and the server connects back to it. A cloud worker behind NAT and a firewall cannot be reached from outside, so the data connection never opens. Passive mode keeps both connections outbound from Mule. A listing always travels on a data connection, not on port 21. Port 20 is the server side source port in active mode, and port 22 is SFTP.',
     },
     {
       type: 'single',
@@ -32,15 +32,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'What does EPSV change compared to PASV?',
+      prompt: 'A server behind NAT keeps sending its private address in PASV replies, and its team cannot change that this month. The server supports EPSV. Why can a client that sends EPSV list files where PASV failed?',
       options: [
-        'It adds TLS to the data connection, as in explicit FTPS',
-        'The reply gives only a port, and the control address is reused',
-        'The server opens the data connection, as in active mode',
-        'The reply gives a range of ports for the client to choose from',
+        'The EPSV reply holds the public address, because EPSV was made for NAT',
+        'With EPSV the server opens the data connection, so no address is needed',
+        'The EPSV reply holds only a port, and the client reuses the control host',
+        'EPSV sends the data on the control connection, so port 21 is enough',
       ],
-      answer: 1,
-      explain: 'The client reuses the control connection address, which also works with IPv6. EPSV avoids the wrong address problem because no address is sent. Some old servers and firewalls do not support it.',
+      answer: 2,
+      explain: 'The EPSV reply carries a port and no address, so the client connects to the same host it used for the control connection, which also works with IPv6. The wrong private address never reaches the client. EPSV is still passive: the client opens the data connection, and the data still uses a separate connection to that port. Some old servers and firewalls do not support it.',
     },
     {
       type: 'multi',

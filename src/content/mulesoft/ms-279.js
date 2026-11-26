@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'Mule sends a payroll file to a bank. Which key encrypts the file?',
+      prompt: 'Mule PGP encrypts a payroll file for a bank. The developer set the encrypt step to use the team\'s own public key, and the bank cannot decrypt the file. What should the encrypt step use?',
       options: [
-        'Your private key',
-        'The bank\'s public key',
-        'The bank\'s private key',
-        'Your public key',
+        'The team\'s private key, which the bank checks with the team public key',
+        'The team\'s public key, with the team private key sent to the bank as well',
+        'The bank\'s private key, so the bank opens it with its public key',
+        'The bank\'s public key, so only the bank\'s private key opens it',
       ],
-      answer: 1,
-      explain: 'The bank\'s public key is used, so only the bank\'s private key can decrypt the file. Anyone can encrypt with a public key. Only the holder of the matching private key can read the result.',
+      answer: 3,
+      explain: 'The bank\'s public key is used, so only the bank\'s private key can decrypt the file. A file encrypted with the team key can be read only by the team. Using your private key is signing, which proves origin but hides nothing. A private key never leaves its owner, and the bank would not hand over its own.',
     },
     {
       type: 'single',
@@ -50,9 +50,11 @@ export default {
         'Agree the switch date, and keep the old key until files from before the switch are confirmed',
         'Make the key a configuration value per environment, so the switch is a property change',
         'Accept the new key from the email that announced it, to save time',
+        'Delete the bank\'s old public key as soon as the new one arrives',
+        'Make a new key pair for your own side, since the bank\'s change needs one',
       ],
       answer: [0, 1, 2],
-      explain: 'Rotation is a planned change on both sides. A key in code turns it into a release.',
+      explain: 'Rotation is a planned change on both sides. Get the new public key through a trusted channel and check its fingerprint, since an email can be forged. Agree the switch date and keep the old key until files from before the switch are confirmed, because confirmations signed with the old key can still arrive. A key in a property makes the switch a configuration change, while a key in code turns it into a release. Deleting the old key on arrival breaks checks on files sent before the switch. The bank\'s new key changes how you encrypt to the bank and check its signatures. Your own key pair can stay as it is.',
     },
     {
       type: 'single',

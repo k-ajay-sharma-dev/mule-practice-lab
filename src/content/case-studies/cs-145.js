@@ -12,8 +12,8 @@ export default {
       prompt: 'Shops want today’s prices without waiting for the nightly file. What should the API offer first?',
       options: [
         'Prices changed since a given time, plus a full list for a fresh start',
-        'Only the full list of 40,000 prices, returned on every call',
-        'Only a single product price, called for each item at the till',
+        'The full list of 40,000 prices, returned on every call to keep the shop current',
+        'A single product price, looked up live for each item as it is scanned at the till',
         'A webhook that the wholesaler calls on each shop’s till',
       ],
       answer: 0,
@@ -39,9 +39,11 @@ export default {
         'Rate limit per shop client ID',
         'Ask shops to poll every 15 minutes, not every second',
         'One shared client ID per till vendor for all of its shops',
+        'Cache each shop’s final prices for 24 hours, refreshed overnight',
+        'Add replicas so every poll is served, with no limits on shops',
       ],
       answer: [0, 1, 2],
-      explain: 'Caching, limits per shop and a clear polling contract keep load under control. A shared ID per vendor hides which shop is calling and cannot return each shop its own prices.',
+      explain: 'Caching, limits per shop and a clear polling contract keep load under control. A shared ID per vendor hides which shop is calling and cannot return each shop its own prices. A 24 hour cache brings back the old problem of selling at yesterday’s price. More replicas raise cost and still leave one badly built till able to flood the API.',
     },
     {
       type: 'single',
@@ -49,7 +51,7 @@ export default {
       prompt: 'Some till vendors cannot call an API for a year. What do you do?',
       options: [
         'Keep the nightly file, built from the same price service, until they move',
-        'Turn the file off on the day the API goes live',
+        'Write a new file job for those shops that repeats the price rules of the API',
         'Keep the old file job and its price logic as it is for those shops',
         'Ask those shops to change to a till that can call the API',
       ],

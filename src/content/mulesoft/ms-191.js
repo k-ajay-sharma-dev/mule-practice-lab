@@ -34,7 +34,7 @@ export default {
       options: [
         'The agent stays on its platform and is added to the Agent Registry inventory',
         'The agent is moved off Amazon Bedrock and rebuilt inside a Mule application',
-        'The agent is left out, as Agent Fabric can only see agents MuleSoft has built',
+        'The agent is wrapped in a Mule API first, so that the registry can list it',
         'The agent is copied to CloudHub, and the original on Amazon Bedrock is removed',
       ],
       answer: 0,
@@ -44,10 +44,10 @@ export default {
       type: 'multi',
       prompt: 'An HR department is deciding whether Agent Fabric fits its AI agents (software that uses an AI model to carry out tasks). Which two of its problems is Agent Fabric meant to address?',
       options: [
-        'Its payroll database is running short of disk space',
+        'Its agent servers are running short of disk space',
         'Its security rules differ from one agent team to the next',
         'Its teams cannot find agents that were already built',
-        'Its DataWeave scripts run slowly during month end',
+        'Its DataWeave scripts in agent tools run slowly',
       ],
       answer: [1, 2],
       explain: 'Inconsistent governance and assets that nobody can find are two of the problems Agent Fabric addresses. Disk space and DataWeave speed are not about managing agents.',
@@ -69,7 +69,7 @@ export default {
       prompt: 'A bank uses Agent Fabric to manage its AI agents (software that uses an AI model to carry out tasks). When a live request passes through, which product enforces authentication, authorization and tool restrictions?',
       options: [
         'Anypoint Exchange, which checks each request against the published asset',
-        'Anypoint Studio, which checks each request on the laptop of the developer',
+        'Budget Management, which stops each request that has no token budget left',
         'The Agent Registry, which reads each request as it passes through the list',
         'Omni Gateway, which sits in the request path as the enforcement point',
       ],

@@ -23,10 +23,10 @@ Work out each result before you choose.
     }),
     out({
       head: 'fun fact(n) = if (n <= 1) 1 else n * fact(n - 1)',
-      body: 'fact(4)',
-      right: '24',
-      wrong: ['10', '4', '6'],
-      explain: 'The calls unwind as 4 * 3 * 2 * 1. The check for `n <= 1` is what stops the recursion.',
+      body: 'fact(3) + fact(-2)',
+      right: '7',
+      wrong: ['The script fails with an error', '6', '4'],
+      explain: '`fact(3)` unwinds as 3 * 2 * 1, which is 6. The stop case `n <= 1` also catches negative numbers, so `fact(-2)` returns 1 at once and the sum is 7. The recursion would run away only if the stop case were written as `n == 1`, which a negative input never reaches. The function never returns its input, so 4 is wrong, and it never returns 0, so 6 is wrong.',
     }),
     out({
       head: 'fun describe(x: String) = "text"\nfun describe(x: Number) = "number"\nfun describe(x: Any) = "any"',

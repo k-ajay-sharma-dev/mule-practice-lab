@@ -10,7 +10,7 @@ export default {
       type: 'single',
       prompt: 'A hotel booking flow has the booking in the payload. It then calls a loyalty API with an HTTP Request and no target. What is the payload after the request?',
       options: [
-        'The booking, because a request never changes the payload',
+        'The booking, because a request result goes to `vars` by default',
         'The loyalty API response, which replaces the booking',
         'An object with both the booking and the response',
         'The booking, with the response added under a new key',
@@ -34,10 +34,10 @@ export default {
       type: 'single',
       prompt: 'You only need the status code of the loyalty call, not the body. What do you set?',
       options: [
-        '`target="loyaltyStatus"` and nothing else',
+        '`target="loyaltyStatus"` only, as a target keeps the status code by default',
         '`target="loyaltyStatus"` with `targetValue="#[attributes.statusCode]"`',
-        '`targetValue="#[attributes.statusCode]"` with no target',
-        'A Set Variable before the request with `#[attributes.statusCode]`',
+        '`targetValue="#[attributes.statusCode]"` on the request, with no `target` set',
+        'A Set Variable before the request with `value="#[attributes.statusCode]"`',
       ],
       answer: 1,
       explain: '`targetValue` is an expression run on the result of the operation. Its default is `#[payload]`. Here it picks the status code from the response attributes. A Set Variable before the request would read the attributes of the earlier step.',
@@ -51,10 +51,17 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which of these can store their result in a target variable? Choose all that apply.',
-      options: ['HTTP Request', 'Database Select', 'Flow Reference', 'Logger'],
+      prompt: 'A hotel flow must keep the booking in the payload while it gathers a loyalty response over HTTP, a room row from the database, and the result of a sub-flow that prices extras. It also builds a short reply text. On which steps can it set `target` so the payload stays the booking? Choose all that apply.',
+      options: [
+        'The HTTP Request to the loyalty API',
+        'The Database Select for the room row',
+        'The Flow Reference to the pricing sub-flow',
+        'The Set Payload that builds the reply text',
+        'The Set Variable that stores the booking ID',
+        'The Choice router around the Database Select',
+      ],
       answer: [0, 1, 2],
-      explain: 'Connector operations and the Flow Reference have `target` and `targetValue`. A Logger produces no result, so it has nothing to store.',
+      explain: 'Connector operations and the Flow Reference have `target` and `targetValue`, so each result can go to a variable and the booking stays in the payload. Set Payload has no target, as its whole job is to write the payload. Set Variable has no `target` either: it names its variable with `variableName` and never touches the payload. A Choice router only picks a route and has no `target`, so set it on the Database Select inside the route. To keep the reply text aside, use a Set Variable.',
     },
     {
       type: 'match',

@@ -35,9 +35,9 @@ export default {
       prompt: 'The app is redeployed while 40 audit calls are still running inside Async scopes. What happens to them?',
       options: [
         'They can be lost, because the Async scope keeps its work only in memory',
-        'They are saved to disk and finish after the new version starts',
-        'They are moved to another replica, which finishes them',
-        'They finish before the old version is allowed to stop',
+        'They are saved to disk, and they finish once the new version has started',
+        'They are moved to another replica, which picks them up and finishes them',
+        'They are replayed by the new version, which reads them from the app log',
       ],
       answer: 0,
       explain: 'An Async scope is a thread in the running app. Nothing is stored, so work that has not finished when the app stops can be lost. Use a persistent queue when every event must arrive.',

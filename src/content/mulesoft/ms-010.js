@@ -11,7 +11,7 @@ export default {
       prompt: 'Each division must manage its own apps, assets and admins without touching the others. How do you structure the organization?',
       options: [
         'One root organization with a child business group per division and one for the CoE',
-        'One organization with a separate environment per division',
+        'One organization with a separate environment and environment admins per division',
         'A separate Anypoint organization (separate subscription) per division',
         'One environment shared by all, with naming conventions per division',
       ],
@@ -58,10 +58,10 @@ export default {
       type: 'single',
       prompt: 'A Mule app is promoted from a QA environment to Production in Anypoint Platform. Each environment has its own client ID and secret. How should the app get the Production credentials?',
       options: [
-        'They stay in the JAR from QA, because credentials work in every environment',
+        'They stay in the properties file of the QA JAR, which the platform reuses',
         'They are baked into a new JAR that is built only for Production',
         'They are supplied at deployment, or by the platform, for the target environment',
-        'They come from the root organization, which shares one secret with all environments',
+        'They come from the root organization, whose client ID and secret cover its child environments',
       ],
       answer: 2,
       explain: 'Credentials differ per environment, so they must be supplied at deployment (or by the platform) for the target environment, and never baked into the JAR. Each business group has its own environments, and environments are typed as Production or Sandbox (plus Design).',

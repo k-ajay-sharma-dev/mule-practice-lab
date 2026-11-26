@@ -24,9 +24,9 @@ export default {
       prompt: 'A flow calls `BAPI_SALESORDER_CREATEFROMDAT2` with Synchronous Remote Function Call and no surrounding scope. What do the connector docs say about this?',
       options: [
         'The call must be inside a Try with an open transaction, otherwise the change does not impact SAP',
-        'It is correct, because a synchronous call commits automatically',
+        'It is correct as it is, because a synchronous call commits the change in SAP automatically',
         'It must use Asynchronous Remote Function Call, because only that operation can change data',
-        'It must be wrapped in Until Successful so the change is retried',
+        'It must be wrapped in Until Successful, so a failed change is retried until SAP accepts it',
       ],
       answer: 0,
       explain: 'The reference says you must add a `try` block when the function changes data, and the example uses `transactionalAction="ALWAYS_BEGIN"`.',
@@ -36,9 +36,9 @@ export default {
       prompt: 'A flow only reads bank master data with `BAPI_BANK_GETLIST`. Does it need a transaction?',
       options: [
         'No, the docs state that transactions are not necessary for queries to SAP',
-        'Yes, every RFC needs a Try with ALWAYS_BEGIN',
-        'Yes, and it must also call Confirm Transaction',
-        'No, but only because the function name starts with BAPI',
+        'Yes, every RFC needs a Try with ALWAYS_BEGIN, even when it only reads',
+        'Yes, and it must also call Confirm Transaction after the list returns',
+        'No, because a BAPI commits its own work, so the read needs no scope',
       ],
       answer: 0,
       explain: 'The transaction matters when the function changes data in SAP. A read has nothing to save.',
@@ -62,7 +62,7 @@ export default {
       options: [
         'qRFC, with a queue name and version for each transaction',
         'tRFC, because it processes every transaction in order',
-        'sRFC, with a larger connection pool',
+        'sRFC, with a larger connection pool for the IDocs',
         'tRFC, with Connection Count set to 1 on a listener',
       ],
       answer: 0,

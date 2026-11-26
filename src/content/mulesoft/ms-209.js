@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'A Mule flow at a shipping company must send a question straight to an LLM (large language model, an AI model that reads and writes text) through the inference API of a provider. Which connector is built for that?',
+      prompt: 'A developer at a shipping company sets up the MCP Connector as a client, points it at the chat API of an LLM (large language model) provider, and tries to send a question. It does not work. What is the cause, and what fits?',
       options: [
-        'A2A Connector, because it delegates each prompt to an LLM provider',
-        'MCP Connector, because it exposes each prompt as a tool for a provider',
-        'Inference Connector, because it talks directly to inference provider APIs',
-        'Object Store Connector, because it holds the provider and its prompts',
+        'The MCP client needs SSE, and the provider offers Streamable HTTP, so switch the transport',
+        'The provider must be in Agent Registry first, and then the MCP client can send it prompts',
+        'The MCP client sends tasks, not prompts, so the A2A Connector has to wrap the question',
+        'An MCP client calls tools on MCP servers, and a chat API is not one, so use Inference Connector',
       ],
-      answer: 2,
-      explain: 'The MuleSoft Inference Connector gives a Mule app access to the inference APIs of LLM providers. A2A is for agents delegating to agents, and MCP is for clients listing and calling tools.',
+      answer: 3,
+      explain: 'The MuleSoft Inference Connector gives a Mule app access to the inference APIs of LLM providers. MCP is for clients listing and calling tools on MCP servers, so a transport change or a registry entry does not turn a chat API into one. A2A is for agents delegating to agents, not for sending a prompt to a model.',
     },
     {
       type: 'single',

@@ -45,9 +45,16 @@ export default {
     {
       type: 'multi',
       prompt: 'Which parts of the event can you look at in the Mule Debugger view while stopped?',
-      options: ['The payload', 'The attributes', 'The variables', 'The messages still waiting in the source queue'],
+      options: [
+        'The payload',
+        'The attributes',
+        'The variables',
+        'The messages still waiting in the source queue',
+        'The payload the next processor will produce',
+        'The payloads of earlier events that already finished',
+      ],
       answer: [0, 1, 2],
-      explain: 'The debugger shows the current event: payload, attributes and variables. Messages still on a queue are not part of the event, so it cannot show them.',
+      explain: 'The debugger shows the current event: payload, attributes and variables. Messages still on a queue are not part of the event, so it cannot show them. It shows the event as it is at the breakpoint, so the next result appears only after you step over the processor. Events that already finished are gone, so log them if you need to compare runs.',
     },
     {
       type: 'single',
@@ -56,7 +63,7 @@ export default {
         'Remove the other 499 items from the test file',
         'Add a condition to the breakpoint that matches that item',
         'Add a Logger at DEBUG level inside the For Each',
-        'Set the For Each batch size to 312 so it stops there',
+        'Put the breakpoint on the For Each, which stops once per item',
       ],
       answer: 1,
       explain: 'A conditional breakpoint stops only when its expression is true, so the flow runs freely until the item you care about.',

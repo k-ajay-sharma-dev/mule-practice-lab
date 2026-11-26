@@ -24,7 +24,7 @@ export default {
       prompt: 'On Mule 4.2.2 or later, an app\'s `pom.xml` declares its domain at version `1.0.1`. Which deployed domain versions satisfy it?',
       options: [
         '1.0.2 and later work; 1.0.0 does not',
-        'Only exactly 1.0.1',
+        'Only 1.0.1, because the match is exact',
         'Any 1.x version, including 1.0.0',
         'Any version, because the domain is `provided` scope',
       ],
@@ -84,15 +84,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Why does the performance guidance recommend domains when many apps share one on-premises instance?',
+      prompt: 'On 2 GB of heap and 256 MB of metaspace, throughput falls at 60 apps and 80 apps fail with out-of-memory errors. With the backend configuration moved into a domain, the count passes 100. What explains the gain?',
       options: [
+        'The domain runs each app in its own JVM, so each one gets a separate heap',
+        'The apps share one copy of each common flow, so fewer flows are loaded',
+        'The domain spreads the apps across both instances, halving the load',
         'Shared resources make class loading and metaspace use more efficient',
-        'A domain runs each of its apps in a separate JVM',
-        'A domain removes the need to size the heap of the runtime',
-        'A domain replicates its apps across the nodes of a cluster',
       ],
-      answer: 0,
-      explain: 'A domain is a central point for shared resources, and the dependencies in its `pom.xml` are shared with its apps. The documented example is 2 GB heap and 256 MB metaspace: without a domain, TPS drops noticeably at 60 apps and out-of-memory exceptions appear at 80; with a domain sharing the backend configuration, the count passes 100. Every app still adds its own overhead, so test each one.',
+      answer: 3,
+      explain: 'A domain is a central point for shared resources, and the dependencies in its `pom.xml` are shared with its apps, so class loading and metaspace use become more efficient. The documented example is 2 GB heap and 256 MB metaspace: without a domain, TPS drops noticeably at 60 apps and out-of-memory exceptions appear at 80; with a domain sharing the backend configuration, the count passes 100. Apps still run in the one runtime JVM, a domain shares resources and not flows, and it does not move apps between instances. Every app still adds its own overhead, so test each one.',
     },
   ],
   description: `

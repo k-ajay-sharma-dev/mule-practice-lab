@@ -22,14 +22,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'The Greenfield sales flow has moved the file of store 214 to the archive folder. Which message is best?',
     options: [
-      'Sales file archived fileName=store-214-2026-11-12.csv correlationId=5d21c9',
-      'Sales file archived fileName=store-214-2026-11-12.csv archiveFolder=/data/archive/sales correlationId=5d21c9',
       'Archived: storeId,date,sku,qty,amount 214,2026-11-12,GG-1001,3,4.50 214,2026-11-12,GG-1002,1,2.10',
-      'Moving file to archive now!!!',
+      'Sales file moving to archive fileName=store-214-2026-11-12.csv archiveFolder=/data/archive/sales correlationId=5d21c9',
+      'Sales file archived fileName=store-214-2026-11-12.csv archiveFolder=/data/archive/sales correlationId=5d21c9',
+      'Sales file archived fileName=store-214-2026-11-12.csv correlationId=5d21c9',
     ],
-    answer: 1,
+    answer: 2,
     explain:
-      'It says what happened, which file and where it went. When a store asks about its file, support can find it in the archive. The first option does not say where the file went. The third option dumps the file content.',
+      'It says what happened, which file and where it went. When a store asks about its file, support can find it in the archive. The line without archiveFolder does not say where the file went, and "moving" is written before the move, so it does not show the move worked. The CSV line dumps the file content.',
   },
   {
     id: 'log-3003',
@@ -37,13 +37,13 @@ export const SET_3 = [
     situation: 'Right after the File Listener in the Greenfield sales flow. The sales files are about 40 MB each. Which are problems with this logger?',
     code: '<logger level="INFO" message="#[payload]" />',
     options: [
-      'The whole file content goes into the log, many megabytes for every file',
-      'There is no file name, so nobody can tell which store sent the file',
-      'There is no correlation ID',
-      'The File Listener only gives the file name, so payload is empty at this point',
       'Mule cuts every INFO line to 100 characters, so the size does not matter',
+      'There is no file name, so nobody can tell which store sent the file',
+      'The File Listener only gives the file name, so payload is empty at this point',
+      'There is no correlation ID',
+      'The whole file content goes into the log, many megabytes for every file',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 3, 4],
     explain:
       'The listener gives the file content as the payload, and Mule does not cut log lines. Log the name and the size from attributes instead: "Sales file picked up fileName=$(attributes.fileName) sizeBytes=$(attributes.size) correlationId=$(correlationId)".',
   },
@@ -107,14 +107,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'A Brackenfield stock export run has written its file to /exports/stock. Which message is best?',
     options: [
-      'Export run complete',
-      'Wrote file',
+      'Stock export written fileName=stock-20261112-1410.csv rows=842 time=1930 correlationId=a41f07',
       'Stock export written fileName=stock-20261112-1410.csv rows=842 durationMs=1930 correlationId=a41f07',
       'Stock export written rows=842 content=[{"sku":"TW-220","qty":14},{"sku":"TW-221","qty":3}]',
+      'Stock export written fileName=stock-20261112-1410.csv durationMs=1930 correlationId=a41f07',
     ],
-    answer: 2,
+    answer: 1,
     explain:
-      'It names the file, gives the row count and the time. The warehouse can check the file against the row count. The last option puts the export itself in the log.',
+      'It names the file, gives the row count and the time with its unit. The warehouse can check the file against the row count, so the line without rows leaves them nothing to check, and time=1930 could be seconds or milliseconds. The content line puts the export itself in the log.',
   },
   {
     id: 'log-3008',
@@ -122,15 +122,15 @@ export const SET_3 = [
     situation: 'The first logger of the Brackenfield stock export, which a Scheduler starts every 10 minutes. Which are problems?',
     code: `<logger level="INFO" message='#["Scheduler fired"]' />`,
     options: [
+      'A flow started by a Scheduler has no correlation ID, so there is nothing to add',
       'It is written 144 times a day at INFO, even when nothing is exported',
+      'WARN fits better, so that each run stands out in the log',
       'It does not name the job, so with several schedulers in the app nobody knows which one ran',
       'There is no correlation ID, so the run cannot be tied to its other lines',
-      'A flow started by a Scheduler has no correlation ID, so there is nothing to add',
-      'A Scheduler flow may only log at DEBUG',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 3, 4],
     explain:
-      'Mule gives every event a correlation ID, also the ones a Scheduler starts, and any level can be used. Log the start at DEBUG with the job name, and one INFO line when a file is written.',
+      'Mule gives every event a correlation ID, also the ones a Scheduler starts. A run that finds nothing is not a warning, and WARN on every run would bury the real ones. Log the start at DEBUG with the job name, and one INFO line when a file is written.',
   },
   {
     id: 'log-3009',
@@ -195,14 +195,14 @@ export const SET_3 = [
     situation:
       'In the validateEnrolment batch step, an enrolment record has no course code, so the step raises an error and the record fails. Which message is best?',
     options: [
-      'Enrolment record failed studentId=S-20417 reason=courseCode missing batchStep=validateEnrolment correlationId=c0a7e1',
-      'Bad record from the college, they never fill it in!!!',
-      'Enrolment record failed: {"studentId":"S-20417","name":"Mia Okafor","email":"mia.okafor@example.org","courseCode":null}',
       'Enrolment record failed studentId=S-20417 batchStep=validateEnrolment correlationId=c0a7e1',
+      'Enrolment record failed studentId=S-20417 reason=courseCode missing batchStep=validateEnrolment next=retry correlationId=c0a7e1',
+      'Enrolment record failed: {"studentId":"S-20417","name":"Mia Okafor","email":"mia.okafor@example.org","courseCode":null}',
+      'Enrolment record failed studentId=S-20417 reason=courseCode missing batchStep=validateEnrolment correlationId=c0a7e1',
     ],
-    answer: 0,
+    answer: 3,
     explain:
-      'The student ID and the reason are enough for the registry office to fix the record. The third option puts a name and an email in the log, and the second blames people. The last has no reason, so the office does not know what to fix.',
+      'The student ID and the reason are enough for the registry office to fix the record. A failed batch record is not tried again, so next=retry promises something that will not happen. The line without a reason does not tell the office what to fix, and the body puts a name and an email in the log.',
   },
   {
     id: 'log-3013',
@@ -210,15 +210,15 @@ export const SET_3 = [
     situation: 'A logger in a batch step of the Northbridge enrolment job, which loads 3,400 records each run. Which are problems?',
     code: `<logger level="INFO" message='#["Enrolment processed for $(payload.studentName) email=$(payload.email)"]' />`,
     options: [
-      'One INFO line per record writes 3,400 lines each run',
-      'The student name and email are personal data',
       'Inside a batch step, payload is the whole file, so payload.studentName is empty',
       'There is no correlation ID and no record ID such as studentId',
-      'A Logger cannot be placed inside a batch step',
+      'The student name and email are personal data',
+      'Move it to On Complete, where payload still holds each record',
+      'One INFO line per record writes 3,400 lines each run',
     ],
-    answers: [0, 1, 3],
+    answers: [1, 2, 4],
     explain:
-      'Inside a batch step the payload is one record, so the fields are there, and a Logger works fine. Keep the per-record line at DEBUG with the student ID, and log the totals once in On Complete.',
+      'Inside a batch step the payload is one record, so the fields are there, and a Logger works fine. In On Complete the payload is the job result, not the records. Keep the per-record line at DEBUG with the student ID, and log the totals once in On Complete.',
   },
   {
     id: 'log-3014',
@@ -288,14 +288,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'The Kestrel invoice flow has written an invoice file to the partner FTP folder /in/invoices. Which message is best?',
     options: [
+      'Invoice file sending invoiceId=INV-88213 fileName=INV-88213.csv folder=/in/invoices correlationId=93be0d',
+      'Invoice file sent invoiceId=INV-88213 host=ftp.lumen-books.example login=kestrel_out password=changeme',
       'Invoice file sent invoiceId=INV-88213 fileName=INV-88213.csv folder=/in/invoices',
       'Invoice file sent invoiceId=INV-88213 fileName=INV-88213.csv folder=/in/invoices correlationId=93be0d',
-      'Invoice file sent login=kestrel_out password=changeme host=ftp.lumen-books.example',
-      'Sending...',
     ],
-    answer: 1,
+    answer: 3,
     explain:
-      'When the partner says an invoice never came, this line shows which file went where. The first option has no correlation ID, so it cannot be joined to the other lines of the run. The third option writes the FTP login and password to the log.',
+      'When the partner says an invoice never came, this line shows which file went where. The line without the correlation ID cannot be joined to the other lines of the run, and "sending" is written before the write, so it does not show the file arrived. The FTP login and password never go in a log.',
   },
   {
     id: 'log-3018',
@@ -303,12 +303,12 @@ export const SET_3 = [
     situation: 'A colleague adds this line before the FTP Write in the Kestrel invoice flow, to debug a login problem. Which are problems?',
     code: `<logger level="DEBUG" message="#['FTP login user=' ++ p('ftp.user') ++ ' password=' ++ p('secure::ftp.password')]" />`,
     options: [
-      'It writes the FTP password to the log',
       'DEBUG is off in production, so the password is safe',
+      'It writes the FTP password to the log',
       'Mule masks secure properties when a Logger writes them',
       'There is no correlation ID and no invoice ID',
     ],
-    answers: [0, 3],
+    answers: [1, 3],
     explain:
       'p() returns the decrypted value, and Mule does not mask it in a Logger. DEBUG is often turned on in production to find a fault, so a password at DEBUG still leaks. Log the user and host only.',
   },
@@ -375,14 +375,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'The Bluewater renewal batch job starts for tonight\'s file of 50,000 policies. Which message is best?',
     options: [
-      'Renewal batch started jobName=policyRenewals fileName=renewals-20261112.csv correlationId=e2d904',
-      'Renewal batch started jobName=policyRenewals fileName=renewals-20261112.csv records=50000 correlationId=e2d904',
+      'Renewal batch finished jobName=policyRenewals fileName=renewals-20261112.csv records=50000 correlationId=e2d904',
       'Renewal batch started records=[{"policyId":"BW-55120","holder":"Ravi Menon"},{"policyId":"BW-55121","holder":"Ana Ruiz"}]',
-      'Starting renewals, fingers crossed',
+      'Renewal batch started jobName=policyRenewals fileName=renewals-20261112.csv records=50000 correlationId=e2d904',
+      'Renewal batch started jobName=policyRenewals fileName=renewals-20261112.csv correlationId=e2d904',
     ],
-    answer: 1,
+    answer: 2,
     explain:
-      'It names the job and the file and gives the record count, which On Complete can be checked against. The first option has no record count. The third option logs the records with the holders\' names.',
+      'It names the job and the file and gives the record count, which On Complete can be checked against. The line without records has nothing to check against, and "finished" at the start of the run is wrong. The records list logs the names of the holders.',
   },
   {
     id: 'log-3023',
@@ -390,13 +390,13 @@ export const SET_3 = [
     situation:
       'The Bluewater job has three batch steps: validateRenewal, priceRenewal and reportFailures. Only reportFailures sets acceptPolicy="ONLY_FAILURES". Which statements are true?',
     options: [
+      'acceptPolicy="ALL" would keep failed records out of a step',
       'reportFailures gets only the records that failed in an earlier step',
       'A record that failed in validateRenewal does not reach priceRenewal, because the default policy is NO_FAILURES',
       'reportFailures gets every record, so its logger must check for failures itself',
       'A logger in reportFailures runs once for each failed record',
-      'acceptPolicy="ALL" would keep failed records out of a step',
     ],
-    answers: [0, 1, 3],
+    answers: [1, 2, 4],
     explain:
       'NO_FAILURES is the default, so failed records skip the normal steps. ONLY_FAILURES takes only them, and ALL takes both. A logger in a step runs once per record it gets.',
   },
@@ -455,14 +455,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'The Orchard Batch Aggregator has written a chunk of 500 catalog records to SFTP. Which message is best?',
     options: [
-      'Chunk: [{"sku":"OM-1102","name":"Nitrile gloves M","price":8.4},{"sku":"OM-1103","name":"Nitrile gloves L","price":8.4}]',
       'Catalog chunk written records=500 durationMs=812 correlationId=17ab3e',
-      'Wrote 500',
       'Catalog chunk written part=part-0042.csv records=500 durationMs=812 correlationId=17ab3e',
+      'Chunk: [{"sku":"OM-1102","name":"Nitrile gloves M","price":8.4},{"sku":"OM-1103","name":"Nitrile gloves L","price":8.4}]',
+      'Catalog chunk written part=part-0042.csv records=500 time=812 correlationId=17ab3e',
     ],
-    answer: 3,
+    answer: 1,
     explain:
-      'It names the part file, gives the count and the time. The first option dumps the records of the chunk, which for a large catalog means the whole catalog ends up in the log. The second option has no part name, so the warehouse cannot tell which file it was.',
+      'It names the part file, gives the count and the time with its unit. Without the part name the warehouse cannot tell which file it was, and time=812 has no unit. The JSON line dumps the records of the chunk, which for a large catalog means the whole catalog ends up in the log.',
   },
   {
     id: 'log-3028',
@@ -470,12 +470,12 @@ export const SET_3 = [
     situation: 'A logger in the Orchard Batch Aggregator, size 500. The job has 120,000 records. Which are problems?',
     code: `<logger level="INFO" message="#['Chunk ' ++ write(payload, 'application/json')]" />`,
     options: [
-      'Each line holds all 500 records, so one run writes the whole catalog to the log',
-      'There is no correlation ID and no part name',
-      'write() cannot be used inside a Batch Aggregator',
       'The logger runs once per record, not once per chunk',
+      'Each line holds all 500 records, so one run writes the whole catalog to the log',
+      'write() cannot be used inside a Batch Aggregator',
+      'There is no correlation ID and no part name',
     ],
-    answers: [0, 1],
+    answers: [1, 3],
     explain:
       'In a Batch Aggregator the payload is the array of records in the chunk, and the logger runs once per chunk. write() works there, which is why the whole chunk lands in the log. Log sizeOf(payload) instead.',
   },
@@ -539,14 +539,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'A Lakeside run has read its files and stored a new watermark in Object Store. Which message is best?',
     options: [
-      'Readings watermark updated key=readings-watermark from=2026-11-12T14:00:00Z to=2026-11-12T14:15:00Z files=3 correlationId=0c55aa',
       'Readings watermark updated key=readings-watermark to=2026-11-12T14:15:00Z files=3 correlationId=0c55aa',
+      'Readings watermark updated key=readings-watermark from=2026-11-12T14:00:00Z to=2026-11-12T14:15:00Z files=3 correlationId=0c55aa',
       'Object Store updated: {"key":"readings-watermark","value":"2026-11-12T14:15:00Z","entryTtl":null,"partition":"default"}',
-      'Watermark updated!!! all good',
+      'Readings watermark read key=readings-watermark value=2026-11-12T14:00:00Z files=3 correlationId=0c55aa',
     ],
-    answer: 0,
+    answer: 1,
     explain:
-      'With the old and the new value in the log, you can tell later why a file was read twice or skipped. The key tells you which entry to look at. The second option has only the new value, so the window the run covered is lost.',
+      'With the old and the new value in the log, you can tell later why a file was read twice or skipped. The key tells you which entry to look at. The line with only the new value loses the window the run covered, and a line that says the watermark was read does not show it was stored. The Object Store dump has no old value either.',
   },
   {
     id: 'log-3033',
@@ -623,14 +623,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'Row 412 of an Ashgrove delivery file has a date the flow cannot read. The row goes to a rejects file, and the other rows load. Which message is best?',
     options: [
+      'Delivery file rejected fileName=deliveries-1112.csv row=412 column=deliveryDate reason=not a valid date correlationId=8e3f10',
+      'Delivery row rejected fileName=deliveries-1112.csv row=412 column=deliveryDate reason=not a valid date correlationId=8e3f10',
       'Row rejected: "D-11820;Lena Fischer;12 Birch Road;12/31/2026"',
       'Delivery row rejected fileName=deliveries-1112.csv row=412 reason=not a valid date correlationId=8e3f10',
-      'Delivery row rejected fileName=deliveries-1112.csv row=412 column=deliveryDate reason=not a valid date correlationId=8e3f10',
-      'Row 412 rejected because the depot staff cannot type dates',
     ],
-    answer: 2,
+    answer: 1,
     explain:
-      'File, row, column and reason are all support needs to fix the row. The first option copies the row, with a name and a home street in it. The second does not name the column. The last one blames people.',
+      'File, row, column and reason are all support needs to fix the row. "Delivery file rejected" says the whole file failed, when only one row did and the others loaded. The line without the column leaves support to guess which field, and the copied row has a name and a home street in it.',
   },
   {
     id: 'log-3038',
@@ -710,14 +710,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'The 02:00 Maple Transit run found the lock still held and skipped. Which message is best?',
     options: [
-      'Fare load skipped: previous run still active lockKey=fare-load-lock correlationId=4b9d21',
-      'LOCKED!!! again',
-      'Fare load skipped, lock={"owner":"worker-2","acquired":"2026-11-12T02:00:04Z","ttl":86400000,"value":"..."}',
       'Fare load skipped: previous run still active lockKey=fare-load-lock lockedSince=2026-11-12T02:00:04Z correlationId=4b9d21',
+      'Fare load failed: lock not acquired lockKey=fare-load-lock lockedSince=2026-11-12T02:00:04Z correlationId=4b9d21',
+      'Fare load skipped: previous run still active lockKey=fare-load-lock correlationId=4b9d21',
+      'Fare load skipped, lock={"owner":"worker-2","acquired":"2026-11-12T02:00:04Z","ttl":86400000,"value":"..."}',
     ],
-    answer: 3,
+    answer: 0,
     explain:
-      'It says the run was skipped and why, and how long the lock has been held. That points straight at the run that never ended. The first option does not say since when the lock is held.',
+      'It says the run was skipped and why, and how long the lock has been held. That points straight at the run that never ended. The line without lockedSince does not say since when the lock is held, and "failed" makes a planned skip look like a broken run without saying that an earlier run is still active.',
   },
   {
     id: 'log-3043',
@@ -727,12 +727,12 @@ export const SET_3 = [
       'The cron expression, copied into every line of the run',
       'The job name',
       'The date of the fare files the run loads',
-      'The SFTP user and password',
+      'The number of fare rows loaded by the run',
       'The correlation ID',
     ],
     answers: [1, 2, 4],
     explain:
-      'The job name and the business date say which load this is, and the correlation ID ties its lines together. The cron expression is in the config, not in each line, and passwords never go in a log.',
+      'The job name and the business date say which load this is, and the correlation ID ties its lines together. The cron expression is in the config, not in each line, and the number of rows loaded is only known when the run ends, so it belongs in the last line.',
   },
   {
     id: 'log-3044',
@@ -803,13 +803,13 @@ export const SET_3 = [
       'The SFTP Listener has picked up a 2 GB gzipped Larkfield impression file. The flow streams it and decompresses it later. Which line can be written at pickup without reading the file?',
     options: [
       'Impressions file picked up fileName=imp-20261112.csv.gz rows=14203311 correlationId=6f0e12',
+      'Impressions file picked up fileName=imp-20261112.csv.gz sizeBytes=2147483648 uncompressedBytes=9663676416 correlationId=6f0e12',
       'Impressions file picked up fileName=imp-20261112.csv.gz sizeBytes=2147483648 correlationId=6f0e12',
-      'File: imp-20261112.csv.gz',
       'Impressions file picked up firstLines=ts,campaignId,deviceId,ip 2026-11-12T00:00:01Z,C-881,dv-5521,203.0.113.7',
     ],
-    answer: 1,
+    answer: 2,
     explain:
-      'attributes.size comes with the file, so it costs nothing. A row count needs the whole 2 GB decompressed and parsed first, because the file arrives gzipped. The last option logs data, including an IP address.',
+      'attributes.size comes with the file, so it costs nothing. A row count or the uncompressed size needs the 2 GB file read and decompressed first, because it arrives gzipped. The firstLines line logs data, including an IP address.',
   },
   {
     id: 'log-3049',
@@ -818,13 +818,13 @@ export const SET_3 = [
       'A 2 GB Larkfield file is read from SFTP, passed through a gunzip step and parsed as CSV. This logger sits right after the parse. The read uses a non-repeatable stream. Which statements are true?',
     code: `<logger level="INFO" message='#["File read rows=$(sizeOf(payload)) correlationId=$(correlationId)"]' />`,
     options: [
-      'sizeOf(payload) must read the whole 2 GB stream to count the rows',
-      'The stream can be read only once, so the next processor finds it used up',
       'sizeOf(payload) costs nothing, because Mule keeps a row count for every file',
-      'The line has no correlation ID',
+      'sizeOf(payload) must read the whole 2 GB stream to count the rows',
       'attributes.size gives the size in bytes without reading the stream',
+      'The line has no correlation ID',
+      'The stream can be read only once, so the next processor finds it used up',
     ],
-    answers: [0, 1, 4],
+    answers: [1, 2, 4],
     explain:
       'A count is fine for an array already in memory, but on a stream it reads everything, decompressing and parsing the lot. With a non-repeatable stream the data is then gone for the rest of the flow. Log attributes.size at pickup, and the row count after the flow has parsed the rows it needs anyway.',
   },
@@ -873,29 +873,29 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'The Willowdene counts do not match and the load stops. Which message is best?',
     options: [
-      'Stock moves not loaded: count mismatch fileName=moves-20261112.dat next=load stopped correlationId=7a2c91',
-      'MISMATCH!!! someone check the file',
-      'Stock moves not loaded: count mismatch fileName=moves-20261112.dat expected=18240 found=18236 next=load stopped correlationId=7a2c91',
+      'Stock moves loaded with a count mismatch fileName=moves-20261112.dat expected=18240 found=18236 correlationId=7a2c91',
       'Stock moves not loaded, rows=[{"sku":"CP-4410","qty":-2,"store":"S-12"},{"sku":"CP-4411","qty":5,"store":"S-12"}]',
+      'Stock moves not loaded: count mismatch fileName=moves-20261112.dat next=load stopped correlationId=7a2c91',
+      'Stock moves not loaded: count mismatch fileName=moves-20261112.dat expected=18240 found=18236 next=load stopped correlationId=7a2c91',
     ],
-    answer: 2,
+    answer: 3,
     explain:
-      'Both counts, the file and what happened next are all in one line. Whoever gets paged knows at once how many rows are missing and that nothing was loaded. The first option has no counts, so nobody can tell how big the gap is.',
+      'Both counts, the file and what happened next are all in one line. Whoever gets paged knows at once how many rows are missing and that nothing was loaded. The line without counts cannot show how big the gap is, the line that says loaded is wrong because the load stopped, and the rows list copies data into the log.',
   },
   {
     id: 'log-3054',
     kind: 'multi',
     situation: 'Which of these belong in the reconciliation line at the end of the Willowdene nightly load?',
     options: [
+      'The quantity of all 18,240 rows, as a list',
       'The record count the trailer promised',
-      'The patient ID for each moved item',
+      'Only the rejected count, because the other counts can be worked out from it',
       'The number of rows read from the file',
       'The number of rows loaded and the number rejected',
-      'The quantity of all 18,240 rows, as a list',
     ],
-    answers: [0, 2, 3],
+    answers: [1, 3, 4],
     explain:
-      'Expected, read, loaded and rejected show where any row went missing. Patient IDs and row lists are data, not a reconciliation, and they make the line huge.',
+      'Expected, read, loaded and rejected show where any row went missing: one count alone cannot tell a short file from a failed load. A list of rows is data, not a reconciliation, and it makes the line huge.',
   },
   {
     id: 'log-3055',
@@ -941,14 +941,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'A Summit Payroll record fails in the calculatePay step because the tax code is missing. Which message is best?',
     options: [
-      'Payroll record failed: Daniel Ortiz, salary 4250.00, bank account NL00 BANK 0000 0000 00',
-      'Record failed',
-      'Payroll record failed employeeId=E-30417',
       'Payroll record failed employeeId=E-30417 batchStep=calculatePay reason=taxCode missing correlationId=a90c3d',
+      'Payroll record failed employeeId=E-30417 batchStep=calculatePay reason=taxCode missing salary=4250.00',
+      'Payroll record failed employeeId=E-30417',
+      'Payroll record failed: Daniel Ortiz, salary 4250.00, bank account NL00 BANK 0000 0000 00',
     ],
-    answer: 3,
+    answer: 0,
     explain:
-      'The employee ID, the step and the reason let payroll fix the record. The first option logs a name, a salary and a bank account. The third has no reason and no correlation ID.',
+      'The employee ID, the step and the reason let payroll fix the record. A salary is personal data even next to an ID, and that line has no correlation ID. The line with only the employee ID has no reason and no correlation ID, and the line with a name and a bank account puts even more personal data in the log.',
   },
   {
     id: 'log-3058',
@@ -956,14 +956,14 @@ export const SET_3 = [
     situation:
       'In On Complete of the Summit Payroll job, payload.failedOnLoadingPhase is true: the file could not be split into records, so none were loaded. payload.loadingPhaseException holds the reason. Which message is best?',
     options: [
+      'Payroll batch failed in the load phase fileName=pay-2026-11.csv correlationId=a90c3d',
       'Payroll batch failed in the load phase: records not split fileName=pay-2026-11.csv loaded=0 next=no pay calculated correlationId=a90c3d',
+      'Payroll records failed in the process phase failed=all fileName=pay-2026-11.csv next=no pay calculated correlationId=a90c3d',
       'Payroll batch finished total=0 successful=0 failed=0',
-      'Batch error occurred',
-      'Payroll input broken, the HR team sent a bad file again',
     ],
-    answer: 0,
+    answer: 1,
     explain:
-      'Splitting the file into records is the Load and Dispatch phase, so a failure there shows as payload.failedOnLoadingPhase with payload.loadingPhaseException. The second option looks like a quiet night with nothing to do, but no one was paid. Say that the load phase failed and that nothing was loaded.',
+      'Splitting the file into records is the Load and Dispatch phase, so a failure there shows as payload.failedOnLoadingPhase with payload.loadingPhaseException, and no record ever reaches the process phase. "Payroll batch finished total=0" looks like a quiet night with nothing to do, but no one was paid. A line that names the load phase but not that nothing was loaded leaves the reader to work out the impact. Say that the load phase failed and that nothing was loaded.',
   },
   {
     id: 'log-3059',
@@ -974,12 +974,12 @@ export const SET_3 = [
       'In On Complete, payload is the last record, so this line holds personal data',
       'write(payload) dumps the whole BatchJobResult, with step results and any exception text',
       'It says the run ended, but not whether it was stopped by max failed records',
-      'INFO is wrong, because On Complete lines must be DEBUG',
+      'It should log payload.records, the list of failed records, in place of the whole result',
       'There is no correlation ID',
     ],
     answers: [1, 2, 4],
     explain:
-      'In On Complete the payload is the BatchJobResult, not a record. Pick its fields: payload.totalRecords, payload.processedRecords and payload.failedRecords, so a stopped run reads differently from a full one.',
+      'In On Complete the payload is the BatchJobResult, not a record, and it holds counts and step results, not the records. Pick its fields: payload.totalRecords, payload.processedRecords and payload.failedRecords, so a stopped run reads differently from a full one.',
   },
   {
     id: 'log-3060',
@@ -1028,28 +1028,28 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'A Marchmont dealer\'s X12 850 file has been read and parsed. It holds 12 purchase orders. Which message is best?',
     options: [
-      'X12 850 received dealerId=DL-0442 orders=12 fileName=dl0442-850-1112.edi correlationId=31c8e5',
-      'X12 850 received dealerId=DL-0442 interchangeControl=000004127 orders=12 fileName=dl0442-850-1112.edi correlationId=31c8e5',
+      'X12 850 received dealerId=DL-0442 groupControl=4127 orders=12 fileName=dl0442-850-1112.edi correlationId=31c8e5',
       'ISA*00*          *00*          *ZZ*DL0442         *ZZ*MARCHMONT      *261112*1410*U*00401*000004127*0*P*>~',
-      'Orders from dealer, see SFTP',
+      'X12 850 received dealerId=DL-0442 interchangeControl=000004127 orders=12 fileName=dl0442-850-1112.edi correlationId=31c8e5',
+      'X12 850 received dealerId=DL-0442 orders=12 fileName=dl0442-850-1112.edi correlationId=31c8e5',
     ],
-    answer: 1,
+    answer: 2,
     explain:
-      'The interchange control number is how both sides talk about one EDI file. With the dealer, the order count and the file name, a dealer question can be answered from one line. The first option has no interchange control number, which is what the dealer will quote.',
+      'The interchange control number from the ISA segment is how both sides talk about one EDI file. With the dealer, the order count and the file name, a dealer question can be answered from one line. The group control number comes from the GS segment and is not the number the dealer will quote, and the line without any control number leaves it out too. The raw ISA segment holds sender IDs and security fields.',
   },
   {
     id: 'log-3063',
     kind: 'choice',
     situation: 'A Marchmont 850 fails validation because a required N1 segment is missing. The flow sends a 997 that rejects it. Which message is best?',
     options: [
-      'Bad EDI',
-      'EDI rejected: segment errors',
-      'X12 850 dump: ST*850*0001~BEG*00*SA*PO-77812**20261112~REF*DP*044~',
+      'X12 850 rejected reason=N1 segment missing next=997 reject sent correlationId=31c8e5',
       'X12 850 rejected dealerId=DL-0442 interchangeControl=000004128 reason=N1 segment missing next=997 reject sent correlationId=31c8e5',
+      'X12 850 dump: ST*850*0001~BEG*00*SA*PO-77812**20261112~REF*DP*044~',
+      'X12 850 rejected dealerId=DL-0442 interchangeControl=000004128 reason=N1 segment missing correlationId=31c8e5',
     ],
-    answer: 3,
+    answer: 1,
     explain:
-      'It says which file was rejected, why, and that the dealer has been told by the 997. The second option gives the reason but no IDs, so nobody can tell which file it was.',
+      'It says which file was rejected, why, and that the dealer has been told by the 997. The line without the dealer and the interchange control number gives the reason, but nobody can tell which file it was. The line without next does not say the dealer was told, and the segment dump copies order data into the log.',
   },
   {
     id: 'log-3064',
@@ -1057,14 +1057,14 @@ export const SET_3 = [
     situation: 'A Marchmont EDI file cannot be parsed at all, and the flow moves it to /error/edi. Which belong in that ERROR line?',
     options: [
       'The file name and the dealer ID',
+      'The first 200 characters of the file, so support can see why the parse failed',
       'The interchange control number, if the ISA segment could be read',
       'The error type and description',
-      'The raw ISA segment, with its sender ID and authorization fields',
       'The folder the file was moved to',
     ],
-    answers: [0, 1, 2, 4],
+    answers: [0, 2, 3, 4],
     explain:
-      'These facts find the file and tell the dealer which interchange to send again. The ISA segment can carry authorization and security values, so it stays out of the log.',
+      'These facts find the file and tell the dealer which interchange to send again. The first characters of an EDI file are the ISA segment, which can carry authorization and security values, so no part of the raw file goes in the log.',
   },
   {
     id: 'log-3065',
@@ -1106,14 +1106,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'The Harbourview fixed-width statement file has been parsed. Which message is best?',
     options: [
+      'Statement file parsed fileName=stmt-20261112.txt records=61203 trailerCount=61203 correlationId=d4a7b2',
+      'Statement file parsed fileName=stmt-20261112.txt records=61203 trailerCount=61203 accountNumbers=00123456,00123457,...',
       'Statement file parsed fileName=stmt-20261112.txt records=61203 correlationId=d4a7b2',
       'Parsed: 00123456782026111200000012500CR J SMITH',
-      'Statement file parsed fileName=stmt-20261112.txt records=61203 trailerCount=61203 correlationId=d4a7b2',
-      'Statement file parsed accountNumbers=[00123456,00123457,00123458]',
     ],
-    answer: 2,
+    answer: 0,
     explain:
-      'The record count next to the trailer count shows the file is whole. The first option has no trailer count to compare with. The raw line and the list of account numbers put customer data in the log.',
+      'The record count next to the trailer count shows the file is whole. The line without the trailer count has nothing to compare with. The raw line and the account numbers put customer data in the log, even when the counts are there.',
   },
   {
     id: 'log-3068',
@@ -1122,14 +1122,14 @@ export const SET_3 = [
       'In the Harbourview flow, vars.rawRecord holds the full fixed-width line: account number, holder name, amount and code. Which are problems with this logger?',
     code: `<logger level="WARN" message='#["Unknown code in record: $(vars.rawRecord)"]' />`,
     options: [
-      'The raw record holds the account number and the holder name',
+      'Masking the holder name would be enough, because an account number is not personal data',
       'There is no correlation ID, record number or file name',
       'WARN is wrong. An unknown code that is mapped and loaded must be ERROR',
-      'Fixed-width records cannot be logged, because they have no field names',
+      'The raw record holds the account number and the holder name',
     ],
-    answers: [0, 1],
+    answers: [1, 3],
     explain:
-      'WARN fits a code the flow handled. The problem is what the line holds: log the record number, the file name and the code, not the record itself.',
+      'WARN fits a code the flow handled. The problem is what the line holds: an account number tied to a person is personal data too, so masking the name is not enough. Log the record number, the file name and the code, not the record itself.',
   },
   {
     id: 'log-3069',
@@ -1137,13 +1137,13 @@ export const SET_3 = [
     situation:
       'The Harbourview flow reads the statement file in one go, with streaming off. The parse fails at line 30,412, because that record is 3 characters short. Which statements are true?',
     options: [
-      'The parse of the whole file fails, so no record loads unless the flow handles it',
-      'The line number from the error is useful in the log line',
-      'Log the short record in full, so support can see what is wrong with it',
       'This is DEBUG, because nobody needs to act',
+      'The parse of the whole file fails, so no record loads unless the flow handles it',
       'Log the file name and the line number, not the record',
+      'Log the short record in full, so support can see what is wrong with it',
+      'The line number from the error is useful in the log line',
     ],
-    answers: [0, 1, 4],
+    answers: [1, 2, 4],
     explain:
       'With streaming off the whole file is parsed before anything moves on, so one short record means no statement reaches the members. That is work for a person. Read the same file with deferred or streamed reading and the picture changes: the records before line 30,412 can already have gone downstream, so the log must also say how far the load got. The line number finds the record in the file without copying account data to the log.',
   },
@@ -1187,29 +1187,30 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'The Coral Bay rate job ends with 12 failed records out of 9,200. Which On Complete message is best?',
     options: [
-      'Job complete :)',
-      'Rate load finished jobId=5e10-7c total=9200 successful=9188 failed=12 elapsedMs=418220 correlationId=f61d08',
       'Rate load finished elapsedTime=418220',
+      'Rate load finished jobId=5e10-7c processed=9200 elapsedMs=418220 correlationId=f61d08',
       'Rate load finished batchStepResults={"loadRates":{"processed":9200,"failed":12,"exceptions":{"MULE:EXPRESSION":"..."}}}',
+      'Rate load finished jobId=5e10-7c total=9200 successful=9188 failed=12 elapsedMs=418220 correlationId=f61d08',
     ],
-    answer: 1,
+    answer: 3,
     explain:
-      'It gives the job ID, all the counts and the time with its unit. The third option has no unit and no counts, and the last dumps payload.batchStepResults, which is the field that holds the per-step results.',
+      'It gives the job ID, all the counts and the time with its unit. processed=9200 counts the failed records too, so the night looks clean. elapsedTime=418220 has no unit and no counts, and the batchStepResults dump holds the per-step results, long and hard to read.',
   },
   {
     id: 'log-3073',
     kind: 'multi',
-    situation: 'Which of these are fields of the BatchJobResult that On Complete gets as its payload?',
+    situation:
+      'Coral Bay: in On Complete of the rate job you want one INFO line that answers "did every rate load, and how long did it take?". Which expressions can that logger use?',
     options: [
-      'payload.loadedRecords',
-      'payload.records',
-      'payload.elapsedTimeInMillis',
-      'payload.failedOnInputPhase',
-      'payload.lastRecord',
+      '$(payload.records), for the list of the rates that failed',
+      '$(payload.successfulRecords) and $(payload.failedRecords)',
+      '$(payload.lastRecord), to show where the run ended',
+      '$(payload.elapsedTimeInMillis)',
+      '$(payload.failedOnLoadingPhase), to tell an empty run from a file that could not be split',
     ],
-    answers: [0, 2, 3],
+    answers: [1, 3, 4],
     explain:
-      'The BatchJobResult holds counts and phase results, such as totalRecords, loadedRecords, successfulRecords, failedRecords, elapsedTimeInMillis and failedOnInputPhase. It does not hold the records.',
+      'In On Complete the payload is the BatchJobResult. It holds counts and phase results, such as totalRecords, loadedRecords, successfulRecords, failedRecords, elapsedTimeInMillis and failedOnLoadingPhase. It does not hold the records, so there is no list of failed rates and no last record in it.',
   },
   {
     id: 'log-3074',
@@ -1217,15 +1218,15 @@ export const SET_3 = [
     situation: 'The Coral Bay On Complete logger is below. Which changes would make it more useful?',
     code: `<logger level="INFO" message='#["Rate load finished total=$(payload.totalRecords) failed=$(payload.failedRecords) correlationId=$(correlationId)"]' />`,
     options: [
+      'Add payload.batchStepResults, written in full',
       'Add the job instance ID from payload.batchJobInstanceId',
       'Add how long the job took from payload.elapsedTimeInMillis',
-      'Add payload.batchStepResults, written in full',
-      'Add the names of the hotel staff who entered the failed rates',
+      'Add payload.processedRecords, which is the same as the successful count',
       'Add the successful count from payload.successfulRecords',
     ],
-    answers: [0, 1, 4],
+    answers: [1, 2, 4],
     explain:
-      'The job ID finds the failed records, the time shows a slow night, and the successful count closes the sum. Step results in full are long, and staff names are personal data.',
+      'The job ID finds the failed records, the time shows a slow night, and the successful count closes the sum. processedRecords counts the failed records too, so it does not close the sum, and step results in full are long.',
   },
   {
     id: 'log-3075',

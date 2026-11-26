@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'What is the difference between an unregistered on-premises runtime and a Hybrid Standalone runtime?',
+      prompt: 'A data centre has two Mule 4 servers. `mule-a` was registered with `amc_setup`, and `mule-b` never was. An urgent fix must go to an app on `mule-b` today. What is true?',
       options: [
-        'Both run on your hosts; only Hybrid Standalone is registered via the agent',
-        'Hybrid Standalone runs on MuleSoft-owned servers in your region',
-        'Only an unregistered runtime can run several apps at once',
-        'Hybrid Standalone needs Runtime Manager reachable to start the runtime',
+        'It must be registered first, since a Mule 4 runtime deploys only through the agent',
+        'Runtime Manager can deploy to it, since it lists the runtimes it reaches on the network',
+        'Copying the JAR to `$MULE_HOME/apps` deploys it, with no Runtime Manager involved',
+        'Running `amc_setup -U` on it first registers it again with the token of `mule-a`',
       ],
-      answer: 0,
-      explain: 'Both are Mule on hosts you control. A Hybrid Standalone runtime is registered with Runtime Manager through the agent, and registration is optional. An unregistered runtime does not depend on Runtime Manager to start or to deploy JARs; you copy them to `$MULE_HOME/apps`.',
+      answer: 2,
+      explain: 'Both servers are Mule on hosts you control. Registration with Runtime Manager through the agent is optional, and only a registered server appears in Runtime Manager. An unregistered runtime does not depend on Runtime Manager to start or to deploy JARs: you copy them to `$MULE_HOME/apps`. Runtime Manager does not discover servers on the network, and `-U` keeps the existing agent configuration of a server; it does not register one.',
     },
     {
       type: 'single',

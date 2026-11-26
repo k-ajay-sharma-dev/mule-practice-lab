@@ -12,8 +12,8 @@ export default {
       prompt: 'Can a **local** transaction make steps 1 to 3 (Oracle inserts + JMS publish, plus the JMS consume) all-or-nothing?',
       options: [
         'No, a local transaction is bound to one resource, so this needs XA',
-        'Yes, a local transaction covers every connector in the flow',
-        'Yes, as long as every operation in it uses `ALWAYS_JOIN`',
+        'Yes, a local transaction covers the connectors that run in the same flow',
+        'Yes, if each operation in it sets `transactionalAction` to `ALWAYS_JOIN`',
         'No, because the JMS connector does not support transactions',
       ],
       answer: 0,
@@ -38,7 +38,7 @@ export default {
       options: [
         'On Error Continue, which commits the work that already succeeded',
         'On Error Propagate, which commits before it rethrows the error',
-        'Neither, because both handlers always roll the transaction back',
+        'Neither, because both handlers roll the transaction back before they run',
         'The default error handler, which commits before it logs the error',
       ],
       answer: 0,

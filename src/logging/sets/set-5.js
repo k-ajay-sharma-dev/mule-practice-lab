@@ -32,10 +32,10 @@ export const SET_5 = [
     situation:
       'Which line fits best in the On Error Continue that catches HTTP:SERVICE_UNAVAILABLE from the Weather API? The store page is still returned, without a forecast.',
     options: [
-      '#["Weather API error"]',
+      '#["Weather API error errorType=$(error.errorType) storeId=$(vars.storeId) next=503 returned to the website correlationId=$(correlationId)"]',
       '#["Forecast left out: Weather API unavailable errorType=$(error.errorType) storeId=$(vars.storeId) next=store returned without forecast correlationId=$(correlationId)"]',
-      '#["ERROR!!! Weather API is down again " ++ write(error)]',
-      '#["Forecast left out storeId=$(vars.storeId)"]',
+      '#["Forecast left out: Weather API unavailable storeId=$(vars.storeId) next=store returned without forecast correlationId=$(correlationId)"]',
+      '#["Forecast left out storeId=$(vars.storeId) errorType=$(error.errorType) correlationId=$(correlationId)"]',
     ],
     answer: 1,
     explain:
@@ -48,13 +48,13 @@ export const SET_5 = [
       'This is the only error handler of the Store Finder flow. When the Stores System API is down, the website gets 200 and an empty store list. What is wrong here?',
     code: '<on-error-continue type="ANY">\n  <logger level="DEBUG" message="#[error.description]" />\n</on-error-continue>',
     options: [
+      'error.description cannot be read inside On Error Continue',
       'type="ANY" with On Error Continue hides real failures: the caller gets 200 when the store list could not be read',
       'At DEBUG the line is off in production, so nobody sees these errors',
+      'type="ANY" does not catch errors raised by an HTTP Request, so the 200 comes from somewhere else',
       'The line has no correlation ID and no error type',
-      'error.description cannot be read inside On Error Continue',
-      'On Error Continue stops the flow and always sends 500 to the caller',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 2, 4],
     explain:
       'error.description works in every handler. On Error Continue makes the flow end as a success, which is why it should only catch errors you can live with. Use On Error Propagate for a failed store list, and log at WARN or ERROR with errorType and correlationId.',
   },
@@ -100,7 +100,7 @@ export const SET_5 = [
     options: [
       `#["SMTP config user=$(p('smtp.user')) password=$(p('secure::smtp.password'))"]`,
       `#["Mail settings loaded " ++ write(p('secure::smtp.password'))]`,
-      '#["Config OK"]',
+      `#["Mail settings loaded app=$(app.name) env=$(p('mule.env')) smtp=configured"]`,
       `#["Mail settings loaded env=$(p('mule.env')) smtpHost=$(p('smtp.host')) smtpPort=$(p('smtp.port'))"]`,
     ],
     answer: 3,
@@ -116,7 +116,7 @@ export const SET_5 = [
       `#["Partner key loaded key=$(p('secure::partner.apiKey'))"]`,
       `#["Partner key loaded keyStart=$(p('secure::partner.apiKey')[0 to 5])"]`,
       `#["Partner key loaded keyVersion=$(p('partner.keyVersion')) env=$(p('mule.env'))"]`,
-      '#["Partner key loaded"]',
+      `#["Partner key loaded keyLength=$(sizeOf(p('secure::partner.apiKey'))) env=$(p('mule.env'))"]`,
     ],
     answer: 2,
     explain:
@@ -128,13 +128,13 @@ export const SET_5 = [
     situation: 'This line was found in the Member Notifications app before a production release. What is wrong with it?',
     code: `<logger level="DEBUG" category="com.thistlebank.notify" message="#['Connecting to SMTP with ' ++ p('secure::smtp.password')]" />`,
     options: [
-      'The SMTP credential is written in clear text. A Logger does not mask secure properties',
-      'DEBUG is often turned on in production to troubleshoot, so the credential can reach the production log',
       'The Secure Properties module encrypts the value again when a Logger writes it',
-      'Anyone who can read the log can now sign in to the mail server',
+      'The SMTP credential is written in clear text. A Logger does not mask secure properties',
       'A category on a Logger stops it from writing secure values',
+      'DEBUG is often turned on in production to troubleshoot, so the credential can reach the production log',
+      'Anyone who can read the log can now sign in to the mail server',
     ],
-    answers: [0, 1, 3],
+    answers: [1, 3, 4],
     explain:
       'Secure properties are encrypted in the file only. Once read, the value is plain text, and a Logger writes what it gets, at any level and with any category. Remove the line, and if the credential was logged, rotate it.',
   },
@@ -179,12 +179,12 @@ export const SET_5 = [
     options: [
       '#["Quote request rejected: driver.licenceNumber has wrong length errorType=$(error.errorType) quoteRef=$(vars.quoteRef) status=400 correlationId=$(correlationId)"]',
       '#["Bad licence number $(payload.driver.licenceNumber) for $(payload.driver.fullName)"]',
-      '#["User sent garbage again!!!"]',
+      '#["Quote request rejected: the broker app sent rubbish again quoteRef=$(vars.quoteRef) status=400 correlationId=$(correlationId)"]',
       '#["Quote request rejected: driver.licenceNumber has wrong length licenceNumber=$(payload.driver.licenceNumber) quoteRef=$(vars.quoteRef) status=400 correlationId=$(correlationId)"]',
     ],
     answer: 0,
     explain:
-      'Name the field and the check, not the value. The last option is well labelled but writes the licence number itself, and a licence number and a name are personal data. No blame: the caller team reads these lines too.',
+      'Name the field and the check, not the value. The line with licenceNumber=$(payload.driver.licenceNumber) is well labelled but writes the licence number itself, and a licence number and a name are personal data. No blame: the caller team reads these lines too.',
   },
   {
     id: 'log-5013',
@@ -194,29 +194,30 @@ export const SET_5 = [
     code: '<logger level="ERROR" message="#[payload]" />',
     options: [
       'ERROR pages the on-call team for a caller mistake that the API handled. WARN fits',
-      'The whole quote request, with names and dates of birth, goes to the log',
-      'It does not say which fields failed, while error.childErrors holds the individual failures',
       'VALIDATION:MULTIPLE cannot be caught by an error handler',
-      'A request that gets a 400 must never be logged',
+      'The whole quote request, with names and dates of birth, goes to the log',
+      `A 400 is the caller's mistake, so the line belongs at DEBUG and not WARN`,
+      'It does not say which fields failed, while error.childErrors holds the individual failures',
     ],
-    answers: [0, 1, 2],
+    answers: [0, 2, 4],
     explain:
       'VALIDATION:MULTIPLE is caught like any error, and a 400 deserves one WARN line. For this type the individual failures are in error.childErrors, so map them to a short list of field names, and add a reference and correlationId, not the payload.',
   },
   {
     id: 'log-5014',
     kind: 'multi',
-    situation: 'A new developer on the quote API asks about the errors of the Validation module. Which statements are right?',
+    situation:
+      'A quote request arrives with an empty driver.surname. An Is not blank string validator raises VALIDATION:BLANK_STRING, and an On Error Propagate for VALIDATION:BLANK_STRING returns 400 with a WARN line. Which statements are right?',
     options: [
-      'error.errorType.namespace is VALIDATION for these errors',
-      'error.errorType.identifier tells you which check failed, such as BLANK_STRING',
-      'A failed validation stops the flow and goes to the error handler, like any other error',
-      'error.cause holds the field value that failed, so log error.cause to see it',
-      'Mule logs validation errors on its own, so they need no handler',
+      'error.errorType.identifier is BLANK_STRING, so the WARN line can name the check that failed',
+      'error.cause holds the empty surname, so logging error.cause shows the value that failed',
+      'Without that handler the caller would get 500, because an unhandled error ends the flow as a server error',
+      'The validator only sets a flag, so the flow goes on to the next processor unless a Choice checks it',
+      'error.description carries the validator message, so it can go in the line in place of the payload',
     ],
-    answers: [0, 1, 2],
+    answers: [0, 2, 4],
     explain:
-      'error.cause is the underlying Java exception, not the value, and an unhandled validation error returns 500 instead of 400. Catch VALIDATION errors, log the identifier and error.description, and return 400.',
+      'The identifier names the check, and error.description holds its message, so the line can say what failed without the request itself. error.cause is the underlying Java exception, not the field value. A failed validation raises an error like any other processor, so the flow stops there. Without a handler for it, the HTTP Listener answers 500 instead of 400.',
   },
   {
     id: 'log-5015',
@@ -271,11 +272,11 @@ export const SET_5 = [
       '#["Loan refused: limit reached memberId=$(vars.memberId) status=409 correlationId=$(correlationId)"]',
       '#["Loan refused memberName=$(payload.member.name) memberAddress=$(payload.member.address)"]',
       '#["Loan refused: limit reached errorType=$(error.errorType) memberId=$(vars.memberId) loans=$(vars.loanCount) limit=10 status=409 correlationId=$(correlationId)"]',
-      '#["MULE:UNKNOWN in loans flow"]',
+      '#["Loan refused: limit reached memberId=$(vars.memberId) loans=$(vars.loanCount) limit=10 status=500 correlationId=$(correlationId)"]',
     ],
     answer: 2,
     explain:
-      'Your own error type, LOANS:LIMIT_REACHED, already says what happened. Add the member ID, the count and the limit, so the line explains itself. The first option has no count and no limit, so the reader cannot see why the rule fired. Names and addresses stay out.',
+      'Your own error type, LOANS:LIMIT_REACHED, already says what happened. Add the member ID, the count and the limit, so the line explains itself. The line without loans= and limit= has no count and no limit, so the reader cannot see why the rule fired. Names and addresses stay out.',
   },
   {
     id: 'log-5019',
@@ -283,12 +284,12 @@ export const SET_5 = [
     situation: 'A developer wrote this Raise Error for the loan limit. Which statements are right?',
     code: '<raise-error type="MULE:LIMIT" description="Too many loans" />',
     options: [
+      `A raised error skips the flow's own error handler and goes straight to the global one`,
       'There is no MULE:LIMIT error type, and you can raise a core type only if it already exists. Use your own, such as LOANS:LIMIT_REACHED',
+      'Raise Error writes its description to the log at ERROR before the handler runs',
       'The description becomes error.description, so put the facts a reader needs in it, such as the limit',
-      'A raised error cannot be caught by On Error Propagate',
-      'Raise Error writes the payload to the log',
     ],
-    answers: [0, 1],
+    answers: [1, 3],
     explain:
       'Raise Error accepts a core type that already exists, which is why the reference itself shows <raise-error type="MULE:CONNECTIVITY"/>, but MULE:LIMIT does not exist, so it is invalid. Connector namespaces such as HTTP or FILE cannot be raised at all. A raised error goes to the error handler like any other, and it logs nothing until a Logger or the default handler writes it.',
   },
@@ -333,9 +334,9 @@ export const SET_5 = [
     kind: 'choice',
     situation: 'Which line fits best in the On Error Continue of that Try scope?',
     options: [
-      '#["Try failed"]',
-      '#["Loyalty error " ++ write(error)]',
-      '#["Loyalty points not added cardNumber=$(payload.loyaltyCardNumber)"]',
+      '#["Loyalty points not added: Loyalty API timed out errorType=$(error.errorType) saleId=$(vars.saleId) points=$(vars.points) retryable=false next=none correlationId=$(correlationId)"]',
+      '#["Loyalty points not added saleId=$(vars.saleId) error=" ++ write(error) ++ " correlationId=$(correlationId)"]',
+      '#["Loyalty points not added yet cardNumber=$(payload.loyaltyCardNumber) points=$(vars.points) next=queued for retry"]',
       '#["Loyalty points not added yet: Loyalty API timed out errorType=$(error.errorType) saleId=$(vars.saleId) points=$(vars.points) next=queued for retry correlationId=$(correlationId)"]',
     ],
     answer: 3,
@@ -348,13 +349,13 @@ export const SET_5 = [
     situation: 'A reviewer reads the Try scope around the loyalty call. Which are problems?',
     code: '<try>\n  <http:request config-ref="loyaltyApi" path="/points" method="POST" />\n  <error-handler>\n    <on-error-continue type="ANY">\n      <logger level="INFO" message="Loyalty skipped" />\n    </on-error-continue>\n  </error-handler>\n</try>',
     options: [
-      'type="ANY" also swallows HTTP:UNAUTHORIZED, a setup fault that a later retry will not fix',
+      'After On Error Continue in a Try, the rest of the flow is skipped and the caller gets an empty 200',
       'INFO hides a handled failure among normal events. WARN fits',
+      'type="ANY" also swallows HTTP:UNAUTHORIZED, a setup fault that a later retry will not fix',
       '"Loyalty skipped" has no sale ID, no error type and no correlation ID',
-      'An error inside a Try scope always ends the whole flow',
-      'A Logger is not allowed inside the error handler of a Try scope',
+      'A Logger inside the error handler of a Try scope cannot read error.errorType',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 2, 3],
     explain:
       'With On Error Continue in a Try, the flow goes on after the Try scope, which is the point here. Catch only the errors you expect, such as HTTP:TIMEOUT, and let the others propagate so they are seen.',
   },
@@ -424,12 +425,12 @@ export const SET_5 = [
     options: [
       '#["Shipment not found at carrier errorType=$(error.errorType) shipmentId=$(vars.shipmentId) status=404"]',
       '#["Shipment not found at carrier errorType=$(error.errorType) shipmentId=$(vars.shipmentId) status=404 correlationId=$(correlationId)"]',
-      '#["Shipment not found " ++ write(error.errorMessage.payload)]',
-      '#["Tracking failed for $(attributes.headers.authorization)"]',
+      '#["Shipment not found at carrier shipmentId=$(vars.shipmentId) carrierResponse=" ++ write(error.errorMessage.payload)]',
+      '#["Shipment not found at carrier errorType=$(error.errorType) shipmentId=$(vars.shipmentId) caller=$(attributes.headers.authorization) correlationId=$(correlationId)"]',
     ],
     answer: 1,
     explain:
-      'The mapped type says in your own words what went wrong. The first option has no correlation ID, so it cannot be joined to the carrier call before it. error.errorMessage holds the carrier response, which can be large and full of customer data, and an authorization header never goes in a log.',
+      'The mapped type says in your own words what went wrong. The line that ends at status=404 has no correlation ID, so it cannot be joined to the carrier call before it. error.errorMessage holds the carrier response, which can be large and full of customer data, and an authorization header never goes in a log.',
   },
   {
     id: 'log-5028',
@@ -438,12 +439,12 @@ export const SET_5 = [
     code: `<logger level="ERROR" message="#['Error: ' ++ error.description]" />`,
     options: [
       'It does not log error.errorType, so you cannot count failures by type',
+      'A global error handler cannot read error.description',
+      `The global handler also runs after a flow's own handler, so each error is logged twice`,
       'It does not say which flow failed. Add flow.name',
       'It has no correlation ID',
-      'A global error handler cannot read error.description',
-      'A global error handler only catches errors from the first flow in the app',
     ],
-    answers: [0, 1, 2],
+    answers: [0, 3, 4],
     explain:
       'The global handler catches errors from every flow that has no handler of its own, so the line must say which flow and which error type. Without correlationId you cannot find the rest of the request.',
   },
@@ -511,13 +512,13 @@ export const SET_5 = [
       'The Until Successful has maxRetries="4". All attempts failed and Mule raised MULE:RETRY_EXHAUSTED. Which line fits best in its handler?',
     options: [
       '#["Refill not sent to Dispensing API after 4 attempts errorType=$(error.errorType) cause=$(error.description) refillId=$(vars.refillId) next=pharmacist alerted correlationId=$(correlationId)"]',
-      '#["Refill failed, will retry"]',
+      '#["Refill not sent to Dispensing API errorType=$(error.errorType) refillId=$(vars.refillId) next=will retry in 3 seconds correlationId=$(correlationId)"]',
       '#["Refill not sent to Dispensing API after 5 attempts errorType=$(error.errorType) cause=$(error.description) refillId=$(vars.refillId) next=pharmacist alerted correlationId=$(correlationId)"]',
-      '#["Refill failed for patient $(payload.patient.name) born $(payload.patient.dateOfBirth)"]',
+      '#["Refill not sent after 5 attempts for patient $(payload.patient.name) born $(payload.patient.dateOfBirth) correlationId=$(correlationId)"]',
     ],
     answer: 2,
     explain:
-      'maxRetries="4" means one call and 4 retries, so 5 attempts, and the first option gets that count wrong. No retry is left, so "will retry" misleads. Say what failed, how often it tried and what happens next, with an ID and no patient data.',
+      'maxRetries="4" means one call and 4 retries, so 5 attempts, and the line that says after 4 attempts gets that count wrong. No retry is left, so "will retry" misleads. Say what failed, how often it tried and what happens next, with an ID and no patient data.',
   },
   {
     id: 'log-5033',
@@ -525,13 +526,13 @@ export const SET_5 = [
     situation: 'A reviewer reads this refill flow. Which are problems?',
     code: `<until-successful maxRetries="4" millisBetweenRetries="3000">\n  <http:request config-ref="dispensingApi" path="/refills" method="POST" />\n  <logger level="ERROR" message="#['Refill call attempt']" />\n</until-successful>`,
     options: [
-      'The logger runs only after a call that worked, yet it logs at ERROR',
-      'It says nothing about which refill it is or which attempt',
-      'When all attempts fail, Mule raises MULE:RETRY_EXHAUSTED, and nothing here logs it',
       'maxRetries="4" means the call is made 4 times in total',
+      'When all attempts fail, Mule raises MULE:RETRY_EXHAUSTED, and nothing here logs it',
+      'The logger runs only after a call that worked, yet it logs at ERROR',
       'The runtime already logs each failed attempt at ERROR, so a WARN of your own per attempt adds nothing',
+      'It says nothing about which refill it is or which attempt',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 2, 4],
     explain:
       'The call is made up to 5 times: once, then 4 retries. The runtime does log every failed attempt at ERROR, with text such as "Retrying execution of event, attempt 1 of 5", but that line carries none of your context: no correlation ID, no refill ID, no next= step. So add a handler for MULE:RETRY_EXHAUSTED, and a WARN of your own for each failed attempt.',
   },
@@ -603,13 +604,13 @@ export const SET_5 = [
       'All reconnection attempts to LDAP failed during a staff lookup and the operation raised LDAP:CONNECTIVITY. Which line fits best in the handler, which returns 503?',
     options: [
       '#["Staff lookup failed: LDAP not reachable after reconnection errorType=$(error.errorType) error=$(error.description) staffId=$(vars.staffId) status=503 correlationId=$(correlationId)"]',
-      `#["LDAP bind failed for cn=svc-mule,ou=apps with $(p('secure::ldap.password'))"]`,
+      `#["Staff lookup failed: LDAP bind refused for cn=svc-mule,ou=apps password=$(p('secure::ldap.password')) status=503 correlationId=$(correlationId)"]`,
       '#["Staff lookup failed: LDAP not reachable staffId=$(vars.staffId) status=503 correlationId=$(correlationId)"]',
-      '#["Staff lookup failed " ++ write(error)]',
+      '#["Staff lookup failed: LDAP not reachable after reconnection errorType=$(error.errorType) staffId=$(vars.staffId) status=500 correlationId=$(correlationId)"]',
     ],
     answer: 0,
     explain:
-      'Say which work failed, the error type and description, and what the caller got. The third option leaves out the error type and description, so the reader cannot tell a refused bind from a network fault. The bind credential never goes in a log.',
+      'Say which work failed, the error type and description, and what the caller got. The line without errorType and error= leaves out the error type and description, so the reader cannot tell a refused bind from a network fault. The bind credential never goes in a log.',
   },
   {
     id: 'log-5038',
@@ -617,13 +618,13 @@ export const SET_5 = [
     situation: 'The LDAP connection of the staff app has this reconnection strategy. Which statements are right?',
     code: '<reconnection failsDeployment="true">\n  <reconnect frequency="5000" count="3" />\n</reconnection>',
     options: [
+      'count="3" means each request is sent 3 times when the LDAP server answers with an error',
       'It retries opening the connection. It does not retry a request that the server answered with an error',
-      'When the attempts run out, the operation fails with an error, such as LDAP:CONNECTIVITY, that your handler should log',
-      'count="3" means the app stops after 3 failed requests and never connects again',
-      'With a reconnection strategy, a failed connection never shows in the log',
+      'With a reconnection strategy, the error handler is skipped and the runtime logs the connection failure for you',
       'failsDeployment="true" makes a deployment fail when LDAP cannot be reached, and the deployment log shows why',
+      'When the attempts run out, the operation fails with an error, such as LDAP:CONNECTIVITY, that your handler should log',
     ],
-    answers: [0, 1, 4],
+    answers: [1, 3, 4],
     explain:
       'A reconnection strategy is about the connection, not about the answers. Each new operation tries to connect again, so count="3" is per attempt to connect. failsDeployment="true" stops a broken app from looking healthy after a deployment.',
   },
@@ -689,9 +690,9 @@ export const SET_5 = [
     kind: 'choice',
     situation: 'The gateway returns cardLast4 in its answer, and the flow keeps it in vars.cardLast4. Which line fits best after the charge?',
     options: [
-      '#["Card charged card=$(payload.card.number) cvv=$(payload.card.cvv)"]',
-      '#["Card charged card=$(payload.card.number[0 to 11])"]',
-      '#["Card charged"]',
+      '#["Card charged paymentId=$(vars.paymentId) card=$(payload.card.number) cvv=$(payload.card.cvv) amount=$(vars.amount)"]',
+      '#["Card charged paymentId=$(vars.paymentId) cardPrefix=$(payload.card.number[0 to 11]) amount=$(vars.amount) correlationId=$(correlationId)"]',
+      '#["Card charged paymentId=$(vars.paymentId) cardLast4=$(vars.cardLast4) amount=$(vars.amount) currency=$(vars.currency)"]',
       '#["Card charged paymentId=$(vars.paymentId) cardLast4=$(vars.cardLast4) amount=$(vars.amount) currency=$(vars.currency) correlationId=$(correlationId)"]',
     ],
     answer: 3,
@@ -705,13 +706,13 @@ export const SET_5 = [
       'Before the gateway call, payload holds card.number, card.expiry, card.cvv and amount. Which statements about this line are right?',
     code: `<logger level="DEBUG" category="com.calderapay.checkout" message="#['Gateway request: ' ++ write(payload)]" />`,
     options: [
-      'The full card number and CVV reach the log whenever DEBUG is on for this category',
       'PCI DSS forbids storing the CVV after authorisation, and a log line is stored data',
-      'CloudHub drops DEBUG lines, so this is safe',
+      'CloudHub drops DEBUG lines before they reach the log, so the card fields never leave the worker',
       'Log a payment ID and the last 4 digits instead, never the card fields',
-      'write() encrypts the payload before the Logger writes it',
+      'write() turns the payload into masked text, so the card number and CVV come out as asterisks',
+      'The full card number and CVV reach the log whenever DEBUG is on for this category',
     ],
-    answers: [0, 1, 3],
+    answers: [0, 2, 4],
     explain:
       'DEBUG lines are written whenever the category is set to DEBUG, in any environment. write() turns data into text, it encrypts nothing. Card fields must never reach a log line.',
   },
@@ -790,13 +791,13 @@ export const SET_5 = [
     kind: 'multi',
     situation: 'The Fjordvik data protection officer reviews the logging rules. Which statements are right?',
     options: [
-      'A patient ID is still personal data under GDPR if it can be linked to the person, so keep access to logs limited',
-      'Logs kept for years with names in them make an erasure request very hard to honour',
-      'Health data in logs is fine when the level is DEBUG',
+      'Health data may stay in logs when the level is DEBUG, because DEBUG is off in production',
       'Masking with a DataWeave function before the Logger keeps names and contact details out of the line',
-      'GDPR applies only to databases, not to log files',
+      'A patient ID is still personal data under GDPR if it can be linked to the person, so keep access to logs limited',
+      'Logs fall outside an erasure request, because they are kept for operations and security only',
+      'Logs kept for years with names in them make an erasure request very hard to honour',
     ],
-    answers: [0, 1, 3],
+    answers: [1, 2, 4],
     explain:
       'GDPR covers personal data wherever it is stored, logs included, at any level. The fewer personal fields reach a log, the less you must find and delete later.',
   },
@@ -868,10 +869,10 @@ export const SET_5 = [
     situation:
       'Alder Bank sets levels per package in log4j2.xml, under com.alderbank.payments. Which logger fits the fraud check result best?',
     options: [
-      `<logger level="INFO" message="#['Fraud check done']" />`,
+      `<logger level="INFO" category="com.alderbank.fraud" message='#["Fraud check passed paymentId=$(vars.paymentId) score=$(vars.fraudScore) correlationId=$(correlationId)"]' />`,
       `<logger level="INFO" category="com.alderbank.payments.fraud" message='#["Fraud check passed paymentId=$(vars.paymentId) score=$(vars.fraudScore) correlationId=$(correlationId)"]' />`,
-      `<logger level="INFO" category="mylogger" message='#["Fraud check passed paymentId=$(vars.paymentId)"]' />`,
-      `<logger level="ERROR" category="com.alderbank.payments.fraud" message='#["Fraud check passed paymentId=$(vars.paymentId) correlationId=$(correlationId)"]' />`,
+      `<logger level="INFO" category="mylogger" message='#["Fraud check passed paymentId=$(vars.paymentId) score=$(vars.fraudScore) correlationId=$(correlationId)"]' />`,
+      `<logger level="ERROR" category="com.alderbank.payments.fraud" message='#["Fraud check passed paymentId=$(vars.paymentId) score=$(vars.fraudScore) correlationId=$(correlationId)"]' />`,
     ],
     answer: 1,
     explain:
@@ -883,13 +884,13 @@ export const SET_5 = [
     situation: 'This is part of the production log4j2.xml of the payments app, found after a disk-full alert. Which statements are right?',
     code: '<Loggers>\n  <AsyncLogger name="com.alderbank" level="DEBUG" />\n  <AsyncLogger name="org.mule.service.http.impl.service.HttpMessageLogger" level="DEBUG" />\n  <AsyncRoot level="INFO">\n    <AppenderRef ref="file" />\n  </AsyncRoot>\n</Loggers>',
     options: [
+      'AsyncLogger and AsyncRoot clash, so log4j2 falls back to its default config and the levels above are ignored',
       'com.alderbank at DEBUG turns on every DEBUG line of the bank flows in production',
-      'The HTTP wire logger at DEBUG writes full request and response bodies, with card data and headers',
-      'AsyncRoot level="INFO" means the DEBUG lines above are dropped',
-      'AsyncLogger cannot be used together with AsyncRoot',
       'Set both back to INFO or WARN, and raise one narrow category only for a short time when needed',
+      'The HTTP wire logger at DEBUG writes full request and response bodies, with card data and headers',
+      'AsyncRoot level="INFO" caps every logger below it, so the two DEBUG lines above are dropped',
     ],
-    answers: [0, 1, 4],
+    answers: [1, 2, 3],
     explain:
       'A named logger has its own level, so it wins over the root for its package. AsyncLogger and AsyncRoot are meant to be used together. Two DEBUG categories in production fill disks and leak data.',
   },
@@ -900,12 +901,12 @@ export const SET_5 = [
     code: '<RollingFile name="file" fileName="${sys:mule.home}/logs/payments.log"\n             filePattern="${sys:mule.home}/logs/payments-%i.log">\n  <PatternLayout pattern="%d [%t] %-5p %c - %m%n" />\n  <SizeBasedTriggeringPolicy size="10 MB" />\n  <DefaultRolloverStrategy max="10" />\n</RollingFile>',
     options: [
       'When payments.log reaches 10 MB, it is renamed and a new file starts',
+      'The %i in filePattern adds the date to each old file, so the files roll once a day',
       'At most 10 old files are kept, so about 110 MB in total, and older lines are deleted',
-      'This appender keeps every log line forever',
-      'At a high log volume, 10 files may cover only a few hours, so lines from yesterday can be gone',
       '%c in the pattern prints the correlation ID',
+      'At a high log volume, 10 files may cover only a few hours, so lines from yesterday can be gone',
     ],
-    answers: [0, 1, 3],
+    answers: [0, 2, 4],
     explain:
       '%c prints the logger category, which is why categories matter. A rolling file keeps a fixed size, so noisy logging shortens how far back you can look. Forward logs to a central tool if you need more.',
   },
@@ -952,7 +953,7 @@ export const SET_5 = [
       '#["Prices returned count=$(sizeOf(payload)) durationMs=$(vars.durationMs) correlationId=$(correlationId)"]',
       '#["Prices returned skus=$(write(payload.*sku)) correlationId=$(correlationId)"]',
       '#["Prices returned " ++ write(payload)]',
-      '#["Prices returned"]',
+      '#["Prices returned count=$(sizeOf(payload)) durationMs=$(vars.durationMs) headers=$(write(attributes.headers)) correlationId=$(correlationId)"]',
     ],
     answer: 0,
     explain:
@@ -972,13 +973,13 @@ export const SET_5 = [
     kind: 'multi',
     situation: 'Tidewater runs 40 apps on CloudHub 1.0 and sends logs to a paid log tool. Which statements are right?',
     options: [
-      'Runtime Manager keeps an app\'s logs for up to 30 days or 100 MB per application per worker, whichever comes first, so a noisy app loses old lines sooner',
-      'To forward logs to an outside tool, you disable CloudHub logs and add your own appenders in log4j2.xml. Keep the CloudHub appender too, so MuleSoft Support can still see the application logs',
-      'DEBUG lines cost nothing in a log tool because they are compressed',
+      'Production apps on CloudHub keep logs longer than sandbox apps, so the 30 day limit does not apply',
       'Most log tools charge by the volume they take in, so a big line on every request costs money every month',
-      'CloudHub keeps logs forever when the app runs in production',
+      'To forward logs to an outside tool, you disable CloudHub logs and add your own appenders in log4j2.xml. Keep the CloudHub appender too, so MuleSoft Support can still see the application logs',
+      'DEBUG lines are billed at a lower rate, because log tools compress them',
+      `Runtime Manager keeps an app's logs for up to 30 days or 100 MB per application per worker, whichever comes first, so a noisy app loses old lines sooner`,
     ],
-    answers: [0, 1, 3],
+    answers: [1, 2, 4],
     explain:
       'On CloudHub 1.0 those limits are per application per worker, and on CloudHub 2.0 they are per deployment. Once CloudHub logging is disabled, Runtime Manager shows only system logs, so the CloudHub appender is kept for MuleSoft Support, not for Runtime Manager. Paid tools charge by volume, and a DEBUG line costs the same as any other line once it is written.',
   },
@@ -1023,13 +1024,13 @@ export const SET_5 = [
     situation: 'Which line fits best when the fare search falls back to cached exchange rates?',
     options: [
       '#["Exchange rates taken from cache: Rates API timed out timeoutMs=2000 errorType=$(error.errorType) correlationId=$(correlationId)"]',
-      '#["Rates API timed out " ++ write(error)]',
+      '#["Exchange rates request failed: Rates API timed out timeoutMs=2000 errorType=$(error.errorType) next=500 to caller correlationId=$(correlationId)"]',
       '#["Exchange rates taken from cache: Rates API timed out timeoutMs=2000 cacheAgeMinutes=$(vars.cacheAgeMinutes) errorType=$(error.errorType) correlationId=$(correlationId)"]',
-      '#["ERROR rates broken!!!"]',
+      '#["Exchange rates taken from cache cacheAgeMinutes=$(vars.cacheAgeMinutes) correlationId=$(correlationId)"]',
     ],
     answer: 2,
     explain:
-      'Say what the flow did instead, why, and how old the fallback data is. The age tells the reader how close the search is to failing for real, and the first option leaves it out.',
+      'Say what the flow did instead, why, and how old the fallback data is. The age tells the reader how close the search is to failing for real, and the cache line without cacheAgeMinutes leaves it out.',
   },
   {
     id: 'log-5063',
@@ -1038,13 +1039,13 @@ export const SET_5 = [
       'The fare search must answer within 3 seconds. The Rates API call has this setting, and its handler logs a WARN for HTTP:TIMEOUT. Which statements are right?',
     code: '<http:request config-ref="ratesApi" path="/rates" method="GET" responseTimeout="60000" />',
     options: [
+      'HTTP:TIMEOUT is raised only after the Rates API finally answers, so the WARN line shows its late reply',
+      'Put the timeout value in the WARN line, so the reader knows which limit was hit',
+      'responseTimeout is in seconds, so 60000 makes the request wait more than 16 hours',
       'With a 60 second timeout, the caller gives up first, and the WARN line comes long after the customer left',
       'Set responseTimeout below the time the caller waits, such as 2000, so the fallback runs in time',
-      'Put the timeout value in the WARN line, so the reader knows which limit was hit',
-      'HTTP:TIMEOUT is raised only after the Rates API answers',
-      'responseTimeout is in seconds',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 3, 4],
     explain:
       'responseTimeout is in milliseconds, and HTTP:TIMEOUT is raised because no answer came in time. A timeout longer than the caller waits makes the fallback, and its log line, useless.',
   },
@@ -1114,10 +1115,10 @@ export const SET_5 = [
     situation:
       'A caller sent a username with line breaks in it, which made fake lines appear in the log of the sign-in API. This sign-in failed because the password was wrong for an account that exists, so vars.accountId holds that account. Which line fits best?',
     options: [
-      '#["Sign-in failed user=$(payload.username)"]',
+      '#["Sign-in failed user=$(payload.username) reason=$(error.errorType.identifier) clientId=$(vars.clientId) correlationId=$(correlationId)"]',
       '#["Sign-in failed accountId=$(vars.accountId) reason=$(error.errorType.identifier) clientId=$(vars.clientId) correlationId=$(correlationId)"]',
       '#["Sign-in failed user=$(payload.username) password=$(payload.password)"]',
-      '#["Sign-in failed"]',
+      `#["Sign-in failed accountId=$(vars.accountId) reason=$(error.errorType.identifier) userAgent=$(attributes.headers.'user-agent') correlationId=$(correlationId)"]`,
     ],
     answer: 1,
     explain:
@@ -1129,13 +1130,13 @@ export const SET_5 = [
     situation: 'This line is in the handler for HTTP:BASIC_AUTHENTICATION of the sign-in API. What is wrong with it?',
     code: `<logger level="WARN" message="#['Access denied for ' ++ payload.username ++ ' with key ' ++ attributes.headers.'x-api-key']" />`,
     options: [
-      'The API key from the x-api-key header reaches the log',
       'The username can be personal data, and a caller can put line breaks in it to fake log lines',
+      'Mule masks the x-api-key header in Logger output, so the key does not reach the log',
+      'The API key from the x-api-key header reaches the log',
+      'WARN is too low: every refused request should page the on-call team at ERROR',
       'There is no correlation ID and no error type',
-      'WARN is never right for a refused request',
-      'Mule removes header values from lines written in an error handler',
     ],
-    answers: [0, 1, 2],
+    answers: [0, 2, 4],
     explain:
       'One refused request is handled, so WARN is fine. Mule removes nothing from what a Logger writes. Log the client ID and the error type, never the key.',
   },
@@ -1206,13 +1207,13 @@ export const SET_5 = [
     situation: 'Which start-up line fits best for the meter readings app?',
     options: [
       `#["App started app=$(app.name) env=$(p('mule.env')) runtime=$(mule.version)"]`,
-      `#["App started config=$(write(p('secure::db.password')))"]`,
+      `#["App started app=$(app.name) env=$(p('mule.env')) dbPassword=$(p('secure::db.password'))"]`,
       `#["App started app=$(app.name) version=$(p('app.version')) env=$(p('mule.env')) runtime=$(mule.version)"]`,
-      '#["App started " ++ write(app)]',
+      `#["App started app=$(app.name) version=$(p('app.version')) details=" ++ write(app)]`,
     ],
     answer: 2,
     explain:
-      'Name, version, environment and runtime answer "what is running where" after a deployment. The first option leaves out the app version, so during a rollout you cannot tell the old replica from the new one. A start-up line has no triggering event, so it has no correlation ID to add. write(app) dumps far more than you need, and a secure property never belongs in a log.',
+      'Name, version, environment and runtime answer "what is running where" after a deployment. The line without version= leaves out the app version, so during a rollout you cannot tell the old replica from the new one. A start-up line has no triggering event, so it has no correlation ID to add. write(app) dumps far more than you need, and a secure property never belongs in a log.',
   },
   {
     id: 'log-5073',
@@ -1220,13 +1221,13 @@ export const SET_5 = [
     situation:
       "After a redeploy the meter readings app does not start. The deployment log says: Couldn't find configuration property value for key ${meter.api.url}. Which statements are right?",
     options: [
-      'The property is missing for this environment. Add it to the properties file of that environment or to the Runtime Manager properties',
-      'Read the deployment log first. The app loggers never ran, so they cannot help here',
       'Set the root logger to DEBUG and redeploy to find the missing key',
-      'Mule used an empty string for the missing value, so the app is running without it',
       'A start-up line with env= and the properties file name makes this quicker to spot next time',
+      'The property is missing for this environment. Add it to the properties file of that environment or to the Runtime Manager properties',
+      'Mule used an empty string for the missing value, so the app is running and failing on each call',
+      'Read the deployment log first. The app loggers never ran, so they cannot help here',
     ],
-    answers: [0, 1, 4],
+    answers: [1, 2, 4],
     explain:
       'A missing property stops the deployment, so the app never runs and your own loggers write nothing. The message already names the key, so DEBUG adds only noise.',
   },

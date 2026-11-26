@@ -24,7 +24,7 @@ export default {
       options: [
         'A SAS token scoped to the container, write-only, with an expiry',
         'An Access Key connection, because the key never expires',
-        'One shared account key for every app on the storage account',
+        'A container SAS token with read, write and delete for a year',
         'An account-level SAS token with all permissions and no expiry',
       ],
       answer: 0,
@@ -37,7 +37,7 @@ export default {
         'The SAS token has expired',
         'The access key was rotated in the portal',
         'The container has reached its size limit',
-        'The blob name contains slashes Azure rejects',
+        'The storage firewall now blocks the worker IP',
       ],
       answer: 0,
       explain: 'The message about the time frame points at the token\'s validity window; a rotated key gives a signature mismatch instead. A SAS token carries its own start and expiry time; after expiry Azure rejects the request with 403 AuthenticationFailed. Track expiry dates and rotate tokens ahead of time.',

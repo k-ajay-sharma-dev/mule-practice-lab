@@ -20,15 +20,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Which statement about `db:select` results in Mule 4 is correct?',
+      prompt: 'The export flow is `db:select` (12 million rows, default streaming), then a Logger with `sizeOf(payload)`, then the CSV transform. Heap stays fine, but the worker disk fills up and the export slows down. Why?',
       options: [
-        'Rows stream as they are read, buffered so they can be re-read',
-        'All rows load into a Java list before the next processor runs',
-        'Streaming needs a `streaming="true"` attribute, or rows are cut',
-        'db:select returns at most 10,000 rows unless maxRows is set',
+        'db:select loads all rows into a Java list, which then spills to disk',
+        'sizeOf reads every row, and repeatable streaming buffers what it read',
+        'The Logger writes every row to the log file while it counts them',
+        'With fetchSize 10, the driver keeps each round trip in a disk cache',
       ],
-      answer: 0,
-      explain: 'The default repeatable streaming buffers what was read (in memory, then on disk). The connector returns an iterator over the open result set. With repeatable file-store streaming the consumed part is buffered so the payload can be read more than once; use non-repeatable streaming when you read it exactly once.',
+      answer: 1,
+      explain: 'db:select returns an iterator over the open result set, and the default repeatable streaming buffers what was read (in memory, then on disk) so the payload can be read again. sizeOf consumes the whole stream before the write, so all 12 million rows end up in that buffer. Rows are not loaded into a list up front. The Logger prints only the number. fetchSize sets rows per round trip and has no disk cache. Drop the count, or use non-repeatable streaming when you read the result exactly once.',
     },
     {
       type: 'multi',
@@ -36,8 +36,8 @@ export default {
       options: [
         'A deferred CSV transform written straight to sftp:write',
         'Non-repeatable streaming on db:select when the result is read only once',
-        'Logging the full payload at INFO for traceability',
-        'Using sizeOf(payload) to log the row count before writing',
+        'Logging the full payload at INFO so each nightly run can be traced',
+        'Logging sizeOf(payload) as the row count before the SFTP write',
       ],
       answer: [0, 1],
       explain: 'Deferred output (`output application/csv deferred=true`) and a single read pass let rows flow from Oracle to SFTP. Logging the payload or sizeOf() consumes the whole stream (and with repeatable streaming buffers all of it) before the write.',

@@ -21,10 +21,15 @@ export default {
     {
       type: 'single',
       detail: true,
-      prompt: 'Until Successful runs out of retries. Which error does it raise?',
-      options: ['`MULE:RETRY_EXHAUSTED`', '`HTTP:TIMEOUT`', '`MULE:UNKNOWN`', 'The last child error, unchanged'],
-      answer: 0,
-      explain: 'After the last failed attempt Until Successful throws `MULE:RETRY_EXHAUSTED`. Handlers matching only the original type will not catch it.',
+      prompt: 'An HTTP Request inside Until Successful keeps getting 503. The flow error handler has an On Error Propagate for `HTTP:SERVICE_UNAVAILABLE` that returns a fallback, then one for `ANY` that returns 500. What happens after the last retry fails?',
+      options: [
+        'The `HTTP:SERVICE_UNAVAILABLE` handler runs, because the last 503 error is rethrown as is',
+        'The `ANY` handler runs, because the scope raises `MULE:RETRY_EXHAUSTED`',
+        'No handler runs, because Until Successful ends the flow quietly after its last retry',
+        'The flow returns the last 503 response, because Until Successful hands back the last result',
+      ],
+      answer: 1,
+      explain: 'After the last failed attempt Until Successful raises `MULE:RETRY_EXHAUSTED`. The `HTTP:SERVICE_UNAVAILABLE` handler does not match that type, so the `ANY` handler runs and the caller gets 500. To return the fallback, add a handler for `MULE:RETRY_EXHAUSTED`. The scope does not rethrow the child error unchanged, and it does not end the flow quietly or hand back the failed response.',
     },
     {
       type: 'match',
@@ -62,15 +67,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Where is a reconnection strategy configured?',
+      prompt: 'A flow starts with a JMS listener. During broker patching the broker is down for about 2 minutes, and the listener must keep trying to connect until the broker is back. What do you configure?',
       options: [
-        'On the connector configuration (its connection provider)',
-        'As a scope around the operation, like Until Successful',
-        'In the error handler of the flow',
-        'In the Runtime Manager alert settings',
+        'An Until Successful scope around the JMS listener, with a high `maxRetries`',
+        'An On Error Propagate for `JMS:CONNECTIVITY` with a retry count in the flow',
+        'A `reconnect-forever` strategy on the connection of the JMS connector config',
+        'Auto-restart in Runtime Manager, so the app restarts until the broker is back',
       ],
-      answer: 0,
-      explain: 'Reconnection is part of the connector config connection (e.g. `reconnect` with frequency/count, or `reconnect-forever`). Until Successful is the scope-based mechanism.',
+      answer: 2,
+      explain: 'Reconnection belongs to the connection provider of the connector config, and `reconnect-forever` keeps trying until the broker is back. A source such as the JMS listener cannot be wrapped in Until Successful, which is a scope for the processors inside a flow. Error handlers have no retry count, and restarting the app treats the symptom while the connection is still down.',
     },
   ],
   description: `

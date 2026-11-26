@@ -45,7 +45,7 @@ export default {
       needsScenario: true,
       prompt: 'Why can parallelising the pricing calls make things **worse** if done carelessly?',
       options: [
-        'Parallel calls are always slower in Mule than sequential ones',
+        'Parallel routes share one thread, so the calls still run in turn',
         'Unbounded, it multiplies load on the backend and connection pool',
         'Scatter-Gather drops responses that arrive after the first one',
         'Parallel routes turn off HTTP keep-alive on the requester',
@@ -58,7 +58,7 @@ export default {
       needsScenario: true,
       prompt: 'Management suggests going from 2 to 6 replicas right now. What is the best answer?',
       options: [
-        'Yes, because more replicas always cut latency',
+        'Yes, because each request then waits on fewer remote calls',
         'Not yet: fix the waits first, then scale when CPU is the limit',
         'Yes, but only if each replica also gets more vCores',
         'No, because the target needs larger vCores, not more replicas',
@@ -71,7 +71,7 @@ export default {
       prompt: 'A team is tuning a slow Mule API that must meet a p95 latency target under load. How do they confirm that each fix really helped?',
       options: [
         'Re-run the same load test after each change',
-        'Check that unit-test coverage has not dropped',
+        'Compare MUnit coverage and suite run time per change',
         'Apply every fix first, then run one final load test',
         'Add replicas and check whether latency falls',
       ],

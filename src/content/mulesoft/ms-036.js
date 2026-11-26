@@ -21,7 +21,7 @@ export default {
       detail: true,
       needsScenario: true,
       prompt: 'Which DataWeave expression reads the Billing result (route 2 of 3) after Scatter-Gather?',
-      options: ['`payload[1]`', '`payload."1".payload`', '`payload.billing`', '`vars.route1`'],
+      options: ['`attributes."1".payload`', '`payload."1".payload`', '`payload.billing.payload`', '`payload."2".payload`'],
       answer: 1,
       explain: 'Scatter-Gather returns an object keyed by route index ("0", "1", ...), and each value is a message with `payload` and `attributes`.',
     },
@@ -67,7 +67,7 @@ export default {
       prompt: 'Inside Parallel For Each you set `vars.total`. What does the flow see after the router?',
       options: [
         'The value set by the last element that finished',
-        'The sum of the values set by all the elements',
+        'The sum of the values that the elements set, merged by the router',
         'No change, because variables set inside are not propagated',
         'A list holding the value set by each element',
       ],

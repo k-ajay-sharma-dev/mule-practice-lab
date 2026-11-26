@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'Why write an outbound file as SALES_20261118.txt.tmp and then rename it?',
+      prompt: 'The platform polls the drop folder every 5 minutes for SALES_*.txt and twice loaded a partial file. Mule now writes SALES_20261118.txt.tmp and renames it after the write. Why does this stop the partial loads?',
       options: [
-        'The FTP server locks .tmp files until the client closes them',
-        'The receiver matches only the final name, so it skips partial files',
-        'A rename makes the server check the file against its size',
-        'ASCII mode leaves .tmp files alone, so the bytes stay exact',
+        'The FTP server locks a file while it is written, and the rename releases the lock',
+        'The rename makes the server compare the size with the bytes sent before it lists the file',
+        'The .tmp name does not match SALES_*.txt, and the final name appears only when the file is whole',
+        'A .tmp name tells the server to buffer the upload, so all bytes land on disk at once',
       ],
-      answer: 1,
-      explain: 'A rename on the same server is quick and complete. The final name appears only when every byte is there.',
+      answer: 2,
+      explain: 'The receiver matches only the final name, so it never sees the file while it is being written. A rename on the same server is quick and complete, so the final name appears only when every byte is there. FTP servers do not lock a file against other readers during an upload, do not check sizes on rename, and do not treat .tmp names in a special way.',
     },
     {
       type: 'single',
@@ -32,10 +32,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'What can a control file, sent after the data file, contain?',
-      options: ['The data file name', 'The record count', 'A hash of the data file', 'The full content of the data file, for a cross check'],
-      answer: [0, 1, 2],
-      explain: 'The receiver waits for the control file, then checks the data file against it. A copy of the content doubles the transfer and proves nothing a hash does not.',
+      prompt: 'The platform starts a load only when SALES_20261118.ctl appears, sent after the data file. Which checks can it make from that control file?',
+      options: [
+        'Which data file name the control file covers',
+        'That the partner sent the file, proven by the hash in the control file',
+        'That the record count matches the detail lines of the data file',
+        'That the data file hash matches the hash in the control file',
+        'That every record in the data file will pass the platform\'s field rules',
+      ],
+      answer: [0, 2, 3],
+      explain: 'The receiver waits for the control file, then checks the data file against the name, count and hash it holds. A hash shows the file is complete and unchanged, but anyone who can write the data file can also write a matching hash. Proving the sender needs a signature, such as PGP. A matching count and hash show the file arrived whole, not that its content is valid. Bad values still need the platform\'s own validation.',
     },
     {
       type: 'single',

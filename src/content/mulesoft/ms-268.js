@@ -20,10 +20,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'On standard storage, which tier is meant for a share with many small reads and writes all day?',
-      options: ['Cool', 'Archive', 'Transaction optimized', 'Cold'],
-      answer: 2,
-      explain: 'Standard shares offer transaction optimized, hot and cool tiers. Archive and cold are Blob Storage tiers, not Azure Files tiers. Premium shares run on SSD and are a separate account type.',
+      prompt: 'A standard integration share sits on the cool tier and takes about two million small reads and writes a day. Most of its bill is transaction charges. Which change helps most?',
+      options: [
+        'Move the share to the transaction optimized tier, priced for heavy traffic',
+        'Move the share to the archive tier, which has the lowest price per GB',
+        'Move the share to the cold tier, which sits below cool in price per GB',
+        'Raise the share quota, which lowers the price of each transaction',
+      ],
+      answer: 0,
+      explain: 'Standard shares offer transaction optimized, hot and cool tiers. Cool has cheap storage and dear transactions, and transaction optimized is the reverse, so it suits a busy share. Archive and cold are Blob Storage tiers, not Azure Files tiers. The quota on a standard share is a size limit, not a price setting.',
     },
     {
       type: 'single',
@@ -39,15 +44,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which statements about protection on Azure Files are true?',
+      prompt: 'A cleanup script deletes 300 files inside the live integration share by mistake. Share soft delete is on with 14 days of retention, and a snapshot runs every night at 01:00. What is true?',
       options: [
-        'Soft delete keeps a deleted share for a retention period',
-        'A soft deleted share can be restored within that period',
-        'Soft delete keeps each deleted file separately, like blob soft delete',
-        'Snapshots help when files are overwritten or deleted inside a live share',
+        'The 300 files can be undeleted for 14 days, as with blob soft delete',
+        'Share soft delete does not help, since it covers deleting the whole share',
+        'Files that were in last night’s snapshot can be copied back from it',
+        'The secondary region of a geo redundant account still holds the files',
+        'Files created after 01:00 and then deleted cannot come from the snapshot',
       ],
-      answer: [0, 1, 3],
-      explain: 'Share soft delete protects against deleting the share itself. For single files, snapshots are the tool.',
+      answer: [1, 2, 4],
+      explain: 'Share soft delete protects against deleting the share itself, not single files inside it. For single files, snapshots are the tool, and they hold only what existed when they were taken. Geo replication copies the deletes to the secondary region too.',
     },
     {
       type: 'single',

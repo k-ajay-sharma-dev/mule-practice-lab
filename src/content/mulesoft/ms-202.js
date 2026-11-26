@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'At a retailer, each team calls large language model (LLM) providers such as OpenAI and Google with its own endpoint and settings. The platform team proposes a Model Proxy. What is a Model Proxy?',
+      prompt: 'At a retailer, twelve agent teams call large language model (LLM) providers such as OpenAI and Google, each with its own provider key. Security wants future key rotations and one shared rate limit to need no change in any agent, after a single move. Which design fits?',
       options: [
-        'A Mule connector that adds one operation for each LLM provider to a flow',
-        'One governed endpoint for many LLM providers, deployed to Omni Gateway',
-        'A hosted LLM from MuleSoft that replaces the models of other providers',
-        'A map that shows which agents call which LLM providers in real time',
+        'Keep the key in the secure properties of each agent, so a rotation is a property change',
+        'Give each team the Inference Connector, so each Mule app calls its provider directly',
+        'Send all agents through a Model Proxy on Omni Gateway, which holds the provider keys',
+        'Publish each provider in Agent Registry, so each agent reads the new key from there',
       ],
-      answer: 1,
-      explain: 'A Model Proxy gives you one LLM service that accepts requests for many providers. It is deployed to Omni Gateway. It does not replace the providers, it sits in front of them.',
+      answer: 2,
+      explain: 'A Model Proxy is one governed endpoint for many providers, deployed to Omni Gateway. Agents move to it once, and from then on the provider credentials and the policies live in one place. Secure properties and the Inference Connector keep the key in each app, so every rotation still touches twelve apps. Agent Registry is a catalog of agents, not a store for provider keys.',
     },
     {
       type: 'single',
@@ -56,15 +56,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'An HR platform team must choose where to deploy a new Model Proxy. Which choice is available?',
+      prompt: 'An HR company runs Self-Managed Omni Gateway in Local Mode in its own data center, configured from local files with no link to the control plane. It wants to add a Model Proxy on that gateway. What should the platform team tell it?',
       options: [
-        'Managed Omni Gateway, or Self-Managed Omni Gateway in Connected Mode',
-        'Any Omni Gateway, including Self-Managed Omni Gateway in Local Mode',
-        'Mule Gateway, inside any Mule app that runs on Mule runtime engine',
-        'The account of the LLM provider, beside the models that it will serve',
+        'It works, as a Model Proxy runs on any Omni Gateway once its configuration file is applied',
+        'It works, once the proxy is created in API Manager and then exported to the local files',
+        'It needs Managed Omni Gateway, as Model Proxy is not offered on any self-managed gateway',
+        'It is not offered in Local Mode, so use Connected Mode or move to Managed Omni Gateway',
       ],
-      answer: 0,
-      explain: 'Model Proxy is available on Managed Omni Gateway and on Self-Managed Omni Gateway in Connected Mode. It is not listed for Local Mode.',
+      answer: 3,
+      explain: 'Model Proxy is available on Managed Omni Gateway and on Self-Managed Omni Gateway in Connected Mode. It is not listed for Local Mode, so local files or an export do not make it available there. A self-managed gateway is fine, as long as it runs in Connected Mode.',
     },
     {
       type: 'single',

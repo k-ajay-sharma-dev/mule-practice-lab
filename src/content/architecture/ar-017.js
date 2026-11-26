@@ -48,7 +48,7 @@ export default {
       needsScenario: true,
       prompt: 'Both versions consume the same payment-confirmation queue. When is that safe?',
       options: [
-        'Never, because a queue can only have one consumer app',
+        'When both versions use the same prefetch, so the load splits evenly',
         'When both versions can read the message format in use',
         'Only if the queue is FIFO, so each message goes to one version',
         'Only if each version uses a different acknowledgement mode',

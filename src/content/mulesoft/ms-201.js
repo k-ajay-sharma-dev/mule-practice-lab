@@ -23,7 +23,7 @@ export default {
       prompt: 'A broker in a bank\'s Agent Network delegates a credit check to an AI agent run by an outside partner. Which gateway does that outbound call go through?',
       options: [
         'The ingress gateway, as all traffic in a network shares that one entry point',
-        'Neither gateway, as a broker can call an external agent with no gateway at all',
+        'Neither gateway, as the broker calls the partner through its own A2A client',
         'The ingress gateway, as the partner agent will reply through a public endpoint',
         'The egress gateway, which handles traffic from brokers to external agents',
       ],
@@ -58,10 +58,10 @@ export default {
       type: 'single',
       prompt: 'A bank plans an Agent Network with no outside partners today, and asks whether it can leave out the egress gateway to save effort. What is the right answer?',
       options: [
-        'Yes, an egress gateway is only for networks that have external agents on day one',
+        'Yes, the egress gateway can be added later, once the first outside partner joins',
         'No, as an Agent Network deployment requires both an ingress and an egress gateway',
         'Yes, the ingress gateway takes on the egress role when no egress gateway is present',
-        'No, as a single egress gateway is what an Agent Network deployment always requires',
+        'No, as the egress gateway also holds the public endpoint that the portal calls',
       ],
       answer: 1,
       explain: 'Agent Network deployments require both an ingress and an egress Omni Gateway. Anypoint Code Builder and Anypoint CLI are the usual ways to deploy them, and you can also create them by hand in Runtime Manager. Use names that show which is which.',

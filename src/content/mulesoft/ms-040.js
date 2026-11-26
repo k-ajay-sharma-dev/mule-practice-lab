@@ -34,7 +34,7 @@ export default {
       options: [
         'The JWT policy strips the claims before later policies run',
         'The custom check ran before JWT validation had any claims',
-        'Custom policies are not allowed to read JWT claims at all',
+        'Custom policies see the JWT claims only on the response path',
         'The client sent the `X-Tenant-Id` header in lower case',
       ],
       answer: 1,

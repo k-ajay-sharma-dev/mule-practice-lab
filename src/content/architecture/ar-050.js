@@ -25,7 +25,7 @@ export default {
       options: [
         'As a new Exchange asset called sys-sap-order-api-v2',
         'As major version 2.0.0 of the same asset, with /api/v2 in the base path',
-        'By overwriting 1.x in place',
+        'As version 1.5.0 of the same asset, with a changelog note',
         'By adding a `version` query parameter',
       ],
       answer: 1,
@@ -35,10 +35,10 @@ export default {
       type: 'single',
       prompt: 'Where does the environment (dev, qa, prod) appear?',
       options: [
-        'In the Exchange asset name',
+        'In the Exchange asset name, as in sys-sap-order-api-dev',
         'Not in the asset name; at most as a suffix on the deployed app name',
-        'In every URI path, after the version',
-        'In the RAML title and the base URI',
+        'In the base path after the version, as in /api/v1/dev/orders',
+        'In the RAML title and base URI, with one spec copy per environment',
       ],
       answer: 1,
       explain: 'One spec, one asset; the environment is an attribute of the instance and deployment, not of the API design. API Manager instances are per environment, and deployed app names often get a suffix for uniqueness (sys-sap-order-api-dev).',
@@ -69,7 +69,7 @@ export default {
     {
       type: 'single',
       prompt: 'How should "cancel order" be modelled in the Process API?',
-      options: ['POST /cancelOrder', 'POST /orders/{orderId}/cancellation', 'GET /orders/{orderId}?action=cancel', 'DELETE /orders'],
+      options: ['POST /cancelOrder', 'POST /orders/{orderId}/cancellation', 'GET /orders/{orderId}?action=cancel', 'DELETE /orders/{orderId}'],
       answer: 1,
       explain: 'Non-CRUD actions become sub-resources rather than verbs in the URI; a GET must never change state.',
     },

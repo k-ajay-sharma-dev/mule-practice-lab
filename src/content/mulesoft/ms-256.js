@@ -8,10 +8,10 @@ export default {
   quiz: [
     {
       type: 'multi',
-      prompt: 'Which can a lifecycle management rule filter on?',
-      options: ['Blob type', 'A name prefix', 'Blob index tags', 'User metadata such as status=PROCESSED'],
+      prompt: 'Finance wants processed hub files tiered after 30 days. Today the hub marks them with user metadata status=PROCESSED. A developer drafts the rule filter. Which filters can the rule use?',
+      options: ['Blob type, such as block blobs', 'A name prefix such as inbound/processed/', 'A blob index tag match on status', 'User metadata such as status=PROCESSED', 'Content type equals application/json'],
       answer: [0, 1, 2],
-      explain: 'Rules filter by blob type, prefix and index tags. User metadata is not a filter, which shapes how a hub marks processed files.',
+      explain: 'Rules filter by blob type, prefix and index tags. User metadata is not a filter, which shapes how a hub marks processed files. Content type is a property, and rules cannot filter on it either.',
     },
     {
       type: 'match',
@@ -28,10 +28,10 @@ export default {
       type: 'single',
       prompt: 'The hub marks each loaded blob by setting metadata. A rule deletes blobs 30 days after modification. What changes the clock?',
       options: [
-        'Nothing, metadata is stored apart',
+        'Nothing, as metadata is stored apart from the content',
         'Setting the metadata, which counts as a change',
-        'Only a download of the blob',
-        'Only the first upload of the blob',
+        'Only a download, as the rule counts from the last access',
+        'Only the upload, as the rule counts from the creation time',
       ],
       answer: 1,
       explain: 'The 30 days start from the time the blob was marked. Any write to the blob, including metadata and properties, updates Last-Modified. That can be useful: the age then counts from processing.',
@@ -42,8 +42,8 @@ export default {
       options: [
         'Set user metadata only, as today',
         'Set a blob index tag such as status=processed',
-        'Rename the container after each load',
-        'Move the blob to the Cool tier at once',
+        'Write a small marker blob next to each processed file',
+        'Take an infinite lease on blobs that are still open',
       ],
       answer: 1,
       explain: 'Rules can match index tags and prefixes, so a tag or a move to a processed/ prefix by copy and delete both work. Either gives the rule a way to tell processed blobs from open ones.',
@@ -54,8 +54,8 @@ export default {
       options: [
         'The rule is broken and must be rewritten',
         'Rules run in the background and can take a day',
-        'Rules only run once a week, on Sundays',
-        'Rules need the account to be restarted',
+        'Rules act only on blobs created after the rule was added',
+        'The rule must also be enabled on each container',
       ],
       answer: 1,
       explain: 'Lifecycle rules run on their own schedule, and a new rule can take a day or more to act. Lifecycle management is not instant. Do not rely on it for anything that must happen within minutes.',

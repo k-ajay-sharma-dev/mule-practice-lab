@@ -24,8 +24,8 @@ export default {
       options: [
         'The default JVM certificates are used, so the connection normally works',
         'The application fails to deploy because HTTPS needs a `tls:context`',
-        'The request silently falls back to HTTP',
-        'Certificate validation is skipped',
+        'The request falls back to plain HTTP, because no TLS settings exist',
+        'Certificate validation is skipped, because no truststore is defined',
       ],
       answer: 0,
       explain: 'The HTTP reference states that the default JVM certificates are used when no `tls:context` is defined. That default truststore includes the major CAs and is updated with Java.',
@@ -35,9 +35,9 @@ export default {
       prompt: 'The bank API presents a certificate signed by the bank\'s **private CA**, and the handshake fails. Which fix is right for production?',
       options: [
         'Add a `tls:trust-store` with the bank’s CA certificate to the request',
-        'Set `insecure="true"` on the `tls:trust-store`',
-        'Add the bank\'s CA to the `tls:key-store`',
-        'Remove `tls:context` so the default truststore is used',
+        'Set `insecure="true"` on the `tls:trust-store` of the request',
+        'Add the bank’s CA certificate to the `tls:key-store` of the request',
+        'Remove `tls:context` so the default JVM truststore is used instead',
       ],
       answer: 0,
       explain: 'A client trusts a server when a chain of trust reaches a certificate in its truststore. `insecure="true"` turns validation off, and the docs say never to use it in production.',
@@ -71,7 +71,7 @@ export default {
       prompt: 'A developer sets `enabledCipherSuites` in `tls:context`, but the Mule administrator has not enabled those suites in `tls-default.conf`. What do the docs say?',
       options: [
         'They must be enabled in both places, or the Java defaults are used',
-        'The app setting always wins over the runtime file',
+        'The app setting wins, because it overrides the runtime file',
         'The runtime file is ignored unless Mule runs in FIPS mode',
         'Mule refuses to start the HTTPS listener at deploy time',
       ],

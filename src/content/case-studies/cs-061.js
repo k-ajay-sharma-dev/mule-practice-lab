@@ -51,12 +51,13 @@ export default {
       options: [
         'Move stores in regional waves, each with a rollback plan to the old DC',
         'Run replenishment for a pilot region in shadow mode and compare proposed orders with what the old system would have ordered',
-        'Validate the item cross-reference for every item a wave\'s stores sell before the wave starts',
+        'Validate the item cross-reference on a 5% sample of a wave\'s items before the wave starts',
         'Switch all stores in one weekend to minimise the dual-running period',
         'Track availability, waste and store complaints per wave against agreed go/no-go thresholds',
+        'Have both the old DC and the group DC supply each wave\'s stores for its first month',
       ],
-      answer: [0, 1, 2, 4],
-      explain: 'Waves, shadow runs, data validation and measured go/no-go criteria contain the impact of mistakes. A single big-bang weekend for food retail risks empty shelves and waste across the whole estate.',
+      answer: [0, 1, 4],
+      explain: 'Waves with a rollback plan limit how many stores one mistake reaches. A shadow run shows wrong orders before they are real. Measured go/no-go thresholds decide each next wave on facts. A 5% sample misses most unmapped items, and every unmapped item is an empty shelf; the cross-reference must be checked for every item the wave sells. A single big-bang weekend for food retail risks empty shelves and waste across the whole estate. Supplying from both DCs doubles deliveries of fresh food, which turns into waste, and hides whether the new DC copes alone.',
     },
     {
       type: 'match',

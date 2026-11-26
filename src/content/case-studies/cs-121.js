@@ -39,7 +39,7 @@ export default {
         'An acknowledgement from the store when the POS has accepted the order',
         'A timer that marks orders as late if no acknowledgement arrives within a few minutes',
         'The time the order was published to the queue',
-        'The order total and the payment status',
+        'The store connector\'s last heartbeat, which shows the store is online',
       ],
       answer: [0, 1],
       explain: 'Only the store can say it has the order. A timer turns silence into an action, such as calling the restaurant or offering a refund. Publishing to the queue says nothing about the kitchen.',

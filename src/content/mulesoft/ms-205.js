@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'A bank applies Rogue Agent Detection and Agent Kill Switch to a Model Proxy, the governed endpoint its AI agents use to call large language models. What is the job of each policy?',
+      prompt: 'A bank applies Rogue Agent Detection to a Model Proxy, the governed endpoint its AI agents use to call large language models, but not Agent Kill Switch. The policy flags a claims agent for Prompt Injection. The bank wants a quarantined agent to lose model access. What does it need?',
       options: [
-        'Kill Switch checks prompts against anomaly rules, and Rogue Agent Detection blocks the agent',
-        'Rogue Agent Detection checks prompts and flags risks, and Kill Switch blocks a flagged agent',
-        'Rogue Agent Detection blocks risky prompts, and Kill Switch deletes the agent from the registry',
-        'Both check prompts against anomaly rules, and each blocks the agent on the first rule it matches',
+        'Agent Kill Switch on the same proxy with the same identity selector, as it does the blocking',
+        'Nothing more, as Rogue Agent Detection blocks each agent that it has flagged on its own',
+        'A second anomaly rule that matches the agent, as a second flag turns into a block',
+        'A Client ID Enforcement policy on the proxy, as a quarantine revokes the client ID',
       ],
-      answer: 1,
-      explain: 'Rogue Agent Detection checks each incoming prompt against anomaly rules and flags risky behaviour for review. Once a reviewer quarantines a flagged agent, Agent Kill Switch blocks its identity from the proxy. One finds the problem and the other contains it.',
+      answer: 0,
+      explain: 'Rogue Agent Detection checks each incoming prompt against anomaly rules and flags risky behaviour for review. Once a reviewer quarantines a flagged agent, Agent Kill Switch blocks its identity from the proxy. One finds the problem and the other contains it. A flag never blocks by itself, more flags do not change that, and a quarantine does not revoke client IDs.',
     },
     {
       type: 'single',

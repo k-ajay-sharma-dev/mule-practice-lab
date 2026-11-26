@@ -24,7 +24,7 @@ export default {
       options: [
         'The zone-less DATE was read in the JVM zone, UTC',
         'Oracle converted the time to UTC when it stored it',
-        'DataWeave always writes DateTime values in UTC',
+        'DataWeave shifted the value to UTC when writing JSON',
         'The JDBC driver shifted DATE values to the DB zone',
       ],
       answer: 0,
@@ -37,9 +37,9 @@ export default {
       prompt: 'In DataWeave, how do you correctly turn the store-local value into an instant for the Chicago store?',
       options: [
         '(row.SALE_TS as LocalDateTime) ++ ("America/Chicago" as TimeZone)',
-        "row.SALE_TS >> 'America/Chicago'",
-        "row.SALE_TS as String {format: 'yyyy-MM-dd HH:mm'}",
-        'now() ++ ("America/Chicago" as TimeZone)',
+        "(row.SALE_TS as DateTime) >> ('America/Chicago' as TimeZone)",
+        "(row.SALE_TS as String {format: 'yyyy-MM-dd HH:mm'}) ++ 'America/Chicago'",
+        '(row.SALE_TS as LocalDateTime) ++ |America/Chicago|',
       ],
       answer: 0,
       explain: 'Take the local date-time as a LocalDateTime and append the store zone. `++` attaches a zone to a LocalDateTime without moving the wall-clock time. `>>` **shifts** an instant to another zone (same instant, different wall clock), which would move 21:30 to 16:30 or similar. A zone region must be coerced from a string: `|America/Chicago|` does not parse, although an offset literal such as `|-06:00|` does.',

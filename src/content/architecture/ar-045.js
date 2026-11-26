@@ -68,15 +68,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'What does zero trust mean for calls between internal APIs?',
+      prompt: 'A pen-test shows that any app inside the private network can call the Payments System API, because it trusts every caller on the internal network. Under zero trust, which change closes the gap?',
       options: [
-        'Remove network segmentation, since every call is now checked',
-        'Authenticate and authorise every call, wherever it comes from',
-        'Authenticate every call once, at the edge gateway',
-        'Give all internal APIs one strong shared client secret',
+        'Move the Payments System API to its own subnet with tighter firewall rules',
+        'Enforce OAuth at the edge gateway, so traffic inside the network is already checked',
+        'Validate a token on every call to Payments, and check its audience and scopes',
+        'Allow only the IP addresses of the Payments Process API replicas',
       ],
-      answer: 1,
-      explain: '"Internal" grants no trust. The pen-test showed why: any app in the network could call the Payments System API. Least privilege applies to every call, and segmentation stays as defence in depth.',
+      answer: 2,
+      explain: '"Internal" grants no trust: every call proves which app it comes from and what it may do. Validating a token with audience and scopes on Payments does that, so a compromised low-value app is refused. A tighter subnet and an IP allowlist are network controls; they stay as defence in depth, but any process on an allowed host could still call. Checking only at the edge leaves the internal hops open, which is what the pen-test found.',
     },
     {
       type: 'match',

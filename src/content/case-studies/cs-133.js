@@ -39,9 +39,11 @@ export default {
         'A short freeze on edits in the old CRM for that country during the move',
         'A rollback plan that switches ownership back',
         'Moving every country on the same weekend',
+        'Two way sync of all customers between the old and new CRM during the move',
+        'A freeze on edits in the old CRM for every country until the whole programme ends',
       ],
       answer: [0, 1, 2],
-      explain: 'Rehearse, freeze while moving, and be able to go back. A big bang move removes the benefit of going country by country.',
+      explain: 'Rehearse, freeze while moving, and be able to go back. A big bang move removes the benefit of going country by country. Two way sync of everything is what the pilot tried, and it produced thousands of conflicts in a week. A freeze must be short and only for the country moving; freezing all countries for two years stops sales in the 27 that have not moved.',
     },
     {
       type: 'single',

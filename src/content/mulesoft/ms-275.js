@@ -8,19 +8,19 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'What does the time between size check setting on the SFTP listener do?',
+      prompt: 'The SFTP listener has a time between size check of 5 seconds. A partner client uploads half a file, stalls for 20 seconds on a slow link, then goes on. What can happen?',
       options: [
-        'Sets how long the listener waits between polls once a file is found',
-        'Reads the size twice with a pause, and skips the file if it changed',
-        'Waits the given time after the file appears, then always reads it',
-        'Retries a read that failed because the file size was zero',
+        'Mule keeps checking until the size holds for 20 seconds, so it waits it out',
+        'Mule skips the file for good, since its size changed once during a check',
+        'The SFTP server hides the file until the upload ends, so the stall is harmless',
+        'Both size checks fall in the stall and match, so Mule can pick a partial file',
       ],
-      answer: 1,
-      explain: 'The listener reads the file size, waits the given time, reads it again, and skips the file on this poll if the size changed. A file still growing changes size between the two checks. It is picked on a later poll once it is stable.',
+      answer: 3,
+      explain: 'The listener reads the file size, waits the given time, reads it again, and skips the file on this poll only if the size changed. A stall longer than the wait gives two equal sizes, so the partial file passes. A skipped file is checked again on a later poll. SFTP servers show files while they are written, which is why temporary names or control files are safer.',
     },
     {
       type: 'single',
-      prompt: 'What is the cost of a long size check wait?',
+      prompt: 'A team sets the time between size check to 60 seconds to be safe, on a folder where partners drop up to 500 files at once. What is the trade off?',
       options: [
         'None, because the wait runs in the background between polls',
         'Each file waits that long, so polls slow down when many files arrive',
@@ -28,7 +28,7 @@ export default {
         'Files that change during the wait are deleted by the listener',
       ],
       answer: 1,
-      explain: 'Each candidate file waits that long before processing. A few seconds is common. A writer that pauses longer than the wait can still slip through, so it is not a full guarantee.',
+      explain: 'Each candidate file waits that long before processing, so a big burst takes much longer to work through. A few seconds is common. A longer wait still gives no full guarantee, since a writer can pause longer than any wait. Files that change are skipped on that poll, never deleted.',
     },
     {
       type: 'single',
@@ -50,9 +50,11 @@ export default {
         'Waiting for a control file that the writer sends last',
         'Checking a trailer record count',
         'Waiting for the SFTP server to send a file closed event',
+        'Reading each file as soon as it is listed, and reading it again if parsing fails',
+        'Picking only files whose size is above zero',
       ],
       answer: [0, 1, 2],
-      explain: 'SFTP has no events. The reader polls, so it relies on time, names or agreed markers.',
+      explain: 'A matcher that skips files updated in the last minute leaves files that are still growing. A control file sent last tells the reader the data file is done. A trailer record count shows whether every record arrived. SFTP has no events, so the reader polls and relies on time, names or agreed markers. Reading again after a parse error treats the symptom: a cut short file can still parse, as the planning platform found. A half written file already has a size above zero.',
     },
     {
       type: 'order',

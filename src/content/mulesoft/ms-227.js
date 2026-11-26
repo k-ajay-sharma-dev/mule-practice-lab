@@ -20,10 +20,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Which aggregator releases a group when it holds a set number of values?',
-      options: ['Time-based', 'Group-based', 'Size-based', 'None of them, you must count in a variable'],
+      prompt: 'A size-based aggregator has a maximum size of 100 and no timeout. In a burst, 250 scans arrive, then none for an hour. What has gone to the carrier during that hour?',
+      options: [
+        'Three groups: 100, 100, and the last 50 once the burst ends',
+        'One group of 250, as the size is checked when the burst ends',
+        'Two groups of 100, while the last 50 scans wait in the store',
+        'Two groups of 100, and the last 50 scans are dropped',
+      ],
       answer: 2,
-      explain: 'A size-based aggregator completes when it reaches its maximum size. The values then go to the route that runs on completion.',
+      explain: 'A size-based aggregator completes a group when it reaches its maximum size, sends it to the completion route, and starts a new group. With no timeout, the last 50 stay in the store until more scans fill the group. Nothing releases a partial group on its own, and held values are not thrown away.',
     },
     {
       type: 'single',
@@ -52,9 +57,10 @@ export default {
         'What happens to values held when a replica restarts',
         'That the queue delivers events in a fixed order to one replica',
         'That a group which never completes is released or removed after a time',
+        'That each replica keeps its own in-memory store, so the groups never mix',
       ],
       answer: [0, 1, 3],
-      explain: 'The values wait in a store between events. If each replica has its own store, parcels of one shipment can end up in two groups that never complete. Plan for restarts and for groups that never fill.',
+      explain: 'The values wait in a store between events. If each replica has its own store, parcels of one shipment can end up in two groups that never complete, so separate in-memory stores are the problem, not the fix. Plan for restarts, which lose values held only in memory, and for groups that never fill. A fixed order from the queue is not something to rely on, and the aggregator does not need it when the store is shared.',
     },
     {
       type: 'match',

@@ -37,7 +37,7 @@ export default {
       options: [
         'Each replica keeps its own cache, so more misses but very fast hits',
         'It is shared across replicas, but slower than a persistent store',
-        'In-memory caches are not allowed for apps on CloudHub 2.0',
+        'Each replica keeps its own cache, but hits are slower than OSv2 lookups',
         'It survives redeploys, unlike the persistent store on OSv2',
       ],
       answer: 0,

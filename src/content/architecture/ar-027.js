@@ -33,10 +33,10 @@ export default {
       type: 'single',
       prompt: 'How do you model "cancel an order", which is more than simple CRUD?',
       options: [
-        'POST /cancelOrder?id=55',
-        'GET /orders/55/cancel',
+        'An action endpoint such as POST /cancelOrder?id=55',
+        'An action link such as GET /orders/{orderId}/cancel',
         'A sub-resource such as POST /orders/{orderId}/cancellation',
-        'PUT /orders/55 with action=cancel in the body',
+        'A full update such as PUT /orders/55 with action=cancel',
       ],
       answer: 2,
       explain: 'Modelling the business action as a resource keeps verbs out of the path while staying explicit.',

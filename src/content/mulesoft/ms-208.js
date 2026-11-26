@@ -46,7 +46,7 @@ export default {
       type: 'single',
       prompt: 'Before it delegates anything, a Mule app wants to find out what a remote A2A (Agent2Agent) agent offers. What should it do?',
       options: [
-        'Send a sample task and work out the offer from the error message',
+        'Send a first message, as the reply to it lists the skills of the agent',
         'Read the agent card that the remote agent serves',
         'Call `tools/list` on the remote agent through MCP',
         'Look up the agent in the Mule app\'s own Object Store',
@@ -57,15 +57,15 @@ export default {
     {
       type: 'single',
       detail: true,
-      prompt: 'A Mule app uses the A2A Connector as a server, with its agent path set to `/payroll`. Where is its agent card served?',
+      prompt: 'A Mule app uses the A2A Connector as a server, with its agent path set to `/payroll`. A client agent asks for `/.well-known/agent-card.json` at the root of the host and gets a 404. The app is running. What is the cause?',
       options: [
-        '`/payroll/agent-card.xml`',
-        '`/.well-known/payroll/card.json`',
-        '`/payroll/.well-known/agent-card.json`',
-        '`/payroll/api/v1/agents/card`',
+        'The card is served under the agent path, at `/payroll/.well-known/agent-card.json`',
+        'The card is served only once the server has taken its first task from a client',
+        'The card must be published to Exchange, as the server does not serve a card itself',
+        'The card file is named `agent.json`, so the client asked for a name that is not there',
       ],
-      answer: 2,
-      explain: 'The server connection serves the card at the agent path followed by `/.well-known/agent-card.json`. The card itself comes from the configuration, as a JSON string or from a JSON file.',
+      answer: 0,
+      explain: 'The server connection serves the card at the agent path followed by `/.well-known/agent-card.json`. The card itself comes from the configuration, as a JSON string or from a JSON file, so it is there from the start, with no task and no Exchange step. Some older A2A material uses `agent.json`, but this connector serves `agent-card.json`.',
     },
     {
       type: 'match',

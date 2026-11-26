@@ -139,10 +139,10 @@ export default {
       type: 'single',
       prompt: 'How do you contain the cost of supporting REST, SOAP, GraphQL and events?',
       options: [
-        'Build each style as a separate stack with its own logic',
+        'Build each style as its own stack, with Process and System APIs copied per style',
         'One Process API owns the logic, with a thin facade per style and events after changes',
-        'Pick one style and make every consumer use it',
-        'Let each consumer team build its own integration',
+        'Offer REST only, and give SOAP and GraphQL consumers a client SDK that wraps it',
+        'Put the business logic in each facade, so a style can change without the others',
       ],
       answer: 1,
       explain: 'Logic lives once in the Process API, which also publishes events after state changes. Each extra style then costs only a thin Experience-layer facade plus its security, docs and monitoring.',

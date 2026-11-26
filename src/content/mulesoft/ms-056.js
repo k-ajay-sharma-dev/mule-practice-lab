@@ -44,7 +44,7 @@ export default {
       type: 'single',
       prompt: 'Teams cannot tell which version to use because old majors look current. Which Exchange feature helps most?',
       options: [
-        'Deleting all old major versions right away',
+        'Deleting each old major once its successor is stable',
         'Lifecycle states, such as deprecated, plus a changelog',
         'Renaming old assets with an `-old` suffix',
         'Making the old versions private to their owners',

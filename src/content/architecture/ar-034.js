@@ -20,10 +20,10 @@ export default {
       type: 'single',
       prompt: 'Can Anypoint MQ replay last week\'s telemetry for a new consumer team?',
       options: [
-        'Yes, acknowledged messages stay for the 7-day default TTL',
+        'Yes, acknowledged messages stay on the queue for the 7-day default TTL',
         'No, an acknowledged message is deleted; replay needs a log or an event store',
-        'Yes, if the new team reads the dead-letter queue',
-        'Yes, if the queue is created as a FIFO queue',
+        'Yes, if the new team reads the copies that land in the dead-letter queue',
+        'Yes, if the queue is a FIFO queue, which keeps messages in order for replay',
       ],
       answer: 1,
       explain: 'Queues delete messages on acknowledgement. The TTL only limits how long an unacknowledged message waits. Kafka retains the log and lets each consumer group track its own offset.',

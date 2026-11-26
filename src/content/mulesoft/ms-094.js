@@ -58,7 +58,7 @@ export default {
       prompt: 'A company has an AWS Transit Gateway with Direct Connect to its data centre. A new CloudHub 2.0 private space, the isolated network for its Mule apps, must reach that data centre. How should it connect?',
       options: [
         'Attach the private space to the transit gateway in the same region',
-        'Attach Direct Connect to the private space itself',
+        'Attach the Direct Connect link to the private space itself',
         'Attach the private space to a transit gateway in any region',
         'Give each private space its own transit gateway in a separate AWS account',
       ],

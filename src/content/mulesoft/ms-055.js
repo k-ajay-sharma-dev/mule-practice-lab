@@ -9,15 +9,15 @@ export default {
     {
       type: 'single',
       detail: true,
-      prompt: 'What does APIkit for SOAP scaffold from?',
+      prompt: 'The legacy partner\'s WSDL has three operations: `GetOrder`, `CancelOrder` and `ListOrders`. What does APIkit for SOAP scaffold from it?',
       options: [
-        'A RAML spec that declares SOAP traits',
-        'A WSDL, with one flow per operation',
-        'The REST Process API\'s OAS spec',
-        'A set of XSD files without a WSDL',
+        'One flow with a Choice that branches on the SOAPAction header',
+        'Three flows, one per operation, each with its own HTTP Listener',
+        'A router flow, plus one flow per XSD type that the operations use',
+        'A router flow, plus one flow for each of the three operations',
       ],
-      answer: 1,
-      explain: 'It produces a router flow plus one flow per WSDL operation. Same idea as APIkit for REST (a contract-driven router plus scaffolded flows), but with a WSDL as the contract.',
+      answer: 3,
+      explain: 'It produces a router flow plus one flow per WSDL operation. Same idea as APIkit for REST (a contract-driven router plus scaffolded flows), but with a WSDL as the contract. The router dispatches by operation, so no Choice is needed. There is one listener, in the router flow, and flows follow operations, not XSD types.',
     },
     {
       type: 'single',
@@ -61,7 +61,7 @@ export default {
       options: [
         'Domains were removed from the Mule 4 runtime',
         'Domains are on-prem only and cannot share handlers',
-        'Domains can share only SOAP Web Service configs',
+        'Domains share handlers, but only on CloudHub 1.0',
         'Domain projects cannot be versioned in Maven',
       ],
       answer: 1,

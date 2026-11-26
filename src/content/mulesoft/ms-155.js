@@ -95,16 +95,16 @@ export default {
     {
       type: 'multi',
       detail: true,
-      prompt: 'A team moving from CloudHub 1.0 to 2.0 reviews its monitoring. Which statements are correct?',
+      prompt: 'A team moving from CloudHub 1.0 to 2.0 reviews its monitoring, which relies on custom notifications and queue charts. Which statements are correct?',
       options: [
         'Built-in notifications are not supported on CloudHub 2.0',
-        'Custom notifications through CloudHub Connector are not supported on CloudHub 2.0',
+        'Custom notifications sent through CloudHub Connector keep working on CloudHub 2.0',
         'On CloudHub 2.0, Runtime Manager alerts apply to applications only, not servers',
         'Private space network traffic metrics are not available in Anypoint Monitoring',
         'Anypoint MQ queue depth can be charted in Anypoint Monitoring',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'The Anypoint MQ overview says you cannot use Anypoint MQ with CloudHub Insight or Anypoint Monitoring. Monitoring dashboards do show connector metrics such as Anypoint MQ operations from the app side, but for queue statistics use the Anypoint MQ Stats API or usage reports.',
+      answer: [0, 2, 3],
+      explain: 'Built-in notifications are not supported on CloudHub 2.0, Runtime Manager alerts there cover applications only, and private space network traffic metrics are not in Anypoint Monitoring. Custom notifications through CloudHub Connector are not supported on CloudHub 2.0 either, so flows that send them need another alert path. The Anypoint MQ overview says you cannot use Anypoint MQ with CloudHub Insight or Anypoint Monitoring. Monitoring dashboards do show connector metrics such as Anypoint MQ operations from the app side, but for queue statistics use the Anypoint MQ Stats API or usage reports.',
     },
   ],
   description: `

@@ -25,7 +25,7 @@ export default {
       options: [
         'Confirm with the provider by API or a signed webhook',
         'Read the status from the return URL parameters',
-        'Treat the customer returning to the retailer as approval',
+        'Accept the return when the browser Referer header shows the provider domain',
         'Read the status the provider page stored in a browser cookie',
       ],
       answer: 0,
@@ -39,9 +39,11 @@ export default {
         'Refunds, full or partial',
         'The provider cancelling the plan',
         'Each instalment the customer pays to the provider',
+        'The approval passed back in the browser redirect from the provider',
+        'The weekly settlement report, used as the record of captures',
       ],
       answer: [0, 1, 2],
-      explain: 'The order and the money must stay in step after checkout too. Instalments are between the customer and the provider, who pays the retailer in full, so the order system does not need them.',
+      explain: 'The order and the money must stay in step after checkout too, so captures, refunds and cancellations must reach the order system. Instalments are between the customer and the provider, who pays the retailer in full, so the order system does not need them. The browser redirect happens at checkout and can be faked; confirm approval by API or webhook. The weekly report is for finance to reconcile money, and it arrives days after the order needs to know.',
     },
     {
       type: 'single',

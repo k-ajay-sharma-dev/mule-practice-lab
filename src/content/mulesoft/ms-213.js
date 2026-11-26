@@ -12,7 +12,7 @@ export default {
       options: [
         'Set the Collection to `#[payload.appointments]`',
         'Set the Batch Size to the number of appointments',
-        'Put a Transform before the loop that writes the object as XML',
+        'Set the Root Message Variable Name to `appointments`',
         'Replace the For Each with a Flow Reference to a sub-flow',
       ],
       answer: 0,

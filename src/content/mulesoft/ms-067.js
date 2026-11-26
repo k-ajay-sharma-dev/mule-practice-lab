@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'What does `jms:publish-consume` do when **no** reply-to destination is configured?',
+      prompt: 'The checkout flow calls `jms:publish-consume` on `ATP.REQUEST` and names **no** reply-to destination. The WMS team, who own a non-Mule responder, ask which destination they must send each answer to. What do you tell them?',
       options: [
-        'It sends with a temporary reply destination and waits on it',
-        'It publishes and returns at once with an empty payload',
-        'It fails at startup, because a reply-to is mandatory',
-        'It waits for the next message on the request queue',
+        'Send it back to ATP.REQUEST, where the caller waits for the next message',
+        'Send it to the JMSReplyTo of each request, a temporary destination',
+        'Send nothing back, since with no reply-to the call returns at once',
+        'Send it to ATP.REQUEST.REPLY, which Mule creates for the reply',
       ],
-      answer: 0,
-      explain: 'publish-consume is synchronous request-reply: Mule creates a temporary destination for the reply unless you name one, sets it as JMSReplyTo and blocks until the reply arrives or the wait times out.',
+      answer: 1,
+      explain: 'publish-consume is synchronous request-reply: Mule creates a temporary destination for the reply unless you name one, sets it as JMSReplyTo and blocks until the reply arrives or the wait times out. The responder must answer to that JMSReplyTo. The caller does not read the request queue, and it does not return before the reply or the timeout. Mule does not create a named reply queue by any naming rule.',
     },
     {
       type: 'single',
@@ -74,7 +74,7 @@ export default {
       options: [
         'Checkout waits anyway, so JMS adds hops without decoupling',
         'JMS cannot carry JSON bodies without a custom converter',
-        'JMS request-reply is not supported in Mule 4',
+        'JMS request-reply needs JMS 2.0, which Classic lacks',
         'HTTP guarantees delivery, while JMS may lose the reply',
       ],
       answer: 0,

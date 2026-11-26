@@ -25,29 +25,30 @@ export const SET_8 = [
     kind: 'choice',
     situation: 'Which line should Quillon Couriers log when it rejects a webhook with a bad signature?',
     options: [
-      'Webhook rejected: signature check failed source=payhub status=401 correlationId=7f3c2a',
+      'Webhook rejected: signature check failed source=payhub status=401 remoteIp=203.0.113.7 correlationId=7f3c2a',
       'Webhook rejected: signature check failed source=payhub eventId=evt_2291 status=401 correlationId=7f3c2a',
       'Webhook rejected, expected 9f2c41... got 1a7e03..., signing key=whsec_...',
-      'Webhook {"id":"evt_2291","data":{"amount":120.00,"card":{...}}}',
+      'Webhook {"id":"evt_2291","type":"payment.succeeded","data":{"amount":120.00,"card":{...}}}',
     ],
     answer: 1,
     explain:
-      'It says what happened, from where, which event and what the sender got back. The first line has no eventId, so you cannot ask the sender about that event. The third line leaks the signing key, and the last dumps the body with card data.',
+      'It says what happened, from where, which event and what the sender got back. The line with remoteIp=203.0.113.7 has no eventId, so you cannot ask the sender about that event. The line with signing key=whsec_... leaks the signing key, and the line with the raw webhook JSON dumps the body with card data.',
   },
   {
     id: 'log-8003',
     kind: 'multi',
-    situation: 'A Quillon webhook passed the signature check and was queued. Which facts belong on that line?',
+    situation:
+      'PayHub resends any Quillon webhook that gets no 2xx within 10 seconds. Support sees one payment booked twice, and the only line in the log is "Webhook queued source=payhub correlationId=7f3c2a". Which fields on the queued line would let support prove where the double came from?',
     options: [
-      'The event ID from the sender',
-      'The event type, such as payment.succeeded',
-      'Whether it was new or a repeat of an event already seen',
-      'The signature header',
-      'The full body',
+      'The correlationId, which Mule keeps the same across the resends of one webhook',
+      'eventId from the sender, which stays the same on every resend of one event',
+      'receivedAt on its own, since two lines a few seconds apart must be a resend',
+      'repeat=true or false, from the check against the event IDs already seen',
+      'durationMs of the reply sent back to PayHub, to show a reply slower than 10 seconds',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 3, 4],
     explain:
-      'The event ID and type let support match the line to the sender\'s records, and the repeat flag shows retries from the sender. The signature and the body do not belong in logs.',
+      'PayHub keeps one eventId on every resend, so two lines with the same eventId and repeat=false on both show the duplicate check failed. A reply slower than 10 seconds explains why PayHub sent it again at all. Each resend arrives as a new HTTP request, so unless the sender passes an ID header Mule gives it a new correlationId, and it cannot link the two. Two lines close in time can be two real payments, so the time alone proves nothing.',
   },
   {
     id: 'log-8004',
@@ -114,14 +115,14 @@ export const SET_8 = [
     kind: 'choice',
     situation: 'Which line should Orrin Hardware log when the shadow engine gives a different price?',
     options: [
-      'Shadow price mismatch quoteId=Q-7781 sku=SKU-118 oldPrice=19.90 newPrice=18.40 diffPct=-7.5',
-      'ERROR new engine wrong',
+      'Shadow price mismatch quoteId=Q-7781 sku=SKU-118 oldPrice=19.90 newPrice=18.40 diffPct=-7.5 newEngine=price-engine-v2',
+      'ERROR Shadow engine returned the wrong price for quote Q-7781, check the new engine',
       'Shadow price mismatch quoteId=Q-7781 sku=SKU-118 oldPrice=19.90 newPrice=18.40 diffPct=-7.5 served=old',
-      'Mismatch: request={...full quote...} old={...} new={...}',
+      'Mismatch: request={...full quote...} old={...} new={...} customer={...}',
     ],
     answer: 2,
     explain:
-      'Labelled numbers can be charted and grouped by product. served=old shows the customer got the old price. The first line has the same numbers but does not say which price the customer got. The full quote is large and may hold customer data.',
+      'Labelled numbers can be charted and grouped by product. served=old shows the customer got the old price. The line with newEngine=price-engine-v2 has the same numbers but does not say which price the customer got. The full quote is large and may hold customer data.',
   },
   {
     id: 'log-8008',
@@ -129,12 +130,12 @@ export const SET_8 = [
     situation: 'Which facts make the Orrin shadow mode logs useful for deciding when to switch?',
     options: [
       'Which engine served the customer',
+      'The customer email, to follow up on quotes where the engines differ',
       'Both prices, as numbers',
       'The difference as a number, such as diffPct',
-      'The customer email',
-      'The full request at INFO',
+      'The full request at INFO, so any mismatch can be replayed later',
     ],
-    answers: [0, 1, 2],
+    answers: [0, 2, 3],
     explain:
       'With the served engine and the numbers, the team can see how often and by how much the engines differ. The email and the full request add risk and no insight.',
   },
@@ -204,14 +205,14 @@ export const SET_8 = [
     kind: 'choice',
     situation: 'Which line should Tallis log when a client\'s payroll export fails because a setting is missing?',
     options: [
-      'Tenant config missing',
+      'Tenant config missing for payroll export, check the tenant settings and retry',
       'Payroll export failed: tenant setting missing tenantId=t-9 setting=bankFileFormat status=500 correlationId=7f3c2a',
       'Payroll export failed for Bramblewood Ltd, employees: [{"name":"...","salary":...}]',
-      'Payroll export failed: tenant setting missing setting=bankFileFormat status=500 correlationId=7f3c2a',
+      'Payroll export failed: tenant setting missing setting=bankFileFormat status=500 runAt=2026-11-18T02:00:00Z correlationId=7f3c2a',
     ],
     answer: 1,
     explain:
-      'The tenant ID and the setting name tell support exactly what to fix. The last line has no tenantId, so in an app shared by 400 clients nobody knows whose settings to fix. The third line puts salaries in a log shared by all clients.',
+      'The tenant ID and the setting name tell support exactly what to fix. The line with runAt= has no tenantId, so in an app shared by 400 clients nobody knows whose settings to fix. The line for Bramblewood Ltd puts salaries in a log shared by all clients.',
   },
   {
     id: 'log-8013',
@@ -220,11 +221,11 @@ export const SET_8 = [
     options: [
       'tenantId on every line',
       'A saved search per tenant for support, with access rules',
-      'The same field names for every tenant',
       'Employee names on each line, to help support find records',
-      'A log level that each client sets for itself',
+      'A log level that each client sets for itself in its tenant settings',
+      'The same field names for every tenant',
     ],
-    answers: [0, 1, 2],
+    answers: [0, 1, 4],
     explain:
       'tenantId lets support filter one client, access rules keep clients apart, and shared field names keep searches the same. Names are personal data, and client-chosen levels can flood the shared logs.',
   },
@@ -292,27 +293,27 @@ export const SET_8 = [
     kind: 'choice',
     situation: 'Which line should Bellmont log when a sync conflict is settled by a rule?',
     options: [
-      'Sync conflict resolved customerId=C-2231 field=phone correlationId=7f3c2a',
+      'Sync conflict resolved customerId=C-2231 field=phone crmVersion=14 erpVersion=15 detectedBy=nightly-sync correlationId=7f3c2a',
       'Conflict: CRM phone +44 7700 900123, ERP phone +44 7700 900456',
-      'WARN!!! data mismatch',
+      'WARN data mismatch between CRM and ERP for a customer, resolved by rule',
       'Sync conflict resolved customerId=C-2231 field=phone winner=erp rule=erp-wins-contact-fields correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'It names the record, the field, which side won and why. The first line leaves out the winner and the rule, so a user who lost a change gets no answer. The second line copies phone numbers, which are personal data, into the logs.',
+      'It names the record, the field, which side won and why. The line with detectedBy=nightly-sync leaves out the winner and the rule, so a user who lost a change gets no answer. The "Conflict: CRM phone" line copies phone numbers, which are personal data, into the logs.',
   },
   {
     id: 'log-8018',
     kind: 'multi',
     situation: 'Which facts belong on the Bellmont conflict line?',
     options: [
+      'Both phone numbers, so support can see which value was lost',
       'The customer ID',
+      'The full customer record from each system',
       'The field name',
       'Which side won and the rule used',
-      'Both phone numbers',
-      'The full customer record from each system',
     ],
-    answers: [0, 1, 2],
+    answers: [1, 3, 4],
     explain:
       'IDs, field and rule explain the decision. The values themselves are personal data and can be read in each system by someone allowed to see them.',
   },
@@ -381,14 +382,14 @@ export const SET_8 = [
     kind: 'choice',
     situation: 'Which progress line should the Wrenfield migration log?',
     options: [
-      'Progress',
-      'Policy migration progress migrated=850000 total=2000000 failed=312 ratePerMin=4100',
+      'Progress: still running, about 40 percent of the policies done so far',
+      'Policy migration progress migrated=850000 total=2000000 failed=312 ratePerMin=4100 elapsedMin=207 runId=MIG-07',
       'Policy migration progress migrated=850000 total=2000000 failed=312 ratePerMin=4100 lastPolicyId=P-850000',
       'Migrated policy P-000001 (one line for every policy)',
     ],
     answer: 2,
     explain:
-      'The counts and the rate show how far the job is and when it will end. lastPolicyId shows where to restart, and the second line lacks it. One line per policy is 2 million lines that bury the failures.',
+      'The counts and the rate show how far the job is and when it will end. lastPolicyId shows where to restart, and the line with runId=MIG-07 lacks it. One line per policy is 2 million lines that bury the failures.',
   },
   {
     id: 'log-8023',
@@ -396,12 +397,12 @@ export const SET_8 = [
     situation: 'The Wrenfield migration may crash halfway. Which logging choices help it restart safely?',
     options: [
       'The last committed policy ID on every progress line',
+      'A line for every policy at INFO, so a restart can find the last one',
       'A line for each failed policy, with its ID and the error',
-      'A line for every policy at INFO',
-      'The run ID on every line, so two runs are never mixed',
       'The full policy at DEBUG, left on in production',
+      'The run ID on every line, so two runs are never mixed',
     ],
-    answers: [0, 1, 3],
+    answers: [0, 2, 4],
     explain:
       'The last committed ID tells you where to restart, failure lines tell you what to rerun, and the run ID keeps runs apart. A line per policy and full policies flood the logs.',
   },

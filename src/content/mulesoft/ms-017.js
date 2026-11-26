@@ -34,9 +34,9 @@ export default {
       prompt: 'Why narrow the ERP mock with a `with-attribute` such as `config-ref`, rather than using `processor="http:request"` alone?',
       options: [
         'Without it the mock matches any `http:request`, including later ones',
-        'MUnit requires `with-attributes` on every mock it defines',
+        'MUnit rejects a mock of `http:request` that has no `with-attributes` block',
         'MUnit can match a mock only by its `config-ref` attribute',
-        'The attribute lets MUnit skip loading the HTTP connector',
+        'The attribute lets MUnit skip loading the HTTP connector config in tests',
       ],
       answer: 0,
       explain: 'With no attribute, a second HTTP call added later would silently get the ERP response. The MUnit pages show matching on attributes such as `config-ref`, `method`, `path`, `operation` and `doc:name`. A name can repeat or be renamed, so `config-ref` is often the safer choice when each call has its own configuration.',
@@ -72,8 +72,8 @@ export default {
       options: [
         '`munit-maven-plugin` with a required coverage of 80 and `failBuild`',
         'Anypoint Studio shows coverage, and reviewers check it by hand',
-        'Runtime Manager refuses to deploy an app that is under 80%',
-        'An API Manager policy on the test environment checks coverage',
+        'A `requiredApplicationCoverage` of 80 set in `mule-artifact.json`',
+        '`munit-maven-plugin` with coverage enabled, so the report shows 80%',
       ],
       answer: 0,
       explain: 'Enable coverage in the plugin with `requiredApplicationCoverage` 80 and `failBuild` true. The Maven plugin measures executed processors and fails `mvn test`/`verify` below the threshold: so the pipeline enforces it.',

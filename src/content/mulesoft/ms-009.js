@@ -12,8 +12,8 @@ export default {
       options: [
         'Each replica runs its own Scheduler because the app is not clustered',
         'The cron expression fires twice because of daylight saving',
-        'The SFTP connector retries the write automatically',
-        'CloudHub runs every Scheduler twice for high availability',
+        'The SFTP write is retried after a timeout, which creates a second copy',
+        'CloudHub 2.0 fires a missed Scheduler run again after a replica restart',
       ],
       answer: 0,
       explain: 'Without clustering, every replica is an independent runtime and fires its own Scheduler. With clustering enabled, the Scheduler runs on the **primary node only**.',

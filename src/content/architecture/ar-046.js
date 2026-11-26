@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'Which statement correctly distinguishes SLI, SLO and SLA?',
+      prompt: 'A partner contract promises 99.5% monthly checkout availability, with service credits when it is missed. The team measures the share of checkout requests answered without a 5xx. Which internal target fits?',
       options: [
-        'SLI is the contract, SLO the measurement, SLA the internal target',
-        'SLI is the measured ratio, SLO its target, SLA a contract with consequences',
-        'SLO is the partner contract, SLA the internal target, SLI the dashboard',
-        'SLI and SLO are the same target, and the SLA is how it is measured',
+        'An SLO of 99.5% on that ratio, equal to the contract, so the team works to the promise',
+        'The SLA figure itself used as the SLI, with an alert when the month ends below 99.5%',
+        'An SLO of 99.9% on that ratio over 28 days, tighter than the contract',
+        'An SLO of 99% on that ratio, looser than the contract, so the team has room to ship',
       ],
-      answer: 1,
-      explain: 'An SLI is a measured ratio of good to valid events, and an SLO is the target for it over a window. Example: SLI = % of checkout requests without 5xx; SLO = 99.9% over 28 days; SLA = the contract with a partner, set looser than the SLO.',
+      answer: 2,
+      explain: 'The SLI is the measured ratio (requests without 5xx), the SLO is the internal target for it over a window, and the SLA is the contract with consequences. The SLO is set tighter than the SLA so the team reacts before credits are owed. An SLO equal to the SLA leaves no warning margin, a looser SLO plans to breach the contract, and a contract figure checked at month end is not a measurement you can act on.',
     },
     {
       type: 'match',
@@ -35,7 +35,7 @@ export default {
       options: [
         'CPU above 80% on the consumer app',
         'No OrderPlaced consumed for 10 minutes while orders are placed',
-        'Any ERROR line in the logs',
+        'More than 10 ERROR lines a minute in the consumer logs',
         'App status "down" in Runtime Manager',
       ],
       answer: 1,

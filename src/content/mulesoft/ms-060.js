@@ -23,8 +23,8 @@ export default {
       prompt: 'A developer wrote `#["SELECT qty FROM store_stock WHERE store_id = \'" ++ attributes.queryParams.store ++ "\'"]`. What is the main problem?',
       options: [
         'The value becomes part of the SQL, so it allows injection',
-        'DataWeave cannot build strings with the `++` operator',
-        'Oracle rejects single quotes inside a WHERE clause',
+        'None, as the connector escapes values in a `#[...]` SQL text',
+        'Query params arrive as arrays, so `++` fails at runtime',
         'It works only when the store ID is numeric',
       ],
       answer: 0,

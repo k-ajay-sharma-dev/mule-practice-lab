@@ -39,9 +39,11 @@ export default {
         'A simple contractor portal for small firms with no system',
         'A file exchange for a few large firms that send batches',
         'One shared login to the housing system for all small contractors',
+        'Email each job to small firms and ask them to reply when it is done',
+        'Ask every contractor to build to the Repairs API before the contract renews',
       ],
       answer: [0, 1, 2],
-      explain: 'Meet each contractor where they are, with their own access to their own jobs. A shared login shows every job to every firm and leaves no record of who did what.',
+      explain: 'Meet each contractor where they are, with their own access to their own jobs. The five large firms already have APIs, a portal serves firms with no system, and a file exchange suits firms that work in batches. A shared login shows every job to every firm and leaves no record of who did what. Email is low tech but gives no status, so tenants still cannot be told when someone is coming. Asking small firms to build an API ignores that they cannot build anything.',
     },
     {
       type: 'single',

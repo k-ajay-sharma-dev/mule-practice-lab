@@ -35,8 +35,8 @@ export default {
       prompt: 'Some countries require in-country processing but have no suitable cloud region. What runtime do you use there?',
       options: [
         'Runtime Fabric or customer-hosted runtimes in-country',
-        'CloudHub 2.0 in the nearest other country',
-        'The existing US CloudHub workers with encryption',
+        'CloudHub 2.0 in the nearest region, which keeps latency low',
+        'The existing US CloudHub apps, with payloads encrypted end to end',
         'No local runtime: stores call the US APIs over a private VPN',
       ],
       answer: 0,
@@ -72,7 +72,7 @@ export default {
       prompt: 'Auditors ask a global retailer to prove where customer personal data flows between regions. What gives them the clearest evidence?',
       options: [
         'Data-flow diagrams kept current, with legal sign-off per cross-region flow',
-        'A verbal approval from the CIO that covers all flows at once',
+        'A verbal approval from the data protection officer at the last review',
         'A note that the control plane runs in the EU, so all flows comply',
         'RAML type definitions in Exchange, which show the shape of each payload',
       ],

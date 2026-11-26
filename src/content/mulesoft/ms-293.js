@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'Why does the Database connector use a connection pool?',
+      prompt: 'Without pooling, a job opens a new SQL Server connection, with encrypt=true, for each of 50,000 single row lookups. Each query takes 2 ms on the server, yet the job is slow. What does a connection pool change?',
       options: [
-        'To share one open transaction between flows that run at once',
-        'Opening a connection with login and TLS is slow, so they are reused',
-        'To keep result sets in memory for repeated queries',
-        'To keep compiled query plans on the client side',
+        'The pool keeps compiled plans on the client, so the server skips compiling them',
+        'The pool keeps the result sets in memory, so repeated lookups skip the server',
+        'The lookups share one open transaction, so they commit together and run faster',
+        'Lookups reuse open connections, so login and TLS are paid once per connection',
       ],
-      answer: 1,
-      explain: 'A pool saves the cost of a new connection per query. Plan caching happens on the server, not in the pool.',
+      answer: 3,
+      explain: 'Opening a connection costs a TCP connect, a TLS handshake and a login, far more than a 2 ms query. A pool keeps connections open and lends them out again. Plan caching happens on the server, not in the pool. A pool does not cache results, and each borrowed connection still runs its own transactions.',
     },
     {
       type: 'single',
@@ -32,15 +32,15 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which pooling settings matter most?',
+      prompt: 'A job runs 16 parallel flows per worker against a pool of 5. At month end flows hang for minutes waiting for a connection, then fail. Which pooling profile changes help?',
       options: [
-        'Maximum pool size',
-        'Minimum pool size',
-        'How long a flow waits for a free connection',
-        'The fetch size of each select',
+        'Raise maxPoolSize toward the real concurrency, within what the DBA allows',
+        'Raise minPoolSize to 16, which raises the maximum to match',
+        'Set maxWait, so a flow fails clearly instead of hanging for minutes',
+        'Set maxIdleTime to 0, so idle connections go back to the flows at once',
       ],
-      answer: [0, 1, 2],
-      explain: 'Fetch size controls how many rows each round trip brings back, not how connections are pooled. Size the pool for concurrent work, and set a wait so a busy pool fails clearly rather than hanging.',
+      answer: [0, 2],
+      explain: 'Size the pool for concurrent work, and set a wait so a busy pool fails clearly rather than hanging. minPoolSize only sets how many connections stay open, it never raises the maximum. A maxIdleTime of 0 means idle connections never expire, and it does not hand connections out any faster.',
     },
     {
       type: 'single',
@@ -51,15 +51,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'What does a query timeout on the Database operation protect against?',
+      prompt: 'A month end MERGE gets a bad plan and runs for 40 minutes, holding its connection and locks, while other flows queue behind those locks. Which setting would have stopped it early?',
       options: [
-        'A login that hangs because the server is not reachable',
-        'A query running too long while it holds a connection and locks',
-        'A flow waiting too long for a free connection from the pool',
-        'A result set too large to fit in the worker memory',
+        'maxWait on the pooling profile of the Database config',
+        'A login timeout on the SQL Server connection',
+        'A query timeout on the Database operation',
+        'A reconnection strategy on the Database config',
       ],
-      answer: 1,
-      explain: 'This happens after a bad plan or in a blocking chain. Logins and pool waits have their own timeouts. Without a query timeout, one stuck query can hold a connection and its locks for a long time.',
+      answer: 2,
+      explain: 'A query timeout cancels a statement that runs too long, which frees its connection and its locks. maxWait limits how long a flow waits for a free connection, and the login timeout limits how long a connect takes. A reconnection strategy acts on lost connections, not on a slow query.',
     },
     {
       type: 'single',

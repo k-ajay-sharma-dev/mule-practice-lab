@@ -40,7 +40,7 @@ export default {
         'Coverage of the acquirers, payment methods and schemes the group needs',
         'PCI DSS level 1 compliance and the cost of keeping it',
         'Which platform the most of the group’s engineers already know',
-        'Which gateway has the newest admin screens for merchants',
+        'Which gateway has the most complete merchant admin screens and reports',
       ],
       answer: [0, 1, 2],
       explain: 'Capacity, payment coverage and compliance cost decide whether a platform can carry the whole group. Familiarity and admin screens help, but neither decides whether a payment core can carry the group’s volume, methods and compliance.',

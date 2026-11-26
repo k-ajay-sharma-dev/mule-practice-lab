@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'How is a dead letter queue set up in Anypoint MQ?',
+      prompt: 'A queue lab-results-dlq exists in Anypoint MQ. Messages on lab-results fail again and again, past 20 deliveries, and never reach it. What is missing?',
       options: [
-        'Every queue gets one created for it',
-        'A normal queue set as the DLQ of another, with max deliveries',
-        'A setting in the Mule app\'s connector config',
-        'A special exchange that catches failed messages',
+        'lab-results is not set to use lab-results-dlq as its DLQ, with a max deliveries value',
+        'The subscriber in the Mule app has no dead letter queue name in its connector config',
+        'The flow uses AUTO acknowledgement, and failures under AUTO never count as deliveries',
+        'lab-results-dlq has no exchange bound to it, so failed messages have no route there',
       ],
-      answer: 1,
-      explain: 'A DLQ is an ordinary queue. The source queue points to it and says after how many deliveries a message moves there.',
+      answer: 0,
+      explain: 'A DLQ is an ordinary queue. The source queue points to it and says after how many deliveries a message moves there. Without that setting on the source queue, a failing message cycles forever. The Mule connector has no DLQ setting, as this lives on the queue in Anypoint MQ. Under AUTO, a failed flow returns the message, and that counts as a delivery. No exchange is involved in dead lettering.',
     },
     {
       type: 'multi',
@@ -24,11 +24,12 @@ export default {
       options: [
         'The flow calls Nack',
         'The flow takes longer than the acknowledgement timeout and never acks',
-        'The flow calls Ack',
+        'The flow calls Ack, then fails in a later step',
         'The app crashes while processing',
+        'The message waits in the queue until its time to live ends, and no one reads it',
       ],
       answer: [0, 1, 3],
-      explain: 'Anything that returns the message to the queue counts as a delivery. Only an Ack removes it.',
+      explain: 'A Nack returns the message to the queue at once. A flow that runs past the acknowledgement timeout without acking loses its lock, so the message goes back. A crash leaves the message unacked, so it also goes back when the lock ends. Each return means one more delivery. An Ack removes the message, so a failure after it does not bring it back. A message that expires unread was never delivered, so the delivery count does not grow.',
     },
     {
       type: 'single',
@@ -36,7 +37,7 @@ export default {
       options: [
         'None, the messages wait on the queue',
         'Good messages use up their deliveries and land in the DLQ',
-        'The queue is paused once the limit is reached',
+        'None, as only an explicit Nack counts toward the limit',
         'Anypoint MQ slows redelivery until the API is back',
       ],
       answer: 1,
@@ -46,9 +47,9 @@ export default {
       type: 'single',
       prompt: 'A message fails because a required field is missing. What should the flow do?',
       options: [
-        'Nack it so it is tried again',
+        'Nack it so it is tried again up to max deliveries',
         'Send it to a reject path with the error, then ack',
-        'Ack it and do nothing else',
+        'Ack it and log a warning, so the queue keeps moving',
         'Leave it unacked until the timeout returns it',
       ],
       answer: 1,

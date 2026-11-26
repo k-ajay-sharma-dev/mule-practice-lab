@@ -46,10 +46,10 @@ export default {
       type: 'single',
       prompt: 'When should you use `streaming="true"` instead of a size?',
       options: [
-        'When you need random access to the records, such as `payload[10]`',
+        'When you need random access to the records of the group, such as `payload[10]`',
         'When you want every record of the job in one group and can read them in one pass',
-        'When records must be processed one at a time',
-        'When the job must stop after the first failed record',
+        'When each record must reach the target on its own, with one call per record',
+        'When groups should hold as many records as memory allows, and no more',
       ],
       answer: 1,
       explain: 'A streaming aggregator gives all the records of the job as one stream, which suits writing one large file. It can be read only once, in order, so random access is not possible.',
@@ -69,9 +69,16 @@ export default {
     {
       type: 'multi',
       prompt: 'Which values can the On Complete phase read from its payload? Choose all that apply.',
-      options: ['totalRecords', 'successfulRecords', 'failedRecords', 'The payload of each record'],
+      options: [
+        'totalRecords',
+        'successfulRecords',
+        'failedRecords',
+        'The payload of each record',
+        'The record variables set in the steps',
+        'The list a Batch Aggregator collected',
+      ],
       answer: [0, 1, 2],
-      explain: 'On Complete gets a summary of the job, with counts such as total, successful and failed records and the time taken. The records themselves are no longer available.',
+      explain: 'On Complete gets a summary of the job, with counts such as total, successful and failed records and the time taken. The records themselves are no longer available, and record variables lived only with their records, so they are gone too. A Batch Aggregator hands its list to the processors inside it, not to On Complete. To report on records, write what you need to a store or a log inside the steps.',
     },
   ],
   description: `

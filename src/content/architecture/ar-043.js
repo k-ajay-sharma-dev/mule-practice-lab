@@ -24,7 +24,7 @@ export default {
         'Encrypt the file with PGP before upload',
         'Change the mapping so the feed holds only name and address',
         'Ask the vendor to delete the fields it does not need',
-        'Tokenize every field in the record',
+        'Tokenize the sensitive fields and keep sending the full record',
       ],
       answer: 1,
       explain: 'Encryption protects the transfer, but the vendor would still hold data it does not need. Minimisation removes the risk at the source.',
