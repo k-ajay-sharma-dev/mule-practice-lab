@@ -109,13 +109,13 @@ export default {
       type: 'single',
       prompt: 'A senior developer proposes that the mobile app call the databases directly. Best response?',
       options: [
-        'Agree, since API-led is too slow for mobile',
+        'Agree for a read-only replica database, so the primary stays protected',
         'Decline: parallel calls, internal routing and caching fix the latency',
-        'Agree, but only for read operations',
-        'Decline, and move all logic into the Experience API instead',
+        'Decline, and co-deploy all three layers in one app to remove the hops',
+        'Decline, and let the Experience API call the databases directly instead',
       ],
       answer: 1,
-      explain: 'The latency comes from sequential calls and routing, not from the existence of layers. Direct access would give up security, decoupling and reuse to save time that can be recovered another way.',
+      explain: 'The latency comes from sequential calls and routing, not from the existence of layers. Direct access would give up security, decoupling and reuse to save time that can be recovered another way. A read replica still exposes database credentials and schema to a mobile app. Co-deploying saves a few network hops but leaves the sequential calls, the main cost. An Experience API on the databases skips the System APIs and copies their mapping.',
     },
     {
       type: 'single',

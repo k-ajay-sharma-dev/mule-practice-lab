@@ -34,7 +34,7 @@ export default {
       type: 'single',
       prompt: 'A bank has an AI agent on Amazon Bedrock AgentCore, a platform that is already compliant with A2A (Agent2Agent: how agents discover each other and delegate tasks). How should it join Agent Fabric?',
       options: [
-        'Register it directly, because the platform is already A2A compliant',
+        'Register it directly, with no bridge or wrapper in front of it',
         'Put an A2A Bridge in front of it, so its requests are translated',
         'Rebuild it in a Mule app that uses the A2A Connector',
         'Wrap it in an MCP server, so other agents can call it as a tool',

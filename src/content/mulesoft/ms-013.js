@@ -25,11 +25,11 @@ export default {
       options: [
         'Bind it as a `:sortBy` input parameter like any other value',
         'Map it through an allow-list of known column names',
-        'Concatenate it, because an ORDER BY cannot be exploited',
+        'Wrap it in double quotes as a quoted identifier, then concatenate it',
         'Escape it with `replace` before adding it to the SQL text',
       ],
       answer: 1,
-      explain: 'Identifiers such as column names **cannot be bound** as parameters. An allow-list (`{ date: "updated_at", ... }[sortBy] default "updated_at"`) means raw input never reaches the SQL text.',
+      explain: 'Identifiers such as column names **cannot be bound** as parameters. An allow-list (`{ date: "updated_at", ... }[sortBy] default "updated_at"`) means raw input never reaches the SQL text. Quoting or escaping still puts client text into the SQL, and a value with its own quote characters can break out of it.',
     },
     {
       type: 'single',

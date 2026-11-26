@@ -46,13 +46,13 @@ export default {
       type: 'single',
       prompt: 'A nightly Mule job reads files from a shared drive, and a partner tool may still be writing them. A developer plans to turn on Lock on `file:read` for protection. What should the developer know first?',
       options: [
-        'Lock behaviour depends on the host file system, so test it on this drive',
-        'Lock waits until the partner tool has finished writing, then reads the file',
+        'The lock comes from the host file system, so test it on this drive',
+        'On most file systems Lock waits for the writer, so set a timeout to bound the wait',
         'Lock is on by default for file:read, so the flow is already protected',
         'Lock stays held after the flow ends, until the file is moved',
       ],
       answer: 0,
-      explain: 'Because the lock depends on the host file system, you must test it on the real mount rather than assume it protects you. Lock defaults to false. It is released when the flow that took it ends, or when the content has been fully read.',
+      explain: 'Because the lock depends on the host file system, you must test it on the real mount rather than assume it protects you. It does not wait for a writer: a lock held by another party raises FILE:FILE_LOCK. Lock defaults to false. It is released when the flow that took it ends, or when the content has been fully read.',
     },
     {
       type: 'single',

@@ -70,13 +70,13 @@ export default {
       type: 'single',
       prompt: 'Which detail should the error log line hold for a failed download?',
       options: [
-        'The full URL with its SAS token, so the call can be repeated',
+        'The blob URL without its query string, the status and the response body',
         'Message ID, container, blob name, status, error code and request ID',
         'Message ID, blob URL and status, leaving out the error code to keep lines short',
-        'Message ID, response body and the request headers, including Authorization',
+        'Message ID, container, blob name, status and error code, with the request ID at DEBUG',
       ],
       answer: 1,
-      explain: 'The request ID lets the storage team find the call on their side. Never log the SAS token.',
+      explain: 'The request ID lets the storage team find the call on their side, so it belongs in the error line, not at DEBUG where production never shows it. The error code tells AuthorizationFailure from BlobNotFound, which the status alone cannot. A URL and a response body with no message ID cannot be tied back to the message.',
     },
   ],
   description: `

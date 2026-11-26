@@ -21,9 +21,9 @@ export default {
     {
       type: 'single',
       prompt: 'A store server on the office network fails to map the share as a drive, while a Mule app reads the same share over HTTPS without trouble. What is the likely cause?',
-      options: ['The server must use SFTP on port 22 for file shares', 'The share allows SMB only after it is turned on per file', 'The network blocks outbound port 445, which SMB needs', 'The account key works over HTTPS but not for a mount'],
+      options: ['SMB mounts need a SAS token, not the account key', 'The share is on the cool tier, which serves REST only', 'Outbound TCP 445 is closed on the office firewall', 'The account key works over HTTPS but not for a mount'],
       answer: 2,
-      explain: 'Azure Files speaks SMB, so a server can map it like a normal network drive, and SMB uses port 445, which many networks block outbound. Programs can also use the REST API over HTTPS, which is why the Mule app works. SFTP is a Blob Storage feature, not a file share one. The account key can be used for an SMB mount too.',
+      explain: 'Azure Files speaks SMB, so a server can map it like a normal network drive, and SMB uses port 445, which many networks block outbound. Programs can also use the REST API over HTTPS, which is why the Mule app works. The account key can be used for an SMB mount, while SAS tokens work over REST only. Access tiers change the price, not the protocol.',
     },
     {
       type: 'multi',

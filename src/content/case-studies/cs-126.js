@@ -24,12 +24,12 @@ export default {
       prompt: 'Two changes reach SAP for the same work order: a dispatcher moved it to another crew, and the first crew marked it done offline an hour ago. What should the sync do?',
       options: [
         'Apply agreed rules per field, with a dispatcher queue for the rest',
-        'Always keep the last change that arrives at SAP, whichever it is',
-        'Reject every change that was made while the device was offline',
+        'Keep the last change that arrives at SAP, as SAP does for desk edits',
+        'Let the dispatcher change win, since the dispatcher sees the whole day plan',
         'Keep the change with the latest timestamp from the device clock',
       ],
       answer: 0,
-      explain: 'Last write wins would let a late sync overwrite newer facts or the other way round, and device clocks drift. Rules per field, such as completion from the field wins, with a queue for real conflicts, keep the work order correct.',
+      explain: 'Last write wins would let a late sync overwrite newer facts or the other way round, and device clocks drift. Letting the dispatcher win would undo work the first crew really finished. Rules per field, such as completion from the field wins, with a queue for real conflicts, keep the work order correct.',
     },
     {
       type: 'multi',

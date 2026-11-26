@@ -71,7 +71,7 @@ export default {
       options: [
         'Raise the base delay to 5 seconds and keep the same exponential steps',
         'Cut the attempts from 3 to 1, so each client retries only once',
-        'Add random jitter to each delay, so the 2,000 retries spread out in time',
+        'Let each client wait a random time within its backoff window before it retries',
         'Switch to a fixed 2-second delay, so the load is the same on each retry',
       ],
       answer: 2,

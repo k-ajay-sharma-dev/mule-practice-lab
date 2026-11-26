@@ -25,11 +25,11 @@ export default {
       options: [
         'Use the smart meter monthly total if there is one, and flag gaps',
         'Fill each gap with zeros and send the claim as measured',
-        'Fill each gap with the highest reading seen that day, so no homeowner is under paid',
+        'Fill each gap from the average of the days either side, and send the claim as measured',
         'Leave the home out of this month’s claims until the inverter is back',
       ],
       answer: 0,
-      explain: 'The meter total is usually the safest base. Zeros under pay, the highest reading over pays, and leaving the home out delays the homeowner’s payment. Gaps are flagged so the claim is marked estimated or reviewed.',
+      explain: 'The meter total is usually the safest base. Zeros under pay. An average fills the gap with a guess and then calls it measured, which the supplier has a right to know. Leaving the home out delays the homeowner’s payment. Gaps are flagged so the claim is marked estimated or reviewed.',
     },
     {
       type: 'multi',
@@ -51,12 +51,12 @@ export default {
       prompt: 'A supplier rejects 40 claims with "unknown supply point". What should happen?',
       options: [
         'Hold them for the customer team to fix the numbers, then resend',
-        'Resend them every hour unchanged until the supplier accepts them',
+        'Retry them with backoff over the next day, as supplier rejections are often brief',
         'Log the rejections and include the claims again next month',
         'Email the rejection list to the supplier and ask it to look them up',
       ],
       answer: 0,
-      explain: 'Bad reference data needs a person to fix it. Resending unchanged will fail every time, waiting a month delays payment, and the supply point numbers are the installer’s data to correct.',
+      explain: 'Bad reference data needs a person to fix it. An unknown supply point is a data error, not a passing fault, so retries fail every time, waiting a month delays payment, and the supply point numbers are the installer’s data to correct.',
     },
     {
       type: 'match',

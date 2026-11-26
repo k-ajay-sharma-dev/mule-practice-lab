@@ -55,13 +55,13 @@ export default {
       type: 'single',
       prompt: 'Where should each tenant\'s SFTP host and credentials come from?',
       options: [
-        'From fields in the request body, by the tenant id it holds',
-        'From a trusted store, by the tenant id in the verified token',
-        'From query parameters, by the tenant id in the URL path',
-        'From headers sent by the calling app, read on each request',
+        'A secure store, looked up by the tenant id in the request body',
+        'A secure store, looked up by the tenant id in the access token the gateway checked',
+        'A secure store, looked up by the tenant id in the URL path',
+        'A secure store, looked up by the tenant id in an X-Tenant-Id header',
       ],
       answer: 1,
-      explain: 'The caller proves who it is with its token. The app then looks up that tenant\'s settings. Taking a host from the request lets a caller point the app anywhere.',
+      explain: 'The caller proves who it is with its token, so the tenant id inside a checked token is one you can trust. The app then looks up that tenant\'s settings. A tenant id in the body, the path or a header is whatever the caller wrote, so one tenant could reach the SFTP host and files of another.',
     },
     {
       type: 'order',

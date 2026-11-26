@@ -109,12 +109,12 @@ export default {
       prompt: 'The operations API needs basic authentication for 300 staff held in Active Directory. Which policy fits?',
       options: [
         'Basic Authentication: LDAP, with a user search filter',
-        'Basic Authentication: Simple, with one shared account',
-        'IP Allowlist for the office network range',
+        'Basic Authentication: Simple, with the directory service account as its user',
+        'OpenID Connect token enforcement, with the directory as client provider',
         'Client ID Enforcement in Basic Auth mode',
       ],
       answer: 0,
-      explain: 'A search filter such as `(sAMAccountName={0})` finds each user. Basic Authentication: Simple has a single username and password. The LDAP version checks each user against the directory. Basic credentials are only Base64-encoded, so these APIs must run over HTTPS.',
+      explain: 'A search filter such as `(sAMAccountName={0})` finds each user. Basic Authentication: Simple has a single username and password, so all 300 staff would share it. The LDAP version checks each user against the directory. OpenID Connect expects bearer tokens, not basic credentials. Client ID Enforcement checks client applications, not staff accounts. Basic credentials are only Base64-encoded, so these APIs must run over HTTPS.',
     },
   ],
   description: `

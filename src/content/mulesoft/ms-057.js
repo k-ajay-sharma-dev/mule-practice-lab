@@ -36,13 +36,13 @@ export default {
       needsScenario: true,
       prompt: 'Which Inventory SAPI functional monitor would have caught the database refusing connections?',
       options: [
-        'A `/health` check that returns 200 without the backend',
-        'A read of a known test SKU that hits the database',
-        'A POST that creates a real inventory record each minute',
+        'A `/health` check that reports the app and JVM as up',
+        'A GET of a known test SKU on `/inventory/{sku}`',
+        'A POST of a sample body that APIkit validates against the spec',
         'A ping of the CloudHub replica\'s public endpoint',
       ],
       answer: 1,
-      explain: 'For example `GET /inventory/{sku}` for a known test SKU. A shallow health check or ping would have stayed green. Avoid real writes in production: they pollute data and trigger business processes.',
+      explain: 'For example `GET /inventory/{sku}` for a known test SKU. The read goes through the connection pool to the database, so it fails when the database refuses connections. A shallow health check, a ping or a request that stops at spec validation never reaches the database, so it would have stayed green. Avoid real writes in production: they pollute data and trigger business processes.',
     },
     {
       type: 'single',

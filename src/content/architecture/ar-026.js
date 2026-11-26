@@ -151,13 +151,13 @@ export default {
       type: 'single',
       prompt: 'A multi-tenant API keeps all tenants\' rows in one shared database. A developer might forget the tenant filter in a query. What stops that query from returning another tenant\'s data?',
       options: [
-        'Database row-level security, as a second line of defence',
-        'A code-review reminder to check the tenant filter',
-        'A tenant ID header that the client sends on each request',
+        'Row-level security in the database, keyed on the tenant of the session',
+        'A shared DataWeave module that builds the tenant filter for each query',
+        'A gateway policy that checks the tenantId claim on every request',
         'Logs with the tenant ID of each call, checked by an alert',
       ],
       answer: 0,
-      explain: 'Row-level security (or separate schemas) works in the database, so a forgotten WHERE clause returns nothing. A reminder alone does not stop a mistake, logs do not block a query, and a client can change any header it sends. Defence in depth also includes a shared component that injects tenant_id into every query, cache and Object Store keys prefixed with tenantId, and automated CI tests where tenant A\'s token tries to read tenant B\'s shipment.',
+      explain: 'Row-level security (or separate schemas) works in the database, so a forgotten WHERE clause returns nothing. A shared module helps, but a developer who forgets the filter can also forget to call it. A gateway policy proves who the caller is; it never sees the SQL the app runs. Logs and alerts report a leak after the data is gone. Defence in depth also includes a shared component that injects tenant_id into every query, cache and Object Store keys prefixed with tenantId, and automated CI tests where tenant A\'s token tries to read tenant B\'s shipment.',
     },
     {
       type: 'single',

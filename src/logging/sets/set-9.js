@@ -26,29 +26,29 @@ export const SET_9 = [
     kind: 'choice',
     situation: 'Which line should Larchmont log for a statement that bounced?',
     options: [
-      'Email failed for the landlord statement, the mail server refused it',
+      'Statement not delivered landlordId=L-4410 statementId=ST-2026-11-4410 reason=mailbox does not exist next=email resent in 1 hour correlationId=7f3c2a',
       'Statement not delivered landlordId=L-4410 statementId=ST-2026-11-4410 reason=mailbox does not exist next=paper copy queued correlationId=7f3c2a',
-      'Email to jane.doe@example.com failed: 550 user unknown statementId=ST-2026-11-4410',
+      'Statement not delivered landlordId=L-4410 statementId=ST-2026-11-4410 reason=mailbox does not exist next=paper copy queued sent=2999 failed=1 correlationId=7f3c2a',
       'Statement not delivered landlordId=L-4410 statementId=ST-2026-11-4410 reason=mailbox does not exist correlationId=7f3c2a',
     ],
     answer: 1,
     explain:
-      'IDs let support find the landlord in the CRM without putting the address in the logs. The reason and the next step say what to fix and what already happened. The "Statement not delivered" line without next= has no next step, so support cannot tell whether the landlord will get the statement at all.',
+      'IDs let support find the landlord in the CRM without putting the address in the logs. The reason and the next step say what to fix and what already happened. Sending again to a mailbox that does not exist bounces again, so that next step is wrong. The line without next= leaves support unable to tell whether the landlord will get the statement at all. Run totals such as sent= and failed= belong on the summary line at the end; written mid run they are not final, and a search that sums them counts the run many times.',
   },
   {
     id: 'log-9003',
     kind: 'multi',
     situation: 'Which facts belong on the last line of the Larchmont statement run?',
     options: [
-      'Every address the run wrote to, so a bounce can be traced',
+      'The landlord ID of every statement that was sent',
       'How many statements were sent',
       'How many failed',
       'How long the run took',
-      'The full text of the first statement, as a sample of the run',
+      "The mail server's host and port, from the SMTP settings",
     ],
     answers: [1, 2, 3],
     explain:
-      'Counts and duration show whether the run was normal, night after night. Addresses are personal data and the statement text holds financial details.',
+      'Counts and duration show whether the run was normal, night after night. A list of every landlord ID makes one huge line; the per statement lines already hold them. The mail server settings are the same every night and say nothing about the run.',
   },
   {
     id: 'log-9004',
@@ -116,13 +116,13 @@ export const SET_9 = [
     situation: 'Which line should Cobalt log for a client still calling v1?',
     options: [
       'Deprecated API version called clientId=app-118 path=/v1/parcels retireOn=2027-01-31 correlationId=7f3c2a',
-      'Deprecated API version called path=/v1/parcels retireOn=2027-01-31 correlationId=7f3c2a',
-      'Old API version still in use, please move to v2 before it is retired',
-      'Deprecated call path=/v1/parcels headers={client_id=app-118, client_secret=...}',
+      'Deprecated API version called path=/v1/parcels retireOn=2027-01-31 remoteIp=198.51.100.24 userAgent=okhttp/4.12.0 correlationId=7f3c2a',
+      'Deprecated API version called clientId=app-118 path=/v1/parcels retireOn=2027-01-31 status=410 correlationId=7f3c2a',
+      'Deprecated API version called clientId=app-118 path=/v1/parcels retiredOn=2027-01-31 correlationId=7f3c2a',
     ],
     answer: 0,
     explain:
-      'The client ID, path and date are what the team needs to contact the client. The "Deprecated API version called" line without clientId= has no clientId, so the team cannot tell whom to chase. The line with headers={...} leaks the client secret.',
+      'The client ID, path and date are what the team needs to contact the client. An IP address and a user agent do not name the client: many apps share one IP behind a gateway, and many use the same HTTP library. v1 still answers until it is retired, so status=410 Gone is false. retiredOn says the version is already gone, while the client is still calling it and the date is still ahead.',
   },
   {
     id: 'log-9008',
@@ -130,14 +130,14 @@ export const SET_9 = [
     situation: 'Which facts help Cobalt move every client off v1 before the date?',
     options: [
       'The client ID',
-      'The client secret, to confirm which app is calling',
+      "The caller's IP address, to tell which app is calling",
       'The endpoint path the client calls',
       'A count of v1 calls per client per day',
-      'The full request body of each v1 call, logged at INFO',
+      'The response time of each v1 call',
     ],
     answers: [0, 2, 3],
     explain:
-      'Who, which endpoint and how much tell the team whom to call and what they need to change. Secrets and bodies do not help and add risk.',
+      'Who, which endpoint and how much tell the team whom to call and what they need to change. IP addresses change and many apps share one behind a gateway, so they do not name the client. Response time says nothing about who must move.',
   },
   {
     id: 'log-9009',
@@ -206,13 +206,13 @@ export const SET_9 = [
     situation: 'The Pelham meter database became unreachable. Which line should the health check log?',
     options: [
       'Dependency status changed dependency=meter-db from=UP to=DOWN checkedAt=2026-11-18T02:10:00Z',
-      'Dependency status changed dependency=meter-db from=UP to=DOWN errorType=DB:CONNECTIVITY',
-      'meter-db DOWN (logged again on every probe, every 10 seconds)',
-      'Health: full config dump with the database URL, user name and password',
+      'Dependency status changed dependency=meter-db from=UP to=DOWN errorType=DB:CONNECTIVITY checkedAt=2026-11-18T02:10:00Z',
+      'Dependency check dependency=meter-db status=DOWN errorType=DB:CONNECTIVITY probeIntervalS=10',
+      'Dependency status changed dependency=meter-db from=DOWN to=UP errorType=DB:CONNECTIVITY',
     ],
     answer: 1,
     explain:
-      'One line when the status changes, with the dependency and the error, is enough to alert on. The line with checkedAt= leaves out the error type, so nobody can tell a network fault from a failed login. Repeating it every probe floods the logs, and the full config dump leaks the configuration.',
+      'One line when the status changes, with the dependency and the error, is enough to alert on. The status change line without errorType, so nobody can tell a network fault from a failed login. The "Dependency check" line is the one written on every probe, every 10 seconds, which floods the logs. from=DOWN to=UP is the recovery, not the failure.',
   },
   {
     id: 'log-9013',
@@ -223,11 +223,11 @@ export const SET_9 = [
       'Log only when a dependency changes status',
       'Name the dependency on every line',
       'On recovery, log how long the dependency was down',
-      'Log the connection string so support can test it',
+      'Write the status as words in the message, such as "database looks down"',
     ],
     answers: [1, 2, 3],
     explain:
-      'Status changes with names and outage length tell the story in two lines. Probe lines bury it, and connection strings may hold secrets.',
+      'Status changes with names and outage length tell the story in two lines. Probe lines bury it, and a status in free words cannot be searched or alerted on as a field.',
   },
   {
     id: 'log-9014',
@@ -291,28 +291,28 @@ export const SET_9 = [
     situation: 'Which line should Sandford log when the upload finishes?',
     options: [
       'Partner file uploaded fileName=orders-20261118.csv host=sftp.distributor.example sftpUser=sandford remotePath=/in/orders durationMs=8120',
-      'Upload complete for the nightly partner file, see the SFTP server for details',
-      'Partner file uploaded fileName=orders-20261118.csv sizeBytes=4813220 checksum=9c1f7a... remotePath=/in/orders durationMs=8120',
-      'Uploaded to sftp://sandford:<the real password>@sftp.distributor.example/in',
+      'Partner file uploaded fileName=orders-20261118.csv sizeBytes=4813220 rowCount=18220 remotePath=/in/orders durationMs=8120',
+      'Partner file uploaded fileName=orders-20261118.csv sizeBytes=4813220 rowCount=18220 checksum=9c1f7a... remotePath=/in/orders durationMs=8120',
+      'Partner file upload started fileName=orders-20261118.csv sizeBytes=4813220 checksum=9c1f7a... remotePath=/in/orders host=sftp.distributor.example',
     ],
     answer: 2,
     explain:
-      'Size and checksum let both sides prove the file arrived whole. The line with sftpUser=sandford has neither, so it cannot settle a claim that the file was cut short. The line with the sftp:// URL puts a password in the logs.',
+      'Size and checksum let both sides prove the file arrived whole and unchanged. The line with sftpUser=sandford has neither, so it cannot settle a claim that the file was cut short. With size but no checksum, a file damaged in transit can still show the same size. A "started" line is written before the write, so it cannot show the upload finished.',
   },
   {
     id: 'log-9018',
     kind: 'multi',
     situation: 'The distributor says last night\'s Sandford file was incomplete. Which facts in the logs settle it fast?',
     options: [
-      'The SFTP password, to rule out a login to the wrong account',
+      'The SFTP user name the upload logged in with',
       'The size in bytes that was sent',
-      'The full file contents at DEBUG, to compare with what the distributor got',
+      'The SFTP host name, taken from the connector config',
       'A checksum of the file that was sent',
       'The remote path it was written to',
     ],
     answers: [1, 3, 4],
     explain:
-      'If the distributor\'s size and checksum differ from the logged ones, the file changed on their side or in transit. The password and contents do not belong in logs.',
+      "If the distributor's size and checksum differ from the logged ones, the file changed on their side or in transit, and the path shows which file to compare. The user and the host are the same every night, and a file that arrived at all was not sent to the wrong account.",
   },
   {
     id: 'log-9019',
@@ -380,13 +380,13 @@ export const SET_9 = [
     situation: 'Which line should Grayling log when the queue backlog goes above target?',
     options: [
       'Queue backlog above target queue=orders-in depth=18450 consumers=2 prefetch=10 broker=anypoint-mq',
-      'WARN queue is backing up again, the consumers may need a look',
-      'Backlog on orders-in: [first 100 message bodies ...]',
+      'Queue backlog above target queue=orders-in depth=18450 targetDepth=5000 consumers=2',
+      'Queue backlog cleared queue=orders-in depth=18450 oldestAgeS=1500 targetS=600 consumers=2',
       'Queue backlog above target queue=orders-in depth=18450 oldestAgeS=1500 targetS=600 consumers=2',
     ],
     answer: 3,
     explain:
-      'Depth, the age of the oldest message against the target, and the number of consumers say how bad it is and what to try. The line with prefetch=10 gives the depth but not how long orders have waited, which is what the target is about. Message bodies say nothing about the backlog.',
+      'Depth, the age of the oldest message against the target, and the number of consumers say how bad it is and what to try. The lines with prefetch=10 and targetDepth=5000 give the depth but not how long orders have waited, which is what the target is about. "cleared" is false while the oldest message is over its target.',
   },
   {
     id: 'log-9023',

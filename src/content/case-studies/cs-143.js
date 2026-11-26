@@ -9,15 +9,15 @@ export default {
     {
       type: 'single',
       needsScenario: true,
-      prompt: 'Each job board sends applications in its own format. What is the first design choice?',
+      prompt: 'Each application comes with a CV file. How should the CV travel through the intake?',
       options: [
-        'Map each board to one canonical application, then share one process',
-        'Write a full flow per board, from intake to the ATS',
-        'Map each board straight to the ATS API inside its own flow',
-        'Pick the richest board format as the model and map the other five to it',
+        'As a link to the file in secure storage, carried in the application',
+        'As base64 content inside the application message on the queue',
+        'As the URL of the CV on the job board site where it was uploaded',
+        'As text pulled out of the CV, with the original file dropped',
       ],
       answer: 0,
-      explain: 'One canonical model keeps the per-board part small. Matching, consent and loading are written once, so a new board needs one adapter instead of a copy of everything.',
+      explain: 'The file is stored once in secure storage, and the application carries only a link. CVs then stay out of queues, error messages and logs, and there is one place to delete at the end of retention. Base64 on the queue puts the CV in every retry, dead letter and error. A board URL can expire, and the agency cannot control or delete it. Text alone loses the document recruiters need.',
     },
     {
       type: 'single',

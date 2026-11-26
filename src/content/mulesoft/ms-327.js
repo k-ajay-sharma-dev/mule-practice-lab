@@ -66,13 +66,13 @@ export default {
       type: 'single',
       prompt: 'What should the log line for each aggregator run contain?',
       options: [
-        'The full list of records, so support can replay the insert',
+        'Run ID, staging table, block number and the first and last key',
         'Run ID, staging table, group size and the first and last key',
-        'Nothing, since the job result already has the step counts',
+        'Run ID, staging table and group size, at DEBUG so INFO stays quiet',
         'Run ID and group size only, since record keys may expose business data',
       ],
       answer: 1,
-      explain: 'With the table and keys, support can tie an ORA error to the rows.',
+      explain: 'With the table and the first and last key, support can tie an ORA error to the rows of one group. A group can take records from several blocks, so a block number does not identify it. Item keys such as SKUs are not secrets, and without them the error cannot be traced. At DEBUG the line is missing in production, where support needs it.',
     },
   ],
   description: `

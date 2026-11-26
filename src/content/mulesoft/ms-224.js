@@ -46,13 +46,13 @@ export default {
       type: 'single',
       prompt: 'For a SIM lookup, 404 is a normal answer that means "no such SIM". What is a clean way to handle it?',
       options: [
-        'Catch every error with an On Error Continue',
-        'Wrap the call in Until Successful so 404 is retried',
-        'Set the success codes to 200..499 so no 4xx raises',
-        'Add 404 to the success codes and branch on the status',
+        'Set the success codes to 200..499, then branch on the status',
+        'Map `HTTP:NOT_FOUND` to a custom `APP:SIM_NOT_FOUND` type on the request',
+        'Catch `HTTP:NOT_FOUND` in an On Error Propagate that sets an empty result',
+        'Add 404 to the success codes, then branch on the status',
       ],
       answer: 3,
-      explain: 'A response validator such as `values="200..299,404"` makes 404 a success. A Choice on `attributes.statusCode` then handles it, and other errors still raise.',
+      explain: 'A response validator such as `values="200..299,404"` makes 404 a success. A Choice on `attributes.statusCode` then handles it, and other errors still raise. A range up to 499 also turns 401 and 429 into success, so real faults pass without an error. An error mapping only renames the error, and an On Error Propagate still ends the flow with an error, so the lookup still fails.',
     },
     {
       type: 'single',

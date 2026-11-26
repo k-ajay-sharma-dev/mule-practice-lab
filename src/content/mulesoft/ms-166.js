@@ -64,13 +64,13 @@ export default {
       detail: true,
       prompt: 'An app depends on version 2.3.0 of a connector that is in the `development` state and is not a SNAPSHOT. Why does the build fail to resolve it?',
       options: [
-        'Maven cannot consume a development asset that is not a SNAPSHOT',
-        'The repository URL must use `/api/v2/` for assets in development',
-        'The app must declare it with `<scope>provided</scope>`',
-        'Maven resolves it only with `-U`, which forces a check for updates',
+        'Maven resolves only `-SNAPSHOT` versions of assets in that state',
+        'Development assets need the `/api/v2/` repository URL',
+        'Development assets must be declared with `<scope>provided</scope>`',
+        'Maven skips development assets unless `-U` forces a check for updates',
       ],
       answer: 0,
-      explain: 'Either publish a stable version, or use a SNAPSHOT version during development. A SNAPSHOT asset stays in the `development` state permanently, and `mvn clean deploy` overwrites it without any errors.',
+      explain: 'Either publish a stable version, or use a SNAPSHOT version during development. The repository URL, the scope and `-U` do not change this. A SNAPSHOT asset stays in the `development` state permanently, and `mvn clean deploy` overwrites it without any errors.',
     },
     {
       type: 'multi',

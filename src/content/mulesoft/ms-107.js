@@ -56,15 +56,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Spike Control is an API policy that queues requests during a burst and retries them before rejection. Each queued request keeps a thread and an HTTP connection. Which setting restricts how many requests can wait at one time?',
+      prompt: 'During a burst, Spike Control holds requests over its limit and retries them before rejection. Each held request keeps a thread and an HTTP connection. Which setting caps how many are held at one time?',
       options: [
         'Queuing Limit',
         'Delay Attempts',
         'Delay Time',
-        'Expose Headers',
+        'Maximum Requests',
       ],
       answer: 0,
-      explain: 'Queuing Limit protects the gateway from running out of resources. Delay Attempts sets how many times a request is retried before rejection, and Delay Time is how long it stays queued. Callers can see a slower response and not an error during a burst. Spike Control cannot be clustered: it protects one gateway instance, so each node has its own window.',
+      explain: 'Queuing Limit caps the requests waiting at once, which protects the gateway from running out of resources. Delay Attempts sets how many times a request is retried before rejection, and Delay Time is how long it waits between tries. Maximum Requests is the number allowed in the time period, not the number held. Callers can see a slower response and not an error during a burst. Spike Control cannot be clustered: it protects one gateway instance, so each node has its own window.',
     },
     {
       type: 'single',

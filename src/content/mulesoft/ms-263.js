@@ -24,11 +24,11 @@ export default {
       options: [
         'The account key, kept in secure properties',
         'A read and list service SAS for that share',
-        'An account SAS with all rights for ten years',
-        'An account SAS with read rights on all shares',
+        'An account SAS with read and list on the file service',
+        'A read only service SAS for that share, as read covers listing',
       ],
       answer: 1,
-      explain: 'Use HTTPS only and a limited lifetime as well. Give the app the smallest scope and rights it needs. A share level SAS with read and list cannot touch other shares.',
+      explain: 'A share level SAS with read and list gives the app the smallest scope it needs and cannot touch other shares. An account SAS on the file service reaches every share in the account. List is a separate permission from read, so a read only SAS cannot list the directory. The account key grants everything. Use HTTPS only and a limited lifetime as well.',
     },
     {
       type: 'multi',

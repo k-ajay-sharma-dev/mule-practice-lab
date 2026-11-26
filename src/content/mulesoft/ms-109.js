@@ -48,12 +48,12 @@ export default {
       prompt: 'An API instance in API Manager is promoted from Sandbox to Production. A Mule app already runs in Production and must use the promoted instance. What has to happen?',
       options: [
         'Update the app with the new API Instance ID and the Production client ID and secret',
-        'Nothing, because promotion switches the app to the new instance automatically',
-        'Nothing, because the API Instance ID stays the same after promotion',
-        'Update the app with the new API label, because only the label changes',
+        'Update the app with the new API Instance ID; the Sandbox client ID and secret still work',
+        'Update only the Production client ID and secret; the API Instance ID is kept on promotion',
+        'Update the app with the new API label and the Production client ID and secret',
       ],
       answer: 0,
-      explain: 'The API label stays the same and the API Instance ID changes. Promotion affects only the API definition, and not deployed applications. Each environment has its own client ID and secret, so both the ID and the credentials must be updated in the app.',
+      explain: 'The API label stays the same and the API Instance ID changes. Promotion affects only the API definition, and not deployed applications. Each environment has its own client ID and secret, so both the ID and the credentials must be updated in the app. Sandbox credentials do not work in Production.',
     },
     {
       type: 'match',

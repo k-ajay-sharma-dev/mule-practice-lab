@@ -34,13 +34,13 @@ export default {
       type: 'single',
       prompt: 'Your connector does not expose resume. A 4 GB upload drops at 3 GB. What is a sound approach?',
       options: [
-        'Rename the partial file and send the rest as a second file',
+        'Upload again from the start to the final name, overwriting the partial file',
         'Upload again to the temp name from the start, then rename',
         'Append the last 1 GB to the partial file with APPEND mode',
         'Split every large file into 100 MB parts the partner joins',
       ],
       answer: 1,
-      explain: 'Size the timeouts for the file too. Appending without checking the remote size can duplicate or skip bytes, and splitting needs the partner to change. Without a checked resume, a full rewrite is the safe choice. The temporary name keeps the receiver away from the partial file.',
+      explain: 'Without a checked resume, a full rewrite is the safe choice, and the temporary name keeps the receiver away from the file until it is complete. Writing to the final name lets the partner pick up a file that is still growing. Appending without checking the remote size can duplicate or skip bytes. Splitting needs the partner to change. Size the timeouts for the file too.',
     },
     {
       type: 'multi',
@@ -72,7 +72,7 @@ export default {
       type: 'single',
       prompt: 'A firewall drops idle connections after 15 minutes. An FTP connection sits idle for 40 minutes between files, and the next listing fails with a socket error while the server is up. What is the cause?',
       options: [
-        'The firewall dropped the idle control connection, and the app reused the dead one',
+        'The pooled control connection was closed silently on the path, and the app reused it',
         'The server logs the user out after each file, so the listing has no session',
         'The data connection of the last transfer is still open and blocks the listing',
         'The passive port from the last transfer went to another client, so the listing fails',

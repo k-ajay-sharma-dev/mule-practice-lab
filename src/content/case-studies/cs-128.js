@@ -11,13 +11,13 @@ export default {
       needsScenario: true,
       prompt: 'Gate changes reach screens, apps and ground handlers at different times today. What should be the single source of flight status?',
       options: [
-        'The operational database, publishing a flight status event for every change',
+        'The operational database, publishing an event on each change',
         'Each airline’s own system, read separately by every consumer',
         'The terminal screen system, which the other consumers read from',
-        'Whichever system each consumer already reads, synced nightly',
+        'A flight status cache in the API layer, filled from the airline messages',
       ],
       answer: 0,
-      explain: 'One source with one event per change gives every consumer the same facts at the same time. Reading many systems gives many versions, and the screens are a consumer, not a source.',
+      explain: 'One source with one event per change gives every consumer the same facts at the same time. Reading many systems gives many versions, and the screens are a consumer, not a source. A cache filled from airline messages misses the gate changes the airport makes itself.',
     },
     {
       type: 'single',

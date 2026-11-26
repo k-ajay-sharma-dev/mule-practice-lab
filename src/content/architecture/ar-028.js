@@ -127,13 +127,13 @@ export default {
       needsScenario: true,
       prompt: 'Why is gRPC a poor choice for the partner aggregators?',
       options: [
-        'gRPC is slower than REST for small payloads',
-        'Browsers need a proxy, and partners rarely want binary HTTP/2 contracts',
-        'gRPC calls cannot be secured with TLS',
-        'gRPC has no typed contracts for partners to code against',
+        'gRPC is usually slower than REST for small payloads',
+        'Most partner tools expect JSON over HTTP, not Protobuf over HTTP/2',
+        'gRPC traffic is hard to secure with TLS across the internet',
+        'gRPC gives partners no typed contract to code against',
       ],
       answer: 1,
-      explain: 'gRPC shines internally between services you control. External reach favours REST, which is broader, cacheable and quicker for partners to start with.',
+      explain: 'gRPC shines internally between services you control. Browsers need a proxy for it, and partners rarely want binary HTTP/2 contracts. It is fast, runs over TLS like any HTTP/2 traffic, and its Protobuf files are typed contracts. External reach favours REST, which is broader, cacheable and quicker for partners to start with.',
     },
     {
       type: 'single',

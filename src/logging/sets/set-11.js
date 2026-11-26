@@ -25,12 +25,12 @@ export const SET_11 = [
       'Bramble Insurance saves a profile change from the app: the customer changed postcode and contact number. A complaint later asks when the number was changed and from which channel. Which line should be logged?',
     options: [
       'Customer profile updated customerId=C-48120 fields=2 channel=app correlationId=7f3c2a',
-      'Customer profile updated customerId=C-48120 contactNumber=07700900123 postcode=BS1 4DJ channel=app correlationId=7f3c2a',
+      'Customer profile updated customerId=C-48120 fields=postcode,contactNumber channel=crm correlationId=7f3c2a',
       'Customer profile updated customerId=C-48120 fields=postcode,contactNumber channel=app correlationId=7f3c2a',
       'Customer profile updated customerName=Sam Reid fields=postcode,contactNumber channel=app correlationId=7f3c2a',
     ],
     answer: 2,
-    explain: 'Field names answer which fields changed and when, and the customer ID finds the record. Logging the new number and postcode copies personal data into every log store. fields=2 shows that something changed, not whether the number did. A name is personal data and is not unique, so it is a poor key.',
+    explain: 'Field names answer which fields changed and when, and the customer ID finds the record. channel=crm names the system that stores the profile, not where the change came from, so it gives the complaint the wrong answer. fields=2 shows that something changed, not whether the number did. A name is personal data and is not unique, so it is a poor key.',
   },
   {
     id: 'log-11003',
@@ -193,11 +193,11 @@ export const SET_11 = [
     options: [
       'Webhook delivery failed merchantId=M-3310 eventId=ev_88120 status=503 attempt=1 of 4 next=given up',
       'Webhook delivery failed merchantId=M-3310 paymentId=pay_441 status=503 attempt=1 of 4 next=retry in 60s',
-      'Webhook delivery failed merchantId=M-3310 eventId=ev_88120 url=https://m3310.example/hooks?token=… attempt=1 of 4 next=retry in 60s',
+      'Webhook delivery failed merchantId=M-3310 eventId=ev_88120 status=503 attempt=1 of 4 retriesLeft=3 next=retry in 5 min',
       'Webhook delivery failed merchantId=M-3310 eventId=ev_88120 status=503 attempt=1 of 4 next=retry in 60s',
     ],
     answer: 3,
-    explain: 'Merchant, event, status, the attempt out of how many and the next step. The merchant searches by event ID, and one payment can raise several events, so a payment ID does not pin down the delivery. next=given up is wrong after the first of four tries. The endpoint URL carries a token in its query string, so it leaks a credential.',
+    explain: 'Merchant, event, status, the attempt out of how many and the next step. The merchant searches by event ID, and one payment can raise several events, so a payment ID does not pin down the delivery. next=given up is wrong after the first of four tries. The first wait is 1 minute; 5 minutes is the wait after the second attempt, so that line tells the merchant the wrong time to expect a resend.',
   },
   {
     id: 'log-11013',
@@ -209,10 +209,10 @@ export const SET_11 = [
       'The full webhook body, so the merchant can see what it missed',
       'Each attempt with its time and the status the merchant answered',
       'Whether delivery finally worked or was given up',
-      'The signing secret, so the merchant can check the signature',
+      'The payment amount, to show which payment the event was for',
     ],
     answers: [0, 2, 3],
-    explain: 'The event ID, each attempt with its time and the 503 it got, and the final outcome show the merchant was reached and answered 503 each time. The body holds payment details and can be resent from the dashboard. The signing secret must never be logged, and the merchant already holds its own copy.',
+    explain: 'The event ID, each attempt with its time and the 503 it got, and the final outcome show the merchant was reached and answered 503 each time. The body holds payment details and can be resent from the dashboard. The amount says nothing about whether the delivery reached the merchant.',
   },
   {
     id: 'log-11014',
@@ -275,15 +275,15 @@ export const SET_11 = [
     id: 'log-11017',
     kind: 'choice',
     situation:
-      'Larkspur Books wants to group slow searches by cause. A search took 3.2 seconds against a 1 second target. Which line best records it?',
+      'Larkspur Books wants to group slow searches by cause. A search took 3.2 seconds against a 1 second target, and the customer got the results. Which line best records it?',
     options: [
-      'Slow search durationMs=3210 targetMs=1000 query="gift for my wife Jane" results=412',
+      'Search timed out durationMs=3210 targetMs=1000 filters=3 sort=price results=412 page=1 correlationId=7f3c2a',
       'Slow search durationMs=3210 targetMs=1000 filters=3 sort=price results=412 page=1 correlationId=7f3c2a',
       'Slow search durationMs=3210 targetMs=1000 responseBytes=184220 customerId=C-2201 correlationId=7f3c2a',
-      'Slow search durationMs=3210 filters=3 sort=price results=412 correlationId=7f3c2a',
+      'Slow search durationMs=3210 targetMs=1000 filters=3 sort=price results=412 page=1 q="gift for my wife Jane" correlationId=7f3c2a',
     ],
     answer: 1,
-    explain: 'Time, target and the shape of the query (filters, sort, results and page) let slow cases be grouped. The typed text can hold personal details such as a name. Response size and a customer ID do not say what kind of search it was. The line without target and page hides deep page searches, a usual cause, and a change of target.',
+    explain: 'Time, target and the shape of the query (filters, sort, results and page) let slow cases be grouped. The search answered with a correct result, so "timed out" is false and would be counted with the real timeouts. Response size and a customer ID do not say what kind of search it was. The typed text adds nothing the shape does not give, and it can hold personal details such as a name.',
   },
   {
     id: 'log-11018',
@@ -465,10 +465,10 @@ export const SET_11 = [
       'The keystore password with all but the first three characters masked',
       'The expiry date and days left',
       'Which apps use it',
-      'The private key, in its encrypted form',
+      'The number of certificates checked that morning',
     ],
     answers: [0, 2, 3],
-    explain: 'Name, date and the apps that will break let the team renew and retest in time. A partly masked password still leaks part of a secret and helps a guess. A private key does not belong in a log, encrypted or not.',
+    explain: 'Name, date and the apps that will break let the team renew and retest in time. A partly masked password still leaks part of a secret and helps a guess. The number checked belongs on the summary line of the check, not on the line for one certificate.',
   },
   {
     id: 'log-11029',
@@ -530,13 +530,13 @@ export const SET_11 = [
     situation:
       'Tidewater Data sells API plans with a monthly quota. Client app-2210 has used 80% of its quota with 10 days left. Sales wants to know whether the client will run out before the quota resets. Which line best records the 80% mark?',
     options: [
-      'Quota threshold reached clientId=app-2210 plan=standard used=80000 quota=100000 percent=80 periodEnds=2026-11-30',
+      'Quota threshold reached clientId=app-2210 plan=standard used=80000 quota=100000 percent=80 periodEnds=2026-11-30 requestsToday=4120',
       'Quota threshold reached clientId=app-2210 plan=standard used=80000 quota=100000 percent=80 requestsToday=4120',
       'Quota threshold reached clientName=Orchard Analytics plan=standard percent=80 periodEnds=2026-11-30 contact=ops@orchard.example',
-      'Quota threshold reached clientId=app-2210 used=80000 percent=80 periodEnds=2026-11-30 authorization=Bearer eyJhbGci…',
+      'Quota exceeded clientId=app-2210 plan=standard used=80000 quota=100000 percent=80 periodEnds=2026-11-30',
     ],
     answer: 0,
-    explain: 'Who, which plan, how much of how much and when it resets. Without periodEnds nobody can tell whether 10 days at this rate runs out first. A contact email is personal data, and that line has no usage numbers. The bearer token is a credential and must never be logged.',
+    explain: 'Who, which plan, how much of how much and when it resets. Without periodEnds nobody can tell whether 10 days at this rate runs out first. A contact email is personal data, and that line has no usage numbers. "Quota exceeded" is wrong at 80%, and an alert on it would tell sales the client is already blocked.',
   },
   {
     id: 'log-11033',
@@ -619,7 +619,7 @@ export const SET_11 = [
       'Job lock acquired job=billing-run holder=replica-2 ttlSec=3600 acquiredAt=2026-11-18T01:00:00Z',
       'Job lock acquired job=billing-run lockKey=billing-2026-11-18 holder=mule-app ttlSec=3600',
       'Job lock acquired job=billing-run lockKey=billing-2026-11-18 holder=replica-2 objectStore=billing-locks',
-      'Job lock acquired job=billing-run lockKey=billing-2026-11-18 holder=replica-2 ttlSec=3600',
+      'Job lock acquired job=billing-run lockKey=billing-2026-11-18 holder=replica-2 ttlSec=3600 acquiredAt=2026-11-18T01:00:00Z',
     ],
     answer: 3,
     explain: 'Which job, which run, which replica and how long the lock lasts. Without the lock key the line cannot be tied to one run. holder=mule-app is the same on both replicas, so two holders look like one. Without the time to live nobody can tell when another replica may take the lock over.',
@@ -702,11 +702,11 @@ export const SET_11 = [
     options: [
       'Refund approved refundId=RF-90117 amount=7250.00 approvedBy=U-482 approverRole=finance correlationId=7f3c2a',
       'Refund approved refundId=RF-90117 amount=7250.00 requestedBy=U-311 approvedBy=U-482 correlationId=7f3c2a',
-      'Refund approved refundId=RF-90117 amount=7250.00 requestedBy=Helen Shaw approvedBy=Raj Patel correlationId=7f3c2a',
+      'Refund approved refundId=RF-90117 amount=7250.00 requestedBy=U-482 approvedBy=U-482 correlationId=7f3c2a',
       'Refund approved refundId=RF-90117 amount=7250.00 requestedBy=U-311 approvedBy=U-482 account=12345678 sortCode=20-00-00',
     ],
     answer: 1,
-    explain: 'The refund, the amount and both people by user ID prove two different people acted. Without requestedBy the line cannot show the approver was someone else. Names are not unique and are personal data, so they cannot prove the rule. Bank details are not needed for the audit and stay out of logs.',
+    explain: 'The refund, the amount and both people by user ID prove two different people acted. Without requestedBy the line cannot show the approver was someone else. requestedBy=U-482 takes the user of the approval call, not the person who raised the refund, so the line shows one person on both sides and fails the audit. Bank details are not needed for the audit and stay out of logs.',
   },
   {
     id: 'log-11043',
@@ -786,12 +786,12 @@ export const SET_11 = [
       'At a Greyfriars on-sale, the app turns away requests over its limit of 400 in flight, with 503 and Retry-After 5. In one minute 12,000 were turned away and 48,000 accepted. Which line best records it?',
     options: [
       'Request shed status=503 retryAfterSec=5 path=/tickets clientIp=203.0.113.7 correlationId=7f3c2a',
-      'Requests shed windowSec=60 rejected=12000 accepted=48000 maxConcurrent=400 retryAfterSec=5',
+      'Requests shed windowSec=60 rejected=12000 accepted=48000 rejectedPct=20 maxConcurrent=400 retryAfterSec=5',
       'Requests shed windowSec=60 rejected=12000 retryAfterSec=5 maxConcurrent=400 heapUsedMb=1710',
-      'Requests shed windowSec=60 rejected=12000 accepted=48000 maxConcurrent=400 lastBody={"seats":4,"card":…}',
+      'Requests shed windowSec=60 rejected=12000 accepted=48000 maxConcurrent=400 status=429',
     ],
     answer: 1,
-    explain: 'One line a minute with both counts and the limit shows how far demand went past capacity. A line per rejected request writes 12,000 lines a minute at the worst moment. Without accepted, nobody can tell 12,000 of 13,000 from 12,000 of 60,000. A request body holds card data.',
+    explain: 'One line a minute with both counts and the limit shows how far demand went past capacity. A line per rejected request writes 12,000 lines a minute at the worst moment. Without accepted, nobody can tell 12,000 of 13,000 from 12,000 of 60,000. The app answers 503, so status=429 records a status no client got.',
   },
   {
     id: 'log-11048',
@@ -799,14 +799,14 @@ export const SET_11 = [
     situation:
       'During the Greyfriars on-sale an engineer proposes one WARN line per rejected request, about 200 a second. Which reasons argue against it?',
     options: [
-      'Rejected requests are never worth knowing about',
+      'Shedding is expected, so a WARN line for each rejection would raise false alerts',
       'Writing logs costs CPU and I/O at the moment the app is overloaded',
       'WARN lines are not forwarded to the log tool',
       'The log forwarder may drop or delay lines, hiding the useful ones',
       'A count per minute holds the same facts',
     ],
     answers: [1, 3, 4],
-    explain: 'Logging costs CPU and I/O when the app has none to spare, and a flood can make the forwarder drop or delay the useful lines. A count per minute keeps the facts. Rejections are worth knowing about, as a number. WARN lines are forwarded like any other level the logger lets through.',
+    explain: 'Logging costs CPU and I/O when the app has none to spare, and a flood can make the forwarder drop or delay the useful lines. A count per minute keeps the facts. WARN fits a request the app had to turn away, and alerts are set on rates, not single lines. WARN lines are forwarded like any other level the logger lets through.',
   },
   {
     id: 'log-11049',

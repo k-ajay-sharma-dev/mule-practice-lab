@@ -70,12 +70,12 @@ export default {
       prompt: 'A Kafka consumer keeps failing on one malformed event and the partition stops progressing. What is the standard remedy?',
       options: [
         'Send it to a dead-letter topic and let the offset move on',
-        'Restart the app so the consumer skips the bad event',
+        'Raise the poll timeout so the consumer has more time for the event',
         'Increase partitions so other events bypass the bad one',
         'Let the Kafka broker\'s DLQ take it after 3 failures',
       ],
       answer: 0,
-      explain: 'Catch the error, publish the event with its error details to a dead-letter topic, and continue so the offset advances. Kafka has no broker-side DLQ like SQS redrive; the consumer must park poison events (dead-letter topic) and alert, otherwise one event blocks its partition.',
+      explain: 'Catch the error, publish the event with its error details to a dead-letter topic, and continue so the offset advances. A malformed event fails however long the consumer waits, so a longer poll timeout changes nothing. New partitions do not move existing events, so the blocked partition stays blocked. Kafka has no broker-side DLQ like SQS redrive; the consumer must park poison events and alert.',
     },
   ],
   description: `

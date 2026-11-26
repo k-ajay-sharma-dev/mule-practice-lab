@@ -50,9 +50,9 @@ for (const file of files) {
     const { options: o0, ...k0 } = a
     const { options: o1, ...k1 } = b
     // a question rewritten as a whole: a new prompt, with its own options, answer and explanation
-    // (a new option count, such as a second wrong option added to a multi, counts as a whole rewrite too)
-    const grown = Array.isArray(o0) && Array.isArray(o1) && o0.length !== o1.length
-    if ((a.prompt !== b.prompt || grown) && ['single', 'multi'].includes(a.type) && a.type === b.type) {
+    // (any other change to a choice question, such as a new option count or a reworded right option with its
+    // explanation, is checked the same way)
+    if (!same(a, b) && ['single', 'multi'].includes(a.type) && a.type === b.type) {
       rewritten++
       const right = Array.isArray(b.answer) ? b.answer : [b.answer]
       if (!Array.isArray(o1) || o1.length < 4) say(`${where}: a rewritten question needs at least 4 options`)

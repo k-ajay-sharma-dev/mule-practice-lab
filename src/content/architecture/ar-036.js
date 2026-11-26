@@ -11,12 +11,12 @@ export default {
       prompt: 'Coverage is enforced at 80%, but most MUnit tests only check that a flow "runs without error". What change adds the most value?',
       options: [
         'Raise the coverage gate to 95% so more processors are touched',
-        'Mock connectors with realistic data and assert outputs, errors and calls',
+        'Add assertions on what each flow returns for realistic mocked input',
         'Replace most MUnit tests with the weekly end-to-end suite',
         'Call the real SAP sandbox from MUnit so tests are more realistic',
       ],
       answer: 1,
-      explain: 'Value comes from **assertions**: payload fields, mapped errors (timeout → 504, validation → 400) and `verify-call` on the backend. A higher coverage number without assertions only produces more tests that prove nothing.',
+      explain: 'Value comes from **assertions**: payload fields, mapped errors (timeout → 504, validation → 400) and `verify-call` on the backend. A higher coverage number without assertions only produces more tests that prove nothing. A weekly end-to-end suite is slow and finds faults late. A real sandbox makes unit tests flaky and depends on SAP being up.',
     },
     {
       type: 'match',

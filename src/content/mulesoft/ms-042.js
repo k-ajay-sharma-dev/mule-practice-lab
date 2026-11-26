@@ -13,11 +13,11 @@ export default {
       options: [
         'Wrap the test body in a `for-each` over the 14 input rows',
         'Define parameterizations on `munit:config`; the suite runs per row',
-        'Add a `parameters` attribute to `munit:test` with 14 rows',
+        'Add a `munit:parameterizations` block inside each `munit:test`',
         'Generate the 14 test files from a DataWeave script at build time',
       ],
       answer: 1,
-      explain: 'Each parameterization on `munit:config` supplies property values, and the whole suite runs once per parameterization. `munit:test` has no parameters attribute, and a `for-each` would stop at the first failing row. One test body, 14 data rows. Reports show each case by its parameterization name.',
+      explain: 'Each parameterization on `munit:config` supplies property values, and the whole suite runs once per parameterization. They are declared on the config, not inside a `munit:test`, and a `for-each` would stop at the first failing row. One test body, 14 data rows. Reports show each case by its parameterization name.',
     },
     {
       type: 'single',
@@ -60,13 +60,13 @@ export default {
       type: 'single',
       prompt: 'A developer proposes a test that calls every flow with an empty payload "to hit the numbers". What is the best reply?',
       options: [
-        'Accept it, since coverage is the number management asked for',
+        'Accept it, as long as each call also asserts that no error was raised',
         'Reject it: coverage counts run processors, not checked behaviour',
         'Accept it, but only for flows that are still below 70 percent',
-        'Accept it if the test is tagged so CI can skip it later',
+        'Reject it: MUnit counts no coverage for a flow called with an empty payload',
       ],
       answer: 1,
-      explain: 'A test without meaningful assertions catches no regressions. Cover real happy and error paths instead. Coverage-only tests are worthless. With parameterization, real per-rule tests are now cheap.',
+      explain: 'A test without meaningful assertions catches no regressions, and "no error raised" says nothing about the result. Coverage counts every processor that ran, whatever the payload, so the numbers would rise. Cover real happy and error paths instead. Coverage-only tests are worthless. With parameterization, real per-rule tests are now cheap.',
     },
     {
       type: 'single',

@@ -32,15 +32,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Two replicas both want to start the nightly timetable job. Each checks `os:contains` for `timetable-lock`, sees false, and then stores it. What is the risk?',
+      prompt: 'Two replicas both want to start the nightly timetable job. Each checks `os:contains` for `timetable-lock`, sees false, and then stores it. What can happen?',
       options: [
-        'None, because Object Store v2 locks a key between a contains and a store',
+        'The contains call locks the key, so the second replica waits, then sees true and skips the job',
         'The second store raises an error, so only the first replica runs the job',
         'Only the first replica runs, as its key is the one that the store keeps',
-        'Both can see false before either stores the key, so both jobs run',
+        'Both checks can run before either store, so both replicas run the job',
       ],
       answer: 3,
-      explain: 'A check followed by a store is two separate steps. Another replica can act between them. Use one store with `failIfPresent="true"`, so only one of them gets in.',
+      explain: 'A check followed by a store is two separate steps, and `os:contains` takes no lock. Another replica can act between them, so both can see false. A store overwrites by default, so the second store raises no error, and which value the store keeps does not matter once both jobs have started. Use one store with `failIfPresent="true"`, so only one of them gets in.',
     },
     {
       type: 'single',

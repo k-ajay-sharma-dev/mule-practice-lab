@@ -32,15 +32,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'A bad run overwrote 40 store files with empty content at 03:10. A share snapshot was taken at 02:00. What can you do?',
+      prompt: 'A bad run overwrote 40 store files with empty content at 03:10. A share snapshot was taken at 02:00. What should you do?',
       options: [
-        'Nothing, because a snapshot can only restore the whole share',
+        'Restore the whole share from the 02:00 snapshot',
         'Copy the 40 files back from the read only 02:00 snapshot',
         'Undelete the 40 files with file level soft delete',
         'Fail over to the secondary region, which still holds the old files',
       ],
       answer: 1,
-      explain: 'Snapshots are taken at share level and can be browsed. You can copy single files back from them without touching the rest of the share. Azure Files soft delete works on whole shares, not single files, and geo replication copies the bad writes to the secondary region too.',
+      explain: 'Snapshots are taken at share level and can be browsed. You can copy single files back from them without touching the rest of the share. Restoring the whole share would also undo every other change made since 02:00. Azure Files soft delete works on whole shares, not single files, and geo replication copies the bad writes to the secondary region too.',
     },
     {
       type: 'multi',
@@ -69,15 +69,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Which alert stops a full share from failing the next run?',
+      prompt: 'Which alert gives the team time to act before the file share runs out of space?',
       options: [
-        'An alert when a flow fails with a share full error',
-        'An alert on share capacity at about 80 percent of the quota',
-        'An alert when the share transaction count rises sharply',
-        'An alert on the storage account availability metric',
+        'An alert when a flow write fails because the share quota is reached',
+        'An alert when used capacity of the share passes about 80 percent of its quota',
+        'An alert when used capacity of the storage account passes 80 percent of the account limit',
+        'An alert when share transactions pass 80 percent of the usual daily peak',
       ],
       answer: 1,
-      explain: 'Alert early enough for someone to clean up or raise the quota during working hours.',
+      explain: 'Used capacity of the share against its quota warns early enough for someone to clean up or raise the quota during working hours. A failed write is the outage itself, not a warning. The storage account limit is far larger than one share quota, so the share fills long before that alert fires. A count of transactions says how busy the share is, not how full.',
     },
   ],
   description: `

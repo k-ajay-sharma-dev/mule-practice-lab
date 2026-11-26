@@ -27,13 +27,13 @@ export const SET_1 = [
     situation: 'A GET /bookings/{bookingId} request arrives at the Booking Experience API. Which first line is best?',
     options: [
       'Booking request received method=GET path=/api/bookings/BK-77120 correlationId=<new UUID made by the flow>',
-      'Booking request received headers={authorization=Bearer <token>, client_id=<client-id>}',
+      'Booking request received method=GET path=/api/bookings/BK-77120 status=200 correlationId=5d2e91',
       'Booking request received method=GET path=/api/bookings/BK-77120 correlationId=5d2e91',
       'Booking request received method=GET path=/api/bookings/BK-77120 guestEmail=<email of the signed-in guest> correlationId=5d2e91',
     ],
     answer: 2,
     explain:
-      'It says what arrived, with the method, the path and the correlation ID that Mule sends on to the System APIs. A new UUID made in the flow does not match the ID the System APIs log, so their lines cannot be joined to this one. Dumping the headers leaks the bearer token. The email of the guest is personal data, and the booking ID is enough to find the guest.',
+      'It says what arrived, with the method, the path and the correlation ID that Mule sends on to the System APIs. A new UUID made in the flow does not match the ID the System APIs log, so their lines cannot be joined to this one. status=200 on the first line claims an answer before the flow has done any work. The email of the guest is personal data, and the booking ID is enough to find the guest.',
   },
   {
     id: 'log-1003',
@@ -41,15 +41,15 @@ export const SET_1 = [
     situation: 'At the end of the POST /bookings flow of the Booking Experience API:',
     code: `<logger level="INFO" message='#["Booking created " ++ write(payload)]' />`,
     options: [
-      'write(payload) cannot be used in a Logger message',
+      'write(payload) prints only the type of the payload, such as a Java stream, not its content',
       'It writes the whole response body, which holds the guest name and contact details',
-      'The last line of a request should be DEBUG, not INFO',
+      'It does not say what happened, so the reader cannot tell this is the end of the booking flow',
       'It does not give the status sent back or how long the request took',
       'There is no correlation ID',
     ],
     answers: [1, 3, 4],
     explain:
-      'write() works in a Logger, which is why the whole body reaches the log, and INFO is right for the end of a request. Log the facts, not the body: "Booking created bookingId=$(vars.bookingId) status=201 durationMs=$(vars.durationMs) correlationId=$(correlationId)".',
+      'write() turns the whole payload into text, which is why the body reaches the log. The words "Booking created" do say what happened; the trouble is what follows them. Log the facts, not the body: "Booking created bookingId=$(vars.bookingId) status=201 durationMs=$(vars.durationMs) correlationId=$(correlationId)".',
   },
   {
     id: 'log-1004',
@@ -101,13 +101,13 @@ export const SET_1 = [
     situation: 'In the On Error Propagate for APIKIT:BAD_REQUEST of the Claims Experience API, which message is best?',
     options: [
       'Claim request rejected status=500 errorType=APIKIT:BAD_REQUEST error=Invalid value for incidentDate path=/api/claims correlationId=9b41c7',
-      'Claim request rejected status=400 errorType=APIKIT:BAD_REQUEST body={"policyNumber":"PL-448812","claimant":{"name":"Ravi Shah","phone":"+44 7700 900456"}} correlationId=9b41c7',
+      'Claim request rejected status=400 errorType=APIKIT:BAD_REQUEST error=Invalid value for incidentDate path=/api/claims next=sent to DLQ correlationId=9b41c7',
       'Claim request rejected status=400 errorType=APIKIT:BAD_REQUEST path=/api/claims correlationId=9b41c7',
       'Claim request rejected status=400 errorType=APIKIT:BAD_REQUEST error=Invalid value for incidentDate path=/api/claims correlationId=9b41c7',
     ],
     answer: 3,
     explain:
-      'It says what happened, which field was wrong, the status sent back and which request it was. status=500 is wrong: the handler answers 400 for APIKIT:BAD_REQUEST, and a 500 in the log sends support looking for a bug in the API. The body copies a name and a phone number into the log. Without error.description nobody can tell which field the partner got wrong.',
+      'It says what happened, which field was wrong, the status sent back and which request it was. status=500 is wrong: the handler answers 400 for APIKIT:BAD_REQUEST, and a 500 in the log sends support looking for a bug in the API. "next=sent to DLQ" is wrong: a rejected HTTP request goes back to the caller as a 400, and there is no message to park. Without error.description nobody can tell which field the partner got wrong.',
   },
   {
     id: 'log-1008',
@@ -116,14 +116,14 @@ export const SET_1 = [
     code: `<logger level="ERROR" message='#["Bad request " ++ write(payload)]' />`,
     options: [
       'The request body is written to the log, with the personal data of the claimant',
-      'write(payload) fails inside an error handler, so the logger throws',
+      'In the error handler payload is the error object, so the body is not logged',
       'ERROR is too high: the caller made the mistake and the API handled it, so WARN fits',
       'A 400 should not be logged at all',
       'It leaves out error.description, which says which field failed',
     ],
     answers: [0, 2, 4],
     explain:
-      'write() works in an error handler, and a 400 is worth one WARN line so bad callers can be found. Log the error, not the body: "Claim request rejected status=400 errorType=$(error.errorType) error=$(error.description) correlationId=$(correlationId)".',
+      'In the error handler payload is still the request body, and the error is in error, not in payload. A 400 is worth one WARN line so bad callers can be found. Log the error, not the body: "Claim request rejected status=400 errorType=$(error.errorType) error=$(error.description) correlationId=$(correlationId)".',
   },
   {
     id: 'log-1009',
@@ -132,13 +132,13 @@ export const SET_1 = [
       'The RAML of the Claims Experience API marks policyNumber as required. A POST /claims came without it and APIkit rejected it. Which line is best?',
     options: [
       'Claim request rejected status=422 errorType=APIKIT:BAD_REQUEST error=Required field policyNumber is missing correlationId=9b41c7',
-      'Claim request rejected status=400 error=Required field policyNumber is missing claimant=Ravi Shah correlationId=9b41c7',
+      'Claim request rejected status=400 error=Required field policyNumber is missing next=claim saved without policy correlationId=9b41c7',
       'Claim request rejected status=400 error=Required field policyNumber is missing',
-      'Claim request rejected status=400 error=Required field policyNumber is missing correlationId=9b41c7',
+      'Claim request rejected status=400 errorType=APIKIT:BAD_REQUEST error=Required field policyNumber is missing path=/api/claims correlationId=9b41c7',
     ],
     answer: 3,
     explain:
-      'It names the missing field, the status sent back and the correlation ID, so support can find the call the partner asks about. status=422 is not what the APIKIT:BAD_REQUEST handler sends here; it answers 400, so the log and the response would disagree. The line with claimant= adds a name to the log. The line without the correlation ID cannot be joined to the request.',
+      'It names the missing field, the error type, the status sent back, the path and the correlation ID, so support can find the call the partner asks about. status=422 is not what the APIKIT:BAD_REQUEST handler sends here; it answers 400, so the log and the response would disagree. "next=claim saved without policy" is wrong: APIkit rejected the request before any resource flow ran, so nothing was saved. The line without the correlation ID cannot be joined to the request.',
   },
   {
     id: 'log-1010',
@@ -174,13 +174,13 @@ export const SET_1 = [
       'A caller sends DELETE /api/items/SKU-4471. The RAML only allows GET and PUT on that resource, so APIkit raises APIKIT:METHOD_NOT_ALLOWED. Which line is best?',
     options: [
       'Request rejected status=404 method=DELETE path=/api/items/SKU-4471 errorType=APIKIT:NOT_FOUND correlationId=e40b18',
-      'Request rejected status=405 method=DELETE path=/api/items/SKU-4471 headers={client_id=<client-id>, authorization=Basic <credentials>}',
+      'Request rejected status=501 method=DELETE path=/api/items/SKU-4471 errorType=APIKIT:NOT_IMPLEMENTED correlationId=e40b18',
       'Request rejected status=405 method=DELETE path=/api/items/SKU-4471 errorType=APIKIT:METHOD_NOT_ALLOWED correlationId=e40b18',
       'Request rejected status=405 method=DELETE path=/api/items/SKU-4471 errorType=APIKIT:METHOD_NOT_ALLOWED stack=<full stack trace> correlationId=e40b18',
     ],
     answer: 2,
     explain:
-      'It gives the method, the path, the error type, the status and the correlation ID. APIKIT:NOT_FOUND with 404 is wrong here: the path is in the RAML, only the method is not allowed on it. The headers carry the Basic credentials into the log. A full stack trace for a routing error that the type already explains adds a hundred lines to every rejected call.',
+      'It gives the method, the path, the error type, the status and the correlation ID. APIKIT:NOT_FOUND with 404 is wrong here: the path is in the RAML, only the method is not allowed on it. APIKIT:NOT_IMPLEMENTED with 501 is for a method the RAML declares but no flow implements; DELETE is not in the RAML at all. A full stack trace for a routing error that the type already explains adds a hundred lines to every rejected call.',
   },
   {
     id: 'log-1013',
@@ -206,7 +206,7 @@ export const SET_1 = [
       'It should log the whole request body, so the caller can be found',
       'It does not say which path was asked for, so nobody can tell which caller has a wrong URL',
       'INFO is too low: a path that is not in the RAML means a caller is misconfigured, so WARN fits',
-      'INFO is wrong because an unknown path must always be ERROR',
+      'It should be ERROR, because the router failed before any resource flow ran',
       'There is no correlation ID',
       'It does not name the error type or the status sent back',
     ],
@@ -256,13 +256,13 @@ export const SET_1 = [
     situation: 'The HTTP Request to the Customer System API returned 200. Which line is best after it?',
     options: [
       'Customer fetched from Customer System API customerId=C-20931 status=200 time=184 correlationId=2a7f03',
-      'Customer fetched customerId=C-20931 name=Lena Fischer dob=1988-02-14 correlationId=2a7f03',
-      'Customer fetched from Customer System API customerId=C-20931 status=200 durationMs=184 correlationId=2a7f03',
+      'Calling Customer System API method=GET customerId=C-20931 correlationId=2a7f03',
+      'Customer fetched from Customer System API method=GET customerId=C-20931 status=200 durationMs=184 correlationId=2a7f03',
       'Customer fetched customerId=C-20931 status=200 durationMs=184 response={"name":"Lena Fischer",...}',
     ],
     answer: 2,
     explain:
-      'After a call, log the status and the duration, with its unit in the name, next to the ID. "time=184" gives no unit, so nobody can tell milliseconds from seconds. The line with name= and dob= and the line with response={...} put a name and a date of birth in the log.',
+      'After a call, log the status and the duration, with its unit in the name, next to the ID. "time=184" gives no unit, so nobody can tell milliseconds from seconds. "Calling Customer System API" is the line before the call and says nothing about the answer. The line with response={...} puts the name of the customer in the log.',
   },
   {
     id: 'log-1018',
@@ -272,14 +272,14 @@ export const SET_1 = [
     code: `<logger level="ERROR" message='#["Customer lookup failed " ++ error.description]' />`,
     options: [
       'ERROR is too high: an unknown customer ID is a normal answer that the flow handles',
-      'error.description cannot be read in an On Error Continue',
+      'error.description holds the body of the 404 that the Customer System API sent',
       'It does not give the customer ID that was asked for',
-      'A Logger message must use $() interpolation, because ++ does not work there',
+      'The 404 is logged by the Customer System API, so this Logger can be removed',
       'There is no correlation ID',
     ],
     answers: [0, 2, 4],
     explain:
-      'Both ++ and $() work, and error is there in every error handler. The line needs the ID, the correlation ID and a level that does not page anyone for a normal answer.',
+      'error.description is the text of the HTTP Request, with the method, the URL and the status; the body of the response is in error.errorMessage. The Process API decides what its caller gets, so it should log that too. The line needs the ID, the correlation ID and a level that does not page anyone for a normal answer.',
   },
   {
     id: 'log-1019',
@@ -324,11 +324,11 @@ export const SET_1 = [
       'Label creation failed orderId=SO-55120 status=503 errorType=HTTP:SERVICE_UNAVAILABLE durationMs=88 next=retry in 5 minutes correlationId=c19d42',
       'Label creation failed orderId=SO-55120 status=503 errorType=HTTP:SERVICE_UNAVAILABLE durationMs=88 next=held for manual shipping correlationId=c19d42',
       'Label creation failed orderId=SO-55120 status=500 errorType=HTTP:INTERNAL_SERVER_ERROR next=held for manual shipping correlationId=c19d42',
-      'Label creation failed status=503 request={"orderId":"SO-55120","shipTo":{"street":"12 Elm Row","postcode":"EH7 4AA"}}',
+      'Label creation failed orderId=SO-55120 status=503 errorType=HTTP:SERVICE_UNAVAILABLE durationMs=88 next=held for manual shipping correlationId=c19d42, logged at INFO because the order is safe',
     ],
     answer: 1,
     explain:
-      'It says what failed, for which order, why, and what happens next. "next=retry in 5 minutes" is wrong: the order cannot ship today and is held for manual shipping, so nobody would pick it up. status=500 with HTTP:INTERNAL_SERVER_ERROR names the wrong error and sends support looking for a bug at the carrier. The request body puts a home address in the log.',
+      'It says what failed, for which order, why, and what happens next. "next=retry in 5 minutes" is wrong: the order cannot ship today and is held for manual shipping, so nobody would pick it up. status=500 with HTTP:INTERNAL_SERVER_ERROR names the wrong error and sends support looking for a bug at the carrier. At INFO the failure hides from alerts, when someone has to ship this order by hand today.',
   },
   {
     id: 'log-1023',
@@ -435,13 +435,13 @@ export const SET_1 = [
     situation: 'A caller asked for GET /products?page=3&pageSize=50 on the Catalogue Experience API. Which first line is best?',
     options: [
       'Products returned method=GET path=/api/products page=3 pageSize=50 count=50 correlationId=0d93fe',
-      'Products requested attributes={headers={client_id=<client-id>, authorization=Bearer <token>}, queryParams={page=3, pageSize=50}}',
+      'Products requested method=GET path=/api/products page=3 pageSize=50 correlationId=0d93fe, logged at DEBUG',
       'Products requested method=GET path=/api/products page=3 pageSize=50 correlationId=0d93fe',
       'Products requested method=GET path=/api/products page=3 pageSize=50 thread=[MuleRuntime].uber.07',
     ],
     answer: 2,
     explain:
-      'It names the query values that shape the answer and carries the correlation ID. "Products returned" with a count is a last line, written before any product was fetched. Logging all of attributes writes the bearer token too. The line with the thread name has no correlation ID, so it cannot be joined to the later lines of the request.',
+      'It names the query values that shape the answer and carries the correlation ID. "Products returned" with a count is a last line, written before any product was fetched. At DEBUG the first line of every request is gone in production. The line with the thread name has no correlation ID, so it cannot be joined to the later lines of the request.',
   },
   {
     id: 'log-1030',
@@ -497,7 +497,7 @@ export const SET_1 = [
     situation: 'In the Customer System API, after a PATCH /customers/{customerId} is saved. Which statements are true?',
     code: `<logger level="INFO" message='#["Customer patched customerId=$(vars.customerId) changes=" ++ write(payload)]' />`,
     options: [
-      'write(payload) cannot be joined with ++ in a Logger message',
+      'namesOf(payload) writes the values too, so it leaks the same data',
       'Logging only the names of the changed fields, such as namesOf(payload) joinBy ",", keeps the useful part',
       'The patch body can hold an email, a phone number or a home address, and all of it reaches the log',
       'A PATCH must be logged at DEBUG, because it changes data',
@@ -505,7 +505,7 @@ export const SET_1 = [
     ],
     answers: [1, 2, 4],
     explain:
-      'write() and ++ work fine in a Logger, which is why the body leaks. A change is worth an INFO line, but with the field names, not the values.',
+      'write() and ++ work fine in a Logger, which is why the body leaks. namesOf() returns only the keys. A change is worth an INFO line, but with the field names, not the values.',
   },
   {
     id: 'log-1034',
@@ -571,13 +571,13 @@ export const SET_1 = [
     situation: 'The Booking Process API cancelled booking BK-30318 and the Booking System API answered 204 No Content. Which line is best?',
     options: [
       'Booking cancel requested method=DELETE bookingId=BK-30318 correlationId=86f0d2',
-      'Booking cancelled bookingId=BK-30318 status=204 refund=requested durationMs=412 cardLast4=4417 guest=Tom Brennan correlationId=86f0d2',
-      'Booking cancelled bookingId=BK-30318 status=200 refund=completed durationMs=412 correlationId=86f0d2',
-      'Booking cancelled bookingId=BK-30318 status=204 refund=requested durationMs=412 correlationId=86f0d2',
+      'Booking cancelled bookingId=BK-30318 status=204 refund=completed durationMs=412 correlationId=86f0d2',
+      'Booking cancelled bookingId=BK-30318 status=200 refund=requested durationMs=412 correlationId=86f0d2',
+      'Booking cancelled method=DELETE bookingId=BK-30318 status=204 refund=requested durationMs=412 correlationId=86f0d2',
     ],
     answer: 3,
     explain:
-      'It says what happened, to which booking, the status the Booking System API sent, the time and what happened to the money. "Booking cancel requested" is the first line of the request, not the result. The line with the guest name and card digits puts personal data in the log. status=200 and refund=completed are both wrong here: the System API answered 204, and the refund has only been requested.',
+      'It says what happened, to which booking, the status the Booking System API sent, the time and what happened to the money. "Booking cancel requested" is the first line of the request, not the result. refund=completed is wrong: the refund has only been requested, so support would tell the guest the money is back. status=200 is wrong too: the System API answered 204.',
   },
   {
     id: 'log-1038',
@@ -585,7 +585,7 @@ export const SET_1 = [
     situation: 'After the HTTP Request that sends DELETE to the Booking System API, which answers 204 No Content:',
     code: `<logger level="INFO" message='#["Booking cancelled bookingId=$(payload.bookingId) correlationId=$(correlationId)"]' />`,
     options: [
-      'A DELETE cannot be logged at INFO',
+      'Use attributes.bookingId instead, because attributes keep the ID after the call',
       'Keep the ID in a variable before the call, such as vars.bookingId, and log that',
       'The HTTP Request resets the correlation ID, so it no longer matches',
       'The line does not give the status or how long the call took',
@@ -593,14 +593,14 @@ export const SET_1 = [
     ],
     answers: [1, 3, 4],
     explain:
-      'The HTTP Request replaces the payload with the empty 204 body. The correlation ID does not change. Write "Booking cancelled bookingId=$(vars.bookingId) status=$(attributes.statusCode) durationMs=$(vars.durationMs) correlationId=$(correlationId)".',
+      'The HTTP Request replaces the payload with the empty 204 body, and attributes with the response attributes, which hold no booking ID. The correlation ID does not change. Write "Booking cancelled bookingId=$(vars.bookingId) status=$(attributes.statusCode) durationMs=$(vars.durationMs) correlationId=$(correlationId)".',
   },
   {
     id: 'log-1039',
     kind: 'multi',
     situation: 'Which of these lines fit the DELETE /bookings/{bookingId} flow of the Booking Process API?',
     options: [
-      'DEBUG "Refund requested card=<full card number> expiry=<expiry date>"',
+      'ERROR "Refund requested bookingId=BK-30318 status=202 correlationId=86f0d2" after the call to the Payment System API',
       'WARN "Cancel refused: booking already used bookingId=BK-30318 status=409 correlationId=86f0d2"',
       'INFO "Booking cancel requested method=DELETE bookingId=BK-30318 correlationId=86f0d2" when the request arrives',
       'ERROR "Booking not found" when the booking ID does not exist and the API answers 404',
@@ -608,7 +608,7 @@ export const SET_1 = [
     ],
     answers: [1, 2, 4],
     explain:
-      'Card data never goes in a log, at any level. An unknown booking ID is a normal 404, not an ERROR, and that line has no ID and no correlation ID.',
+      'A refund request that worked is a normal event, so ERROR on it fires alerts for nothing. An unknown booking ID is a normal 404, not an ERROR, and that line has no ID and no correlation ID.',
   },
   {
     id: 'log-1040',
@@ -650,14 +650,14 @@ export const SET_1 = [
     kind: 'choice',
     situation: 'A scanned invoice was uploaded to POST /claims/CL-6620/documents and stored. Which line is best?',
     options: [
-      'Document uploaded claimId=CL-6620 fileName=invoice-0412.pdf contentType=application/pdf content=JVBERi0xLjQKJcOkw7zDtsOfCjIgMCBvYmoKPDwvTGVuZ3Ro... correlationId=f52c0b',
-      'Document uploaded claimId=CL-6620 fileName=invoice-0412.pdf contentType=application/pdf sizeBytes=842113 correlationId=f52c0b',
+      'Document uploaded claimId=CL-6620 fileName=invoice-0412.pdf contentType=multipart/form-data sizeBytes=842113 correlationId=f52c0b',
+      'Document uploaded claimId=CL-6620 documentId=DOC-31907 fileName=invoice-0412.pdf contentType=application/pdf sizeBytes=842113 correlationId=f52c0b',
       'Document uploaded claimId=CL-6620 fileName=invoice-0412.pdf contentType=application/pdf size=822 correlationId=f52c0b',
       'Document uploaded claimId=CL-6620 fileName=invoice-0412.pdf contentType=application/pdf sizeBytes=842113 storedAt=10:42:07',
     ],
     answer: 1,
     explain:
-      'Name, type and size with its unit tell the reader what arrived, and the correlation ID joins it to the request. The line with content=JVBERi0... writes the file itself into the log as base64. "size=822" has no unit, so nobody can tell KB from bytes. The line with storedAt=10:42:07 has no correlation ID, and the time it adds is already in every log line.',
+      'The stored document ID, name, type and size with its unit tell the reader what arrived, and the correlation ID joins it to the request. contentType=multipart/form-data is the type of the whole request, not of the file part, so it does not say what was uploaded. "size=822" has no unit, so nobody can tell KB from bytes. The line with storedAt=10:42:07 has no correlation ID, and the time it adds is already in every log line.',
   },
   {
     id: 'log-1043',
@@ -668,12 +668,12 @@ export const SET_1 = [
       'File name, content type and size tell the reader what arrived without the content',
       'Mule leaves binary content out of a Logger, so it does no harm',
       'It writes the file content into the log: megabytes of binary, maybe a medical record',
-      'payload.parts cannot be read in a Logger',
+      'Moving the Logger to the end of the flow, after the file is stored, makes it safe',
       'There is no message that says what happened, and no correlation ID',
     ],
     answers: [0, 2, 4],
     explain:
-      'Mule writes what you give it, binary or not, and payload.parts can be read anywhere. Log the facts about the file, not the file.',
+      'Mule writes what you give it, binary or not, wherever the Logger sits in the flow. Log the facts about the file, not the file.',
   },
   {
     id: 'log-1044',
@@ -741,20 +741,20 @@ export const SET_1 = [
     situation: 'POST /statements/exports has started the export in an Async scope and is sending 202 Accepted. Which line is best?',
     options: [
       'Statement export done jobId=EXP-5521 accountRef=ACC-7781 status=202 location=/statements/exports/EXP-5521 correlationId=3ce6a9',
-      'Statement export accepted jobId=EXP-5521 iban=<full IBAN> status=202 correlationId=3ce6a9',
+      'Statement export accepted jobId=EXP-5521 accountRef=ACC-7781 status=202 location=/statements/exports/EXP-5521 correlationId=<new ID for the Async scope>',
       'Statement export accepted accountRef=ACC-7781 status=202 correlationId=3ce6a9',
-      'Statement export accepted jobId=EXP-5521 accountRef=ACC-7781 status=202 location=/statements/exports/EXP-5521 correlationId=3ce6a9',
+      'Statement export accepted jobId=EXP-5521 accountRef=ACC-7781 status=202 location=/statements/exports/EXP-5521 durationMs=64 correlationId=3ce6a9',
     ],
     answer: 3,
     explain:
-      'A 202 means the work has started, not finished, so the line says accepted and gives the job ID that links it to the lines the export writes later. "Statement export done" misleads the reader: the export is still running in the Async scope. The full IBAN is personal financial data; the account reference is enough. Without the job ID, a later GET on /statements/exports/EXP-5521, which has its own correlation ID, cannot be tied back to this request.',
+      'A 202 means the work has started, not finished, so the line says accepted and gives the job ID that links it to the lines the export writes later. "Statement export done" misleads the reader: the export is still running in the Async scope. The Async scope keeps the correlation ID of the request, so a new ID only splits the request lines from the export lines. Without the job ID, a later GET on /statements/exports/EXP-5521, which has its own correlation ID, cannot be tied back to this request.',
   },
   {
     id: 'log-1048',
     kind: 'multi',
     situation: 'Which statements about logging the 202 flow of the Statements API are true?',
     options: [
-      'Lines in the Async scope cannot be logged, because the response was already sent',
+      'The Async scope gets a new correlation ID, so only the jobId joins its lines to the request',
       'The 202 line must not say "completed", because the export has only started',
       'The work in the Async scope keeps the same correlationId, so its lines join the request lines',
       'The 202 line should be WARN, because the work is not finished',
@@ -830,21 +830,21 @@ export const SET_1 = [
     options: [
       'Order Process API rejected the call status=403 errorType=HTTP:FORBIDDEN next=check the client credentials of this app correlationId=a8d3f1',
       'Order Process API rejected the call status=401 errorType=HTTP:UNAUTHORIZED next=retry in 30 seconds correlationId=a8d3f1',
-      'Order Process API rejected the call status=401 errorType=HTTP:UNAUTHORIZED next=check the client credentials of this app correlationId=a8d3f1',
-      'Order Process API rejected the call status=401 clientId=<client-id> clientSecret=<client-secret> correlationId=a8d3f1',
+      'Order Process API rejected the call status=401 errorType=HTTP:UNAUTHORIZED clientId=ord-exp-app next=check the client credentials of this app correlationId=a8d3f1',
+      'Order Process API rejected the call status=401 errorType=HTTP:UNAUTHORIZED next=token refreshed and call retried correlationId=a8d3f1',
     ],
     answer: 2,
     explain:
-      'It names the status and the error type and points to the fix. status=403 with HTTP:FORBIDDEN is a different failure: the API answered 401 because it did not accept the client ID. "next=retry in 30 seconds" sends the same bad credentials again and gets the same 401. The line with clientSecret= writes the client secret into the log, which is the same as a password.',
+      'It names the status, the error type and the client ID that was refused, and points to the fix. status=403 with HTTP:FORBIDDEN is a different failure: the API answered 401 because it did not accept the client ID. "next=retry in 30 seconds" sends the same bad credentials again and gets the same 401. Client ID Enforcement checks the client ID and secret, not a token, so a token refresh and a retry change nothing.',
   },
   {
     id: 'log-1053',
     kind: 'multi',
     situation: 'Which statements about API policies, seen from inside the Order Process API, are true?',
     options: [
-      'The flow should log the client_secret header, so failed calls can be traced',
+      'The error handler of the flow can log a policy rejection, with the error type the policy raised',
       'Logging the client ID, such as clientId=$(attributes.headers.client_id), shows which app sent a request',
-      'A policy rejection is always logged at ERROR by the error handler of the flow',
+      'A rejected request still gets a first line from the flow, because the Listener runs before the policy',
       'A request that Client ID Enforcement rejects never reaches the flow, so the flow loggers write nothing for it',
       'To see policy rejections, look at API Manager analytics or the policy logs, not the flow logs',
     ],
@@ -919,13 +919,13 @@ export const SET_1 = [
     situation: 'The patient summary was sent back. The Patient and Appointments calls worked, the lab call did not. Which last line is best?',
     options: [
       'Patient summary sent patientId=P-40917 status=200 durationMs=2210 correlationId=b7e5c0',
-      'Patient summary sent patientId=P-40917 status=200 partial=true name=Grace Okafor dob=1979-06-03 hba1c=6.1 correlationId=b7e5c0',
+      'Patient summary sent patientId=P-40917 status=200 partial=true missing=labResults durationMs=2210 correlationId=b7e5c0, logged at ERROR',
       'Patient summary failed patientId=P-40917 errorType=HTTP:SERVICE_UNAVAILABLE failedCall=labResults status=500 durationMs=2210 correlationId=b7e5c0',
       'Patient summary sent patientId=P-40917 status=200 partial=true missing=labResults durationMs=2210 correlationId=b7e5c0',
     ],
     answer: 3,
     explain:
-      'The "Patient summary sent" line without partial=true hides that the summary was partial, so the 200 looks perfect. The line with name=Grace Okafor puts a name, a date of birth and a lab value in the log, which is health data. The line with "Patient summary failed" says the request failed with 500, but the caller got its summary, only without the lab results.',
+      'The "Patient summary sent" line without partial=true hides that the summary was partial, so the 200 looks perfect. At ERROR the line fires alerts for a request that got its answer; a partial summary is a WARN. The line with "Patient summary failed" says the request failed with 500, but the caller got its summary, only without the lab results.',
   },
   {
     id: 'log-1058',
@@ -1002,14 +1002,14 @@ export const SET_1 = [
     situation:
       'A Transform in the Payments Process API failed with MULE:EXPRESSION because beneficiary.bankCode was null and the script did not expect it. The API answers 500. Which line is best?',
     options: [
-      'Payment mapping failed paymentId=PM-90215 errorType=MULE:EXPRESSION error=Cannot coerce Null (null) to String status=500 correlationId=61d8ab',
+      'Payment mapping failed paymentId=PM-90215 errorType=MULE:EXPRESSION field=beneficiary.bankCode error=Cannot coerce Null (null) to String status=500 correlationId=61d8ab',
       'Payment mapping failed paymentId=PM-90215 errorType=MULE:EXPRESSION error=Cannot coerce Null (null) to String status=400 correlationId=61d8ab',
-      'Payment mapping failed paymentId=PM-90215 body={"amount":120.50,"beneficiary":{"name":"Omar Haddad","iban":"<full IBAN>"}}',
+      'Payment mapping failed paymentId=PM-90215 errorType=MULE:TRANSFORMATION error=Cannot coerce Null (null) to String status=500 correlationId=61d8ab',
       'Payment mapping failed paymentId=PM-90215 errorType=MULE:EXPRESSION status=500 correlationId=61d8ab',
     ],
     answer: 0,
     explain:
-      'error.description from DataWeave says what was null, so a developer can fix the script, and the status is the 500 the API sends. status=400 blames the caller when the fault is in the script, and it does not match what the API answered. The body adds a name and an IBAN, which do not belong in a log. Without the description, a developer has to reproduce the call to learn which field was null.',
+      'error.description from DataWeave says what was null, so a developer can fix the script, and the status is the 500 the API sends. status=400 blames the caller when the fault is in the script, and it does not match what the API answered. A failed DataWeave script raises MULE:EXPRESSION, so MULE:TRANSFORMATION names an error that did not happen and a search on the real type misses the line. Without the description, a developer has to reproduce the call to learn which field was null.',
   },
   {
     id: 'log-1063',
@@ -1020,7 +1020,7 @@ export const SET_1 = [
       'The correlation ID is missing',
       'The full IBAN of the beneficiary should not be logged. Log the payment ID',
       'The CVV must never be logged, not even masked',
-      'WARN is wrong, because a rejected payment must be ERROR',
+      'ERROR fits better, because money is involved and the caller gets an error back',
       'It does not say why the payment was rejected or which limit it broke',
     ],
     answers: [1, 2, 4],
@@ -1110,12 +1110,12 @@ export const SET_1 = [
       'HTTP:TIMEOUT means the request was sent but no response came within the response timeout',
       'After HTTP:TIMEOUT you can be sure the System API did nothing',
       'HTTP:CONNECTIVITY means the connection could not be made or was lost, so the System API may never have seen the request',
-      'HTTP:TIMEOUT and HTTP:CONNECTIVITY are the same error with two names',
+      'HTTP:CONNECTIVITY is raised when the other side answers 503 Service Unavailable',
       'HTTP:GATEWAY_TIMEOUT means the other side answered 504, so a gateway in front of it gave up',
     ],
     answers: [0, 2, 4],
     explain:
-      'They point to different problems, which is why errorType belongs in the line. After a timeout the other side may still have done the work, so check before you send it again.',
+      'They point to different problems, which is why errorType belongs in the line. A 503 is an answer, so it raises HTTP:SERVICE_UNAVAILABLE, not HTTP:CONNECTIVITY. After a timeout the other side may still have done the work, so check before you send it again.',
   },
   {
     id: 'log-1069',
@@ -1201,12 +1201,12 @@ export const SET_1 = [
       'A PUT that got 412 has changed the stock record',
       'To act on a 412 in a Choice, add 412 to the success status codes of the response validator, then check attributes.statusCode',
       'A 412 on PUT means another update came first. It is expected under load, so WARN fits, not ERROR',
-      'A PUT replaces the whole record, so the record body must be logged at INFO',
+      'A 412 should be ERROR, because the update the caller sent was lost',
       'Log the ETag you sent and the status, so two updates that crossed can be matched',
     ],
     answers: [1, 2, 4],
     explain:
-      'A 412 means nothing was changed. The ETag and the status are the facts that explain it, not the body.',
+      'A 412 means nothing was changed, and nothing is lost: the caller reads the record again and retries with the new ETag. The ETag and the status are the facts that explain it.',
   },
   {
     id: 'log-1074',

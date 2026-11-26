@@ -50,12 +50,12 @@ export default {
       prompt: 'Where should the design keep properties so that a rollback is safe?',
       options: [
         'One owner: a versioned file and secret store, sent in full with the app version',
-        'Split: some in the POM and the rest set by hand in Runtime Manager',
+        'Inside the JAR, one properties file per environment, picked by an `env` property',
         'In Runtime Manager, with the pipeline sending only the keys changed in each release',
-        'In Runtime Manager only, edited by an operator after each deploy',
+        'In Runtime Manager, owned by operations, with the pipeline sending none',
       ],
       answer: 0,
-      explain: 'On CloudHub 2.0, if `properties` or `secureProperties` is present, nothing merges with the Runtime Manager values. With a versioned set, each app version has a matching set of properties to return to.',
+      explain: 'On CloudHub 2.0, if `properties` or `secureProperties` is present, nothing merges with the Runtime Manager values. With a versioned set, each app version has a matching set of properties to return to. Files inside the JAR put secrets in the artifact and need a rebuild for any value change. Sending only changed keys wipes the other values, because nothing merges. Values owned only in Runtime Manager have no record of which set ran with which version.',
     },
     {
       type: 'single',

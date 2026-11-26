@@ -25,11 +25,11 @@ export default {
       options: [
         'They do not guarantee one-time-only delivery, so duplicates can occur',
         'They deliver every message exactly once as long as there are two workers',
-        'Duplicates are possible only with data-at-rest encryption enabled',
+        'They deliver exactly once, because a message leaves the queue only after the flow commits',
         'A redelivered message is skipped, because the queue tracks message IDs',
       ],
       answer: 0,
-      explain: 'If one-time delivery is critical for the use case, the docs say not to enable them. Zero message loss and exactly-once are different promises. Persistent queues give the first, so a consumer that uses them must tolerate a repeated message, for example with an idempotent write.',
+      explain: 'If one-time delivery is critical for the use case, the docs say not to enable them. Zero message loss and exactly-once are different promises. Persistent queues give the first, so a consumer that uses them must tolerate a repeated message, for example with an idempotent write. Removing a message after processing protects against loss, but a crash before removal means it runs again. The number of workers does not change this, and the queue does not skip redelivered IDs.',
     },
     {
       type: 'single',

@@ -23,10 +23,10 @@ export default {
         'An Experience API for each project, each with its own mainframe connection',
         'A System API that hides the mainframe details and returns account data',
         'A Process API for each project, each copying the mainframe login details',
-        'No API at all, because each project should read the mainframe tables itself',
+        'One shared Process API that holds the mainframe connection for all projects',
       ],
       answer: 1,
-      explain: 'A System API is the one place that knows how to talk to the mainframe. Everything else calls that API, so the old system details are not repeated in many projects.',
+      explain: 'A System API is the one place that knows how to talk to the mainframe. Everything else calls that API, so the old system details are not repeated in many projects. A shared Process API would mix business rules with mainframe access, so a rule change would touch the system link too.',
     },
     {
       type: 'single',

@@ -34,15 +34,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'The app runs on two workers. How many times does each scheduler trigger fire?',
+      prompt: 'The app runs on two standalone on-premises Mule runtimes. Later the team joins them into a Mule cluster. How many times does each scheduler trigger fire, before and after?',
       options: [
-        'Twice, since each worker runs its own copy, even in a Mule cluster',
-        'It depends: a cluster fires on the primary node, separate workers may each fire',
-        'Once, since separate workers share one scheduler through the object store',
-        'Once per CPU core, since each core runs its own scheduler thread',
+        'Twice before and twice after, since each runtime runs its own copy',
+        'Twice before, and once after, since a cluster runs schedulers on the primary node only',
+        'Once before and once after, since the runtimes share one scheduler through the object store',
+        'Twice before, and once after only if the scheduler sets disallowConcurrentExecution',
       ],
       answer: 1,
-      explain: 'Where each worker may fire, add a lock. Know how your platform handles schedulers with more than one replica, and do not rely on it alone.',
+      explain: 'Standalone runtimes know nothing of each other, so each fires its own copy. In a Mule cluster, and in a multi-worker CloudHub deployment, the Scheduler runs on the primary node only. The object store does not coordinate schedulers. disallowConcurrentExecution only skips a trigger while the last run is still going. Where each runtime may fire, add a lock.',
     },
     {
       type: 'single',
@@ -61,12 +61,12 @@ export default {
       prompt: 'Which write is safe to repeat?',
       options: [
         'An INSERT with a new sequence number each time it runs',
-        'A MERGE or upsert on a business key, or an insert a unique key refuses',
+        'A MERGE that matches rows on the order number',
         'An UPDATE that adds the record quantity to a running total',
-        'An email to the buyer for each record that was loaded',
+        'An append of each loaded record to the end of an export file',
       ],
       answer: 1,
-      explain: 'Idempotent means running it twice gives the same result as running it once.',
+      explain: 'Idempotent means running it twice gives the same result as running it once. A MERGE or upsert on a business key finds the row it wrote before; an insert that a unique key refuses works too. A new sequence number makes a second row. Adding to a total counts the quantity twice. An append writes the record a second time.',
     },
     {
       type: 'single',

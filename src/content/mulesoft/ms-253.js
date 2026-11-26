@@ -29,13 +29,13 @@ export default {
       type: 'single',
       prompt: 'A SAS token for a partner leaks. It was signed with the account key and has no stored access policy. How can you revoke it?',
       options: [
-        'Delete the token in the Azure portal',
-        'Rotate the account key that signed it',
-        'Change the stored access policy on the container',
+        'Revoke the user delegation keys on the account',
+        'Regenerate the storage key it was signed with',
+        'Add a stored access policy to the container now',
         'Issue a new SAS so the old signature is replaced',
       ],
       answer: 1,
-      explain: 'Rotating the key also breaks every other SAS signed with that key. A plain SAS is checked by its signature. Only rotating the key, or a stored access policy set up in advance, stops it before expiry.',
+      explain: 'A SAS signed with an account key is checked against that key, so regenerating the key stops it before expiry. That also breaks every other SAS signed with the same key. Revoking user delegation keys stops only SAS tokens signed through Entra ID. A stored access policy added now does not apply to a SAS that was not issued against it. A new SAS does not replace an old one, so both stay valid.',
     },
     {
       type: 'match',
@@ -66,11 +66,11 @@ export default {
       options: [
         'Turn on a system assigned identity for the app in Runtime Manager',
         'Use a managed identity, with the private space in the same region',
-        'Use a service principal, as CloudHub workers cannot hold a managed identity',
+        'Register a service principal and keep its secret in secure properties',
         'Use a managed identity for reads, and keep the account key for writes',
       ],
       answer: 2,
-      explain: 'Managed identities are tied to resources hosted in Azure, or to servers that Azure Arc manages. CloudHub workers are neither, so apps there use a service principal or a SAS they hold themselves. Runtime Manager has no Azure identity to turn on, and the region of the private space does not change where the app runs. A managed identity is not available for reads either, as the app is still outside Azure.',
+      explain: 'Managed identities are tied to resources hosted in Azure, or to servers that Azure Arc manages. CloudHub workers are neither, so apps there use a service principal or a SAS they hold themselves. A service principal still needs a secret or certificate, kept in secure properties. Runtime Manager has no Azure identity to turn on, and the region of the private space does not change where the app runs. A managed identity is not available for reads either, as the app is still outside Azure.',
     },
   ],
   description: `

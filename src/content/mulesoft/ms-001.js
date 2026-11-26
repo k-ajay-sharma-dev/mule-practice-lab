@@ -59,13 +59,13 @@ export default {
       type: 'single',
       prompt: 'An HTTP flow uses On Error Propagate. When a downstream API is down, the caller must get HTTP 503 with a JSON body, and an audit record must be written. Where do you do this?',
       options: [
-        'In On Error Continue only, because On Error Propagate runs no processors',
+        'Inside the handler, and the Listener response section sets the 503 from a variable',
         'Inside the handler, and the Listener error response sends the 503',
         'After the handler, in the next processor of the flow, which still runs',
-        'Nowhere, because the Listener always sends 500 for a propagated error',
+        'In a Try scope with On Error Propagate, as a flow handler cannot change the status',
       ],
       answer: 1,
-      explain: 'Both handlers run their processors before completing, so auditing works in either. The handler sets `vars.httpStatus` to 503 and builds the body with DataWeave. The Listener error response uses status `#[vars.httpStatus default 500]` and body `#[payload]`, so 500 is only the default.',
+      explain: 'Both handlers run their processors before completing, so auditing works in the handler. The handler sets `vars.httpStatus` to 503 and builds the body with DataWeave. The Listener error response uses status `#[vars.httpStatus default 500]` and body `#[payload]`. The response section is used only when the flow succeeds, so a propagated error never reaches it. No processor after the handler runs, because the flow ends with the error. A flow-level handler can set the status variable as well as a Try scope can.',
     },
   ],
   description: `

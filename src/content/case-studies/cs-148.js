@@ -50,7 +50,7 @@ export default {
       needsScenario: true,
       prompt: 'Marketing sends 2 million texts at once, and login codes are delayed. What fixes it?',
       options: [
-        'Separate queues by priority, so codes never wait behind marketing',
+        'A separate high priority queue for one-time codes, read ahead of bulk sends',
         'One queue, with more consumers added during each campaign',
         'Send campaigns only at night, when few customers log in',
         'Send campaigns through gateway B and everything else through A',

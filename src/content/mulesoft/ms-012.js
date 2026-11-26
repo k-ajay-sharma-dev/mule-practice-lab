@@ -60,12 +60,12 @@ export default {
       prompt: 'Finance publishes a price change for one SKU. How do you evict only that entry immediately?',
       options: [
         'Call `ee:invalidate-key` with the caching strategy and the SKU key',
-        'Restart the app on each replica so every cache starts empty',
-        'Call `ee:invalidate-cache`, which removes only the expired entries',
+        'Call `ee:invalidate-cache` with the caching strategy, and let later requests refill it',
+        'Send the next request for that SKU with a `Cache-Control: no-cache` header',
         'Lower `entryTtl` to 0 for that SKU through a runtime property',
       ],
       answer: 0,
-      explain: '`invalidate-key` evicts one entry; `invalidate-cache` clears **everything**, and so does a restart. The TTL is set on the store, not per key. With per-replica in-memory caches every replica must receive the eviction.',
+      explain: '`invalidate-key` evicts one entry; `invalidate-cache` clears **every** entry, not one SKU. The Cache scope does not read HTTP cache headers, so `no-cache` still returns the stored price. The TTL is set on the store, not per key. With per-replica in-memory caches every replica must receive the eviction.',
     },
   ],
   description: `

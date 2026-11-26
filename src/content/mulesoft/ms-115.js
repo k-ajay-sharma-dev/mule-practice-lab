@@ -74,12 +74,12 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'API Visualizer builds a live graph of apps and APIs from real traffic. A product team wants a defined view, which is a saved set of environments, tags and services that others can open. Which permission does the person creating it need?',
+      prompt: 'A product team wants a defined view: a saved set of environments, tags and services that others can open. Which permission does the person creating it need?',
       options: [
-        'Visualizer Editor',
-        'Read Applications',
-        'View Policies',
-        'Manage Policies',
+        'Visualizer Editor, assigned through a custom role in the root organization',
+        'Read Applications in Runtime Manager, for each environment in the view',
+        'Manage Policies in API Manager, for the APIs the view includes',
+        'View Policies in API Manager, plus Read Applications for those environments',
       ],
       answer: 0,
       explain: 'Only users with the Visualizer Editor permission can create defined views. A defined view is visible to users who have access to the environments in it, and new services that match its environments and tags appear in it. Saving a view saves both its Production and Sandbox configurations. Read Applications is enough to see the graph, and View Policies or Manage Policies are relevant only to the Policy visualization. A private view cannot be deleted. It can be edited, renamed, discarded or exported as PNG.',

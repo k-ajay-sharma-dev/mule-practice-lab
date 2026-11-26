@@ -72,13 +72,13 @@ export default {
       type: 'single',
       prompt: 'An app has `Reserved vCPU` 0.5 and `vCPU Limit` 1.0. How much CPU can it actually use?',
       options: [
-        'Up to 1.0, if the node has that much unreserved CPU free',
-        'Exactly 1.0 at all times, because the limit is guaranteed',
-        'Exactly 0.5 at all times, because bursting is off by default',
-        'Any amount, because the limit only applies at startup',
+        'Up to 1.0 when the node has unreserved CPU free, and 0.5 is guaranteed',
+        '1.0 is guaranteed, and 0.5 is the share it keeps when the node is busy',
+        'Up to 1.5, the reserved amount plus the limit, when the node is idle',
+        'Up to 1.0, but only during startup; after that it stays at 0.5',
       ],
       answer: 0,
-      explain: 'It can use the vCPU limit or the unreserved CPU on the worker node, whichever is less. Only the reserved amount is guaranteed. Setting reserved equal to limit gives the guaranteed model with no CPU contention; bursting competes for what is left on the node.',
+      explain: 'It can use the vCPU limit or the unreserved CPU on the worker node, whichever is less. Only the reserved amount is guaranteed, not the limit. The limit is the ceiling, not an amount added to the reservation. Bursting is not tied to startup. Setting reserved equal to limit gives the guaranteed model with no CPU contention.',
     },
     {
       type: 'single',

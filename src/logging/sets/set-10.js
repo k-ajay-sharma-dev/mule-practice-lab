@@ -23,16 +23,17 @@ export const SET_10 = [
   {
     id: 'log-10002',
     kind: 'choice',
-    situation: 'Which line should Pinecrest log when an account is locked?',
+    situation:
+      'Pinecrest locks an account for 30 minutes after five wrong passwords; then the member may try again. Which line should it log when an account is locked?',
     options: [
       'Account locked userId=M-20417 failedAttempts=5 lockedUntil=2026-11-18T10:45:00Z correlationId=7f3c2a',
-      'Login failed for ann.lee@example.com with password Winter2026',
-      'User locked out after too many tries, they should call support',
+      'Login failed userId=M-20417 attempt=5 reason=bad password correlationId=7f3c2a',
+      'Account locked userId=M-20417 failedAttempts=5 lockedUntil=2026-11-18T10:45:00Z next=password reset link sent correlationId=7f3c2a',
       'Account locked userId=M-20417 failedAttempts=5 channel=web correlationId=7f3c2a',
     ],
     answer: 0,
     explain:
-      'The member ID, the count and the end of the lock are what support needs. The line with channel=web has no lockedUntil, so support cannot tell the member when to try again. The "Login failed" line writes the email and the password typed, which must never reach a log.',
+      'The member ID, the count and the end of the lock are what support needs. The line with channel=web has no lockedUntil, so support cannot tell the member when to try again. "Login failed" is the line for one failed attempt, not the lock. Pinecrest only waits out the 30 minutes, so next=password reset link sent claims a step that never happens and sends support to look for an email.',
   },
   {
     id: 'log-10003',
@@ -42,12 +43,12 @@ export const SET_10 = [
       'The password the member typed, masked after the first two characters',
       'The member ID',
       'How many attempts failed',
-      'The username, when the username is an email address',
+      'The number of lockouts across all members in the last hour, to spot an attack',
       'When the lock ends',
     ],
     answers: [1, 2, 4],
     explain:
-      'A wrong password is often one letter away from the right one, so it is as secret as the real password. An email is personal data. The member ID finds the account without either.',
+      'The member ID, the count and the end of the lock answer the member who calls support. A wrong password is often one letter away from the right one, so it is as secret as the real password. A count of lockouts across all members is worth having, but it belongs in a summary or a search over these lines, not on the line for one account.',
   },
   {
     id: 'log-10004',
@@ -114,12 +115,12 @@ export const SET_10 = [
     options: [
       'Price changed sku=40012 storeId=S-118 newPrice=2.19 effectiveFrom=2026-11-19 currency=GBP source=pricing-hub reason=promo promoCode=W11 correlationId=7f3c2a',
       'Price changed sku=40012 storeId=S-118 oldPrice=2.49 newPrice=2.19 effectiveFrom=2026-11-19 changeId=PC-7781 approvedBy=U-552 correlationId=7f3c2a',
-      'New price file: <the whole file>',
+      'Price changed sku=40012 storeId=S-118 oldPrice=2.49 newPrice=2.19 changeId=PC-7781 approvedBy=U-552 correlationId=7f3c2a',
       'Price changed by maria.santos@fernhill.example sku=40012 storeId=S-118 newPrice=2.19',
     ],
     answer: 1,
     explain:
-      'An audit line says what changed, from what to what, from when, and who approved it by user ID. The line with promoCode=W11 has no old price and no change ID, so nobody can prove what changed or who approved it. The whole file is too big, and the email is personal data.',
+      'An audit line says what changed, from what to what, from when, and who approved it by user ID. The line with promoCode=W11 has no old price and no change ID, so nobody can prove what changed or who approved it. Without effectiveFrom nobody can tell which day the till should have used the new price. The email is personal data.',
   },
   {
     id: 'log-10008',
@@ -128,13 +129,14 @@ export const SET_10 = [
     options: [
       'The old and new price',
       'The date the new price starts',
-      'The approver\'s name and phone number, to ask them about the change',
+      'The number of SKUs in the price file',
       'The change ID that links to the approval',
       'The store ID',
+      'The time the change was logged, as a field in the message',
     ],
     answers: [0, 1, 3, 4],
     explain:
-      'With these you can see whether the change reached that store and when it was meant to start. A phone number adds nothing and is personal data.',
+      'With these you can see whether the change reached that store and when it was meant to start. The size of the price file says nothing about one product in one store, and the pattern layout already stamps each line with its time.',
   },
   {
     id: 'log-10009',
@@ -199,15 +201,16 @@ export const SET_10 = [
   {
     id: 'log-10012',
     kind: 'choice',
-    situation: 'Which line should Driftwood log when the flag changes?',
+    situation: 'A Driftwood user switched a flag at runtime, and fare searches now use the new engine. Which line should be logged?',
     options: [
-      'Config: {"newFareEngine":true,"db.password":"…","fareApi.secret":"…"}',
-      'Feature flag changed flag=newFareEngine newValue=true environment=prod version=2.14.0',
+      'Feature flag changed flag=newFareEngine oldValue=false newValue=true changedBy=config-service',
+      'Feature flag changed flag=newFareEngine oldValue=false newValue=true environment=prod version=2.14.0 effective=after restart',
       'Feature flag changed flag=newFareEngine oldValue=false newValue=true changedBy=U-204 source=config-service',
-      'New fare engine switched on in production, watch the fares closely',
+      'Feature flag checked flag=newFareEngine value=true fareId=F-5521 correlationId=7f3c2a',
     ],
     answer: 2,
-    explain: 'Which flag, from what, to what, and who. The line with environment=prod leaves out the old value and who changed it. The "Config:" line dumps the whole configuration with its secrets.',
+    explain:
+      'Which flag, from what, to what, and who. The line with environment=prod says the change waits for a restart, but the flag is switched at runtime and applies at once, and it does not say who changed it. The config service is where the change came from, not the person who made it. "checked" is the line a request writes when it reads the flag, not the change.',
   },
   {
     id: 'log-10013',
@@ -218,11 +221,12 @@ export const SET_10 = [
       'The configuration often holds passwords and client secrets',
       'Mule refuses to deploy an app whose logger reads a property with p()',
       'It is a long line on every start that hides the useful ones',
+      'Secure properties come back masked from p(), so only plain properties can leak',
       'The app version, environment and flag values are enough, logged by name',
     ],
-    answers: [0, 2, 3],
+    answers: [0, 2, 4],
     explain:
-      'Log the facts support needs, by name: version, environment and the flags that change behaviour. Reading a property in a logger works fine, which is what makes the leak possible.',
+      'Log the facts support needs, by name: version, environment and the flags that change behaviour. Reading a property in a logger works fine, which is what makes the leak possible. p() returns secure properties decrypted, so they leak too.',
   },
   {
     id: 'log-10014',
@@ -285,28 +289,29 @@ export const SET_10 = [
     kind: 'choice',
     situation: 'Which line best warns that the rates are getting old?',
     options: [
-      'Exchange rates stale ageMinutes=185 limitMinutes=240 lastLoaded=2026-11-18T07:00:00Z provider=fx-feed next=retry in 10 min',
+      'Exchange rates stale ageMinutes=185 limitMinutes=240 lastLoaded=2026-11-18T07:00:00Z provider=fx-feed failedLoads=3 next=retry in 10 min',
       'Exchange rates stale ageMinutes=185 lastLoaded=2026-11-18T07:00:00Z provider=fx-feed currencies=162 checkedBy=rates-monitor',
-      'FX feed broken, please check',
-      'Rates: {"EUR":1.0842,"GBP":0.8571, … 160 more}',
+      'Exchange rates expired ageMinutes=185 limitMinutes=240 lastLoaded=2026-11-18T07:00:00Z provider=fx-feed next=retry in 10 min',
+      'Exchange rates load failed errorType=HTTP:CONNECTIVITY provider=fx-feed next=retry in 10 min',
     ],
     answer: 0,
-    explain: 'How old, against what limit, since when, and what happens next. The team can see at a glance how much time is left. The line with checkedBy=rates-monitor has no limit and no next step, so the reader cannot tell how urgent it is.',
+    explain:
+      'How old, against what limit, since when, and what happens next. The team can see at a glance how much time is left. The line with checkedBy=rates-monitor has no limit and no next step, so the reader cannot tell how urgent it is. At 185 of 240 minutes the rates are not expired yet. The "load failed" line reports one failed call, not the age of the rates in use.',
   },
   {
     id: 'log-10018',
     kind: 'multi',
     situation: 'Which facts belong on the line after a successful rate load?',
     options: [
-      'The provider API key, to check which account was used',
+      'The name of the object store the rates are written to',
       'How many currencies were loaded',
-      'Every rate in the table, so a bad rate can be found later',
+      'A line per currency loaded, with its rate',
       'The time the provider says the rates are for',
       'How long the load took',
     ],
     answers: [1, 3, 4],
     explain:
-      'A count that drops shows a partial load. The provider time shows rates that are fresh to you but old at the source. The table is long and belongs in the store, not the log.',
+      'A count that drops shows a partial load. The provider time shows rates that are fresh to you but old at the source. The store name is fixed config and is the same on every load. A line per rate is 162 lines a load; the rates belong in the store, not the log.',
   },
   {
     id: 'log-10019',
@@ -370,11 +375,12 @@ export const SET_10 = [
     options: [
       'Shutdown started reason=redeploy graceMs=30000 version=2.14.0 replica=2 requestedBy=U-204',
       'Shutdown started reason=redeploy inFlight=12 graceMs=30000 version=2.14.0',
-      'Stopping the app now, please wait for the redeploy to finish',
-      'Shutdown started, messages: <all 12 message bodies>',
+      'Shutdown finished reason=redeploy inFlight=12 graceMs=30000 version=2.14.0',
+      'Shutdown started reason=redeploy inFlight=12 version=2.14.0',
     ],
     answer: 1,
-    explain: 'Why it is stopping, how much work is in progress, how long it will wait, and which version. The line with requestedBy=U-204 has no in-progress count, so nobody can later check that all 12 messages finished. The bodies add size and risk.',
+    explain:
+      'Why it is stopping, how much work is in progress, how long it will wait, and which version. The line with requestedBy=U-204 has no in-progress count, so nobody can later check that all 12 messages finished. "finished" is written at the end, not when the stop starts. Without graceMs nobody knows how long the app waits before it cuts off the work.',
   },
   {
     id: 'log-10023',
@@ -382,13 +388,14 @@ export const SET_10 = [
     situation: 'After a redeploy, the team must show that no shipment was lost. Which lines help?',
     options: [
       'The shutdown start line with the count in progress',
-      'A line with every message body, written as each one finishes',
+      'The queue depth, read once before the redeploy starts',
       'The shutdown end line with how many finished and how many went back to the queue',
       'The start-up line of the new version',
+      'A count of messages consumed per minute in the hour before the redeploy',
     ],
     answers: [0, 2, 3],
     explain:
-      'In progress at the start should equal finished plus returned at the end, and the new version should pick up the returned ones. Bodies do not prove anything the counts do not.',
+      'In progress at the start should equal finished plus returned at the end, and the new version should pick up the returned ones. The queue depth mixes in messages that were never taken, and a consume rate from before the redeploy says nothing about the messages in flight.',
   },
   {
     id: 'log-10024',

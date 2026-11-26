@@ -60,13 +60,13 @@ export default {
       type: 'single',
       prompt: 'An upload of 400 ranges crashes after range 250. How can a restarted flow avoid writing everything again?',
       options: [
-        'It cannot, because a file with missing ranges must be created again',
+        'Call Create File again with the same length to keep the written ranges',
         'Use a checkpoint or the List Ranges call to find the missing ranges',
         'Send the remaining ranges with x-ms-write: clear to fill the gaps',
         'Append the rest with an Append Block call from the crash point',
       ],
       answer: 1,
-      explain: 'The file already has its full size. Only the missing ranges need writing, and List Ranges shows which ranges hold data. A checkpoint in Object Store is a plain record of finished ranges. x-ms-write: clear empties ranges instead of writing them, and Append Block belongs to Blob Storage, not Azure Files.',
+      explain: 'The file already has its full size. Create File on an existing name starts a new empty file, so it throws the written ranges away. Only the missing ranges need writing, and List Ranges shows which ranges hold data. A checkpoint in Object Store is a plain record of finished ranges. x-ms-write: clear empties ranges instead of writing them, and Append Block belongs to Blob Storage, not Azure Files.',
     },
     {
       type: 'single',

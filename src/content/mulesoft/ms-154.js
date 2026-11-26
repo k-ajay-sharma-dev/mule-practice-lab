@@ -112,12 +112,12 @@ export default {
       prompt: 'A partner uses an old appliance limited to TLS 1.1, and a Mule client in another organization calling your `cloudhub.io` endpoint fails certificate validation. What do the docs tell you?',
       options: [
         'TLS 1.1 is not supported; the client adds the LetsEncrypt root',
-        'TLS 1.1 comes back with custom ciphers; the client trusts all',
+        'TLS 1.1 is available in a custom TLS context; the client adds the LetsEncrypt root',
         'TLS 1.1 works on internal endpoints; the client adds the app cert',
         'Last-Mile Security solves both the TLS and the trust failure',
       ],
       answer: 0,
-      explain: 'CloudHub 2.0 does not support TLS 1.0 or 1.1. Clients that must trust `cloudhub.io` certificates should add the LetsEncrypt root to their truststore. The feature comparison lists TLS 1.2 and 1.3 as supported, and 1.0 and 1.1 as not supported on CloudHub 2.0. Default ciphers cover TLS 1.3 and TLS 1.2 suites.',
+      explain: 'CloudHub 2.0 does not support TLS 1.0 or 1.1. Clients that must trust `cloudhub.io` certificates should add the LetsEncrypt root to their truststore. The feature comparison lists TLS 1.2 and 1.3 as supported, and 1.0 and 1.1 as not supported on CloudHub 2.0. Default ciphers cover TLS 1.3 and TLS 1.2 suites, and a custom TLS context does not bring TLS 1.1 back. Internal endpoints follow the same rule, and Last-Mile Security covers the hop from ingress to the app, not the client side.',
     },
   ],
   description: `

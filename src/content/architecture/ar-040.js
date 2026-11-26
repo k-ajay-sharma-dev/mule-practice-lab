@@ -34,13 +34,13 @@ export default {
       type: 'single',
       prompt: 'The Trip API runs on 2 replicas. Which statement about circuit state is accurate?',
       options: [
-        'It must be in a shared persistent Object Store, or the breaker fails',
-        'Per-replica state works; a shared store makes replicas agree but costs latency',
-        'It can live in a flow variable, which every replica can read',
-        'It belongs in an API Manager policy on the Trip API',
+        'It needs a shared persistent Object Store, so both replicas open together',
+        'Each replica can keep its own state, and the two may briefly disagree',
+        'It can live in an in-memory Object Store, which unclustered replicas share',
+        'It belongs at the load balancer, which stops routing to an open replica',
       ],
       answer: 1,
-      explain: 'Both stores are valid. An in-memory store gives each replica its own breaker, and each learns within seconds. A shared persistent store makes replicas agree but adds latency to every call. It is a conscious trade-off. A flow variable lives only for one event.',
+      explain: 'Per-replica state is valid. An in-memory store gives each replica its own breaker, and each learns within seconds. A shared persistent store is an option that makes replicas agree, but it adds latency to every call, so it is a trade-off and not a requirement. Without clustering, an in-memory Object Store is local to each replica, not shared. The load balancer cannot help, because the breaker guards the hotel partner, not a replica: both replicas call the same slow partner.',
     },
     {
       type: 'single',

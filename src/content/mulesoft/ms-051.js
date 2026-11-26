@@ -34,7 +34,7 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'A mobile team builds against the Anypoint mocking service, which simulates an API from its spec and returns the declared examples. The real API does not exist yet. What can the team learn from the mock?',
+      prompt: 'A mobile team builds against the Anypoint mocking service before the real API exists. What can the team learn from the mock?',
       options: [
         'Realistic latency and timeout behaviour',
         'The shape of the response the contract promises',
@@ -50,11 +50,11 @@ export default {
       options: [
         'Search and replace the mock URL in every flow',
         'Change the host and base path properties per environment',
-        'Load real data into the mock and keep calling it',
-        'Ask the Process API team to deploy on the mock URL',
+        'Add a Choice on an environment flag that picks the mock or the real request',
+        'Put an API proxy in front of the mock now, and repoint the proxy later',
       ],
       answer: 1,
-      explain: 'Keep the host and base path in environment properties and point them at the real endpoint when it is deployed. Then it is a configuration change; add client credentials once a contract exists and rerun the same integration tests.',
+      explain: 'Keep the host and base path in environment properties and point them at the real endpoint when it is deployed. Then it is a configuration change; add client credentials once a contract exists and rerun the same integration tests. A Choice leaves mock logic in the code, a proxy adds an app to run, and search and replace touches every flow.',
     },
     {
       type: 'order',
@@ -72,7 +72,7 @@ export default {
       prompt: 'The mobile team wants to load-test against the mock. Good idea?',
       options: [
         'Yes, the mock reflects the implementation\'s performance',
-        'No, a load test must target a deployed implementation',
+        'No, its timings say nothing about the real API',
         'Yes, once the public mock URL is enabled',
         'Only for GET requests, which the mock serves from cache',
       ],

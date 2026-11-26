@@ -34,13 +34,13 @@ export default {
       type: 'single',
       prompt: 'A procedure returns a SYS_REFCURSOR with 200,000 rows. What should the flow do?',
       options: [
-        'Read it into a list with a DataWeave map, then log the full result for support',
+        'Map it into a list with DataWeave, then write the list to a file in one go',
         'Declare it as a cursor output and stream the rows into a file or a batch job',
-        'Call the procedure once per row with a row number as an input parameter',
+        'Set the fetch size to 200,000, so all rows come back in one round trip',
         'Convert the cursor to a JSON string first so the connection can be released',
       ],
       answer: 1,
-      explain: 'A ref cursor is a pointer to an open result set on the server. It is read row by row while the connection stays open, so consume it before the connection goes back to the pool.',
+      explain: 'A ref cursor is a pointer to an open result set on the server. It is read row by row while the connection stays open, so stream it and consume it before the connection goes back to the pool. Mapping it into one list, or a fetch size of 200,000, puts every row in memory at once. Converting it to one JSON string builds the same full copy in memory.',
     },
     {
       type: 'single',

@@ -12,24 +12,24 @@ export default {
       prompt: 'Ad platforms keep changing yesterday’s numbers for up to seven days. How should the daily load work?',
       options: [
         'Reload the last seven days each day and replace those rows by key',
-        'Load yesterday once and never touch that day again',
+        'Load yesterday each day, and apply corrections in a monthly adjustment run',
         'Add each day’s new numbers on top of the totals already loaded',
         'Load each day only once it is seven days old and final',
       ],
       answer: 0,
-      explain: 'Reloading a rolling window and replacing rows keyed by platform, account, campaign and date keeps the numbers current. Adding on top double counts, and waiting a week makes daily reports useless.',
+      explain: 'Reloading a rolling window and replacing rows keyed by platform, account, campaign and date keeps the numbers current. A monthly adjustment leaves daily reports wrong for weeks. Adding on top double counts, and waiting a week makes daily reports useless.',
     },
     {
       type: 'single',
       prompt: 'One platform allows 200 API calls an hour for the whole agency, and the agency has 900 accounts on it. What do you do?',
       options: [
         'Use its bulk report endpoint, and pace any other calls from a queue',
-        'Call every account at once at 06:00 so the reports are ready early',
+        'Call each account in turn from 06:00, retrying when the platform throttles',
         'Load half of the accounts on one day and the other half the next',
         'Run the 900 calls from several servers so each has its own limit',
       ],
       answer: 0,
-      explain: 'Bulk reports cut the number of calls, and a paced queue stays under the limit. Calling all at once is throttled, half the accounts a day leaves reports a day old, and the limit belongs to the agency, not to each server.',
+      explain: 'Bulk reports cut the number of calls, and a paced queue stays under the limit. Calling each account in turn hits the limit after 200 calls and then spends hours retrying, half the accounts a day leaves reports a day old, and the limit belongs to the agency, not to each server.',
     },
     {
       type: 'multi',

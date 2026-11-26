@@ -94,11 +94,11 @@ export default {
       options: [
         'Full semver in the URL, e.g. /policies/v1.5.0',
         'Major version in the URL path; full semver as the Exchange asset version',
-        'Only in a custom header, never in the URL',
-        'Only in the Exchange asset version; the URL never carries one',
+        'Major and minor version in the URL, e.g. /policies/v1.5; patch only in Exchange',
+        'In the Exchange asset version, with no version segment in the URL',
       ],
       answer: 1,
-      explain: 'Only breaking changes should force consumers to change URLs. Minor and patch versions are tracked on the Exchange asset (contract) and never change the URL.',
+      explain: 'Only breaking changes should force consumers to change URLs. Minor and patch versions are tracked on the Exchange asset (contract) and never change the URL. A minor version in the URL makes every additive release a URL change for every partner. With no version in the URL, a breaking v2 cannot run next to v1 on its own path.',
     },
     {
       type: 'single',
@@ -108,10 +108,10 @@ export default {
         'Fork the whole stack, with separate Process and System APIs for v2',
         'Separate API Manager instances for v1 and v2, both calling the same Process and System APIs',
         'One API instance with a Choice router on a version query parameter',
-        'A second Mule app for v2 that calls the policy system directly, skipping the shared layers',
+        'Retire the v1 implementation and let the gateway rewrite v1 paths to v2',
       ],
       answer: 1,
-      explain: 'Separate instances give each version its own policies and client contracts. Sharing the lower layers keeps the cost of the old version small: v1 is only an older mapping in the Experience layer.',
+      explain: 'Separate instances give each version its own policies and client contracts. Sharing the lower layers keeps the cost of the old version small: v1 is only an older mapping in the Experience layer. Forking the whole stack doubles the cost for a change that lives only at the edge. One instance with a Choice router cannot give v1 and v2 their own policies, contracts and analytics. A path rewrite sends old requests to v2, whose breaking contract old clients cannot read.',
     },
     {
       type: 'order',

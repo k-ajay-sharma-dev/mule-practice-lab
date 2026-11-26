@@ -22,7 +22,7 @@ export default {
       type: 'single',
       prompt: 'The e-commerce app subscribes to the topic with a **non-durable** subscription. It is redeployed for 10 minutes during a promotion launch. What happens to price changes published in those 10 minutes?',
       options: [
-        'They are lost, as no subscription existed to keep them',
+        'That app misses them, while the other subscribers still get them',
         'They wait on the topic until the app reconnects',
         'They are moved to ActiveMQ.DLQ for later replay',
         'The publisher gets errors until the subscriber is back',
@@ -36,11 +36,11 @@ export default {
       options: [
         'A shared durable subscription used by both replicas',
         'Scale the app down to a single replica',
-        'Give each replica a different client ID',
+        'Give both replicas the same client ID and subscription name',
         'Switch both replicas to non-durable subscriptions',
       ],
       answer: 0,
-      explain: 'Both replicas consume from the same subscription name, so each message goes to only one of them. One replica removes the duplicates but also the high availability, and non-durable subscriptions lose messages during a redeploy. Two separate durable subscriptions are two copies. A **shared** subscription (JMS 2.0) load-balances one subscription across several consumers. Different client IDs would still create two subscriptions, so the duplicates remain.',
+      explain: 'Both replicas consume from the same subscription name, so each message goes to only one of them. One replica removes the duplicates but also the high availability, and non-durable subscriptions lose messages during a redeploy. Two separate durable subscriptions are two copies. A **shared** subscription (JMS 2.0) load-balances one subscription across several consumers. A plain durable subscription allows one active connection per client ID, so the second replica with the same client ID is refused.',
     },
     {
       type: 'match',

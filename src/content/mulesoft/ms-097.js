@@ -73,13 +73,13 @@ export default {
       type: 'single',
       prompt: 'The operations team wants Runtime Fabric application logs in Splunk. Which approach do the Runtime Fabric docs describe?',
       options: [
-        'An async SplunkHttp appender in the app log4j2.xml, with custom Log4j turned on for the instance',
-        'A Splunk target picked in Runtime Manager, which the log sidecar then uses',
-        'A synchronous Splunk appender, so no log line is lost when a pod stops',
-        'Edit the log4j2.xml of the Mule runtime image, which every app then shares',
+        'A SplunkHttp appender in the app log4j2.xml behind an async logger, with CUSTOM_LOG4J_ENABLED set to true',
+        'A SplunkHttp appender in the app log4j2.xml behind a synchronous logger, so no line is lost when a pod stops',
+        'A SplunkHttp appender in the log4j2.xml of the Mule runtime image, so every app on the instance shares it',
+        'A SplunkHttp appender in the app log4j2.xml behind an async logger; custom Log4j is on by default',
       ],
       answer: 0,
-      explain: 'The docs add a SplunkHttp appender to the application log4j2.xml and reference it from an async logger. Custom Log4j is off by default, so you set CUSTOM_LOG4J_ENABLED to true and restart the agent and the app. It needs Mule 4.3.0 or later. Only the application file can be changed, and the docs say not to use synchronous appenders. The log sidecar of agent 3.x sends logs to Anypoint Monitoring, and they still arrive there.',
+      explain: 'The docs add a SplunkHttp appender to the application log4j2.xml and reference it from an async logger. Custom Log4j is off by default, so you set CUSTOM_LOG4J_ENABLED to true and restart the agent and the app. It needs Mule 4.3.0 or later. The docs say not to use synchronous appenders, because they slow the app when Splunk is slow. Only the application file can be changed, not the one in the runtime image. The log sidecar of agent 3.x sends logs to Anypoint Monitoring, and they still arrive there.',
     },
     {
       type: 'single',

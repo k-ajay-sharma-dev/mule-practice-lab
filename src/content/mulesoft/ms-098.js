@@ -35,12 +35,12 @@ export default {
       prompt: 'The bank API presents a certificate signed by the bank\'s **private CA**, and the handshake fails. Which fix is right for production?',
       options: [
         'Add a `tls:trust-store` with the bank’s CA certificate to the request',
-        'Set `insecure="true"` on the `tls:trust-store` of the request',
+        'Add the bank’s server certificate, not its CA, to a `tls:trust-store`',
         'Add the bank’s CA certificate to the `tls:key-store` of the request',
         'Remove `tls:context` so the default JVM truststore is used instead',
       ],
       answer: 0,
-      explain: 'A client trusts a server when a chain of trust reaches a certificate in its truststore. `insecure="true"` turns validation off, and the docs say never to use it in production.',
+      explain: 'A client trusts a server when a chain of trust reaches a certificate in its truststore, so the private CA belongs there. Pinning the server certificate breaks at the next renewal. A keystore holds your own key and certificate, not the ones you trust. The default JVM truststore holds public CAs, not the bank\'s private CA.',
     },
     {
       type: 'match',

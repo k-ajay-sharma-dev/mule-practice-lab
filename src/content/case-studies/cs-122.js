@@ -50,13 +50,13 @@ export default {
       needsScenario: true,
       prompt: 'The payment provider slows down under load. Orders wait 40 seconds and the queue grows. What do you change?',
       options: [
-        'Confirm the hold, take payment from a queue and tell the buyer when it is done',
+        'Move the payment call off the buyer\'s request onto a queue',
         'Retry each payment call up to five times inside the buyer\'s request',
         'Raise the payment call timeout to 90 seconds so fewer orders fail',
         'Send each payment to a second provider when the first takes over 10 seconds',
       ],
       answer: 0,
-      explain: 'Moving payment off the request path keeps the front end responsive. The hold still expires, but its length can be set to cover a slow payment window. Retries in the request add load to a slow provider. A longer timeout keeps more threads waiting and the queue grows further. Failing over mid-payment risks charging the buyer twice.',
+      explain: 'Moving payment off the request path keeps the front end responsive: confirm the hold, take payment in the background and tell the buyer when it is done. The hold still expires, but its length can be set to cover a slow payment window. Retries in the request add load to a slow provider. A longer timeout keeps more threads waiting and the queue grows further. Failing over mid-payment risks charging the buyer twice.',
     },
     {
       type: 'match',

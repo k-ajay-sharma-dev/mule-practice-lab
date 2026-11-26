@@ -46,12 +46,12 @@ export default {
       prompt: 'You add a second, redundant VPN connection to another gateway in a different building. How does failover between the two connections behave?',
       options: [
         'Automatic with BGP routing; manual route changes with static routing',
-        'Always automatic, whichever routing type the connections use',
-        'Always manual, whichever routing type the connections use',
-        'Failover needs a MuleSoft support case to switch the routes',
+        'Automatic with static routing; with BGP the preferred path is set by hand',
+        'Automatic for both, as the private space checks the health of each connection',
+        'Manual for both, by marking one connection active in Runtime Manager',
       ],
       answer: 0,
-      explain: 'With static routing you fail over by modifying routes yourself. That difference is a good reason to prefer BGP. A redundant VPN also needs two gateway endpoints with different public IP addresses.',
+      explain: 'BGP withdraws the routes of a failed connection, so traffic moves on its own. With static routing you fail over by modifying routes yourself. That difference is a good reason to prefer BGP. A redundant VPN also needs two gateway endpoints with different public IP addresses.',
     },
     {
       type: 'single',

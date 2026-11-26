@@ -27,12 +27,12 @@ export const SET_8 = [
     options: [
       'Webhook rejected: signature check failed source=payhub status=401 remoteIp=203.0.113.7 correlationId=7f3c2a',
       'Webhook rejected: signature check failed source=payhub eventId=evt_2291 status=401 correlationId=7f3c2a',
-      'Webhook rejected, expected 9f2c41... got 1a7e03..., signing key=whsec_...',
-      'Webhook {"id":"evt_2291","type":"payment.succeeded","data":{"amount":120.00,"card":{...}}}',
+      'Webhook rejected: signature check failed source=payhub eventId=evt_2291 status=401 errorType=HTTP:UNAUTHORIZED correlationId=7f3c2a',
+      'Webhook rejected: signature check failed source=payhub eventId=evt_2291 status=401 next=retry in 10s correlationId=7f3c2a',
     ],
     answer: 1,
     explain:
-      'It says what happened, from where, which event and what the sender got back. The line with remoteIp=203.0.113.7 has no eventId, so you cannot ask the sender about that event. The line with signing key=whsec_... leaks the signing key, and the line with the raw webhook JSON dumps the body with card data.',
+      'It says what happened, from where, which event and what the sender got back. The line with remoteIp=203.0.113.7 has no eventId, so you cannot ask the sender about that event. Quillon does not retry a webhook it rejected; the sender decides whether to send it again, so next=retry is a false claim. HTTP:UNAUTHORIZED is raised when an HTTP Request in Mule gets a 401 back. Here Mule sent the 401, so no such error exists, and the field sends support looking at outbound calls.',
   },
   {
     id: 'log-8003',
@@ -116,13 +116,13 @@ export const SET_8 = [
     situation: 'Which line should Orrin Hardware log when the shadow engine gives a different price?',
     options: [
       'Shadow price mismatch quoteId=Q-7781 sku=SKU-118 oldPrice=19.90 newPrice=18.40 diffPct=-7.5 newEngine=price-engine-v2',
-      'ERROR Shadow engine returned the wrong price for quote Q-7781, check the new engine',
-      'Shadow price mismatch quoteId=Q-7781 sku=SKU-118 oldPrice=19.90 newPrice=18.40 diffPct=-7.5 served=old',
-      'Mismatch: request={...full quote...} old={...} new={...} customer={...}',
+      'Shadow price mismatch quoteId=Q-7781 sku=SKU-118 price=19.90 diffPct=-7.5 served=old',
+      'Shadow price mismatch quoteId=Q-7781 sku=SKU-118 oldPrice=19.90 newPrice=18.40 diffPct=-7.5 served=old correlationId=7f3c2a',
+      'Shadow price mismatch quoteId=Q-7781 sku=SKU-118 oldPrice=19.90 newPrice=18.40 diffPct=-7.5 served=new',
     ],
     answer: 2,
     explain:
-      'Labelled numbers can be charted and grouped by product. served=old shows the customer got the old price. The line with newEngine=price-engine-v2 has the same numbers but does not say which price the customer got. The full quote is large and may hold customer data.',
+      'Labelled numbers can be charted and grouped by product. served=old shows the customer got the old price. The line with newEngine=price-engine-v2 does not say which price the customer got. The line with one price cannot show both sides of the mismatch. In shadow mode the new engine only runs alongside, so served=new is false.',
   },
   {
     id: 'log-8008',
@@ -130,14 +130,14 @@ export const SET_8 = [
     situation: 'Which facts make the Orrin shadow mode logs useful for deciding when to switch?',
     options: [
       'Which engine served the customer',
-      'The customer email, to follow up on quotes where the engines differ',
+      'The difference as text, such as "new engine is cheaper"',
       'Both prices, as numbers',
       'The difference as a number, such as diffPct',
-      'The full request at INFO, so any mismatch can be replayed later',
+      'The old price only, since that is the price the customer saw',
     ],
     answers: [0, 2, 3],
     explain:
-      'With the served engine and the numbers, the team can see how often and by how much the engines differ. The email and the full request add risk and no insight.',
+      'With the served engine and the numbers, the team can see how often and by how much the engines differ. A difference written as text cannot be charted or averaged. The old price alone leaves nothing to compare.',
   },
   {
     id: 'log-8009',
@@ -205,14 +205,14 @@ export const SET_8 = [
     kind: 'choice',
     situation: 'Which line should Tallis log when a client\'s payroll export fails because a setting is missing?',
     options: [
-      'Tenant config missing for payroll export, check the tenant settings and retry',
+      'Payroll export failed: tenant setting missing tenantId=t-9 status=500 correlationId=7f3c2a',
       'Payroll export failed: tenant setting missing tenantId=t-9 setting=bankFileFormat status=500 correlationId=7f3c2a',
-      'Payroll export failed for Bramblewood Ltd, employees: [{"name":"...","salary":...}]',
+      'Payroll export failed: tenant setting missing tenant=Bramblewood Ltd setting=bankFileFormat status=500 correlationId=7f3c2a',
       'Payroll export failed: tenant setting missing setting=bankFileFormat status=500 runAt=2026-11-18T02:00:00Z correlationId=7f3c2a',
     ],
     answer: 1,
     explain:
-      'The tenant ID and the setting name tell support exactly what to fix. The line with runAt= has no tenantId, so in an app shared by 400 clients nobody knows whose settings to fix. The line for Bramblewood Ltd puts salaries in a log shared by all clients.',
+      'The tenant ID and the setting name tell support exactly what to fix. The line with runAt= has no tenantId, so in an app shared by 400 clients nobody knows whose settings to fix. The line without setting= leaves support to guess which one is missing. A client name can change and is not what the tenant settings are keyed by, so searches by tenantId miss that line.',
   },
   {
     id: 'log-8013',
@@ -221,13 +221,13 @@ export const SET_8 = [
     options: [
       'tenantId on every line',
       'A saved search per tenant for support, with access rules',
-      'Employee names on each line, to help support find records',
+      'The tenant name instead of tenantId, since support knows clients by name',
       'A log level that each client sets for itself in its tenant settings',
       'The same field names for every tenant',
     ],
     answers: [0, 1, 4],
     explain:
-      'tenantId lets support filter one client, access rules keep clients apart, and shared field names keep searches the same. Names are personal data, and client-chosen levels can flood the shared logs.',
+      'tenantId lets support filter one client, access rules keep clients apart, and shared field names keep searches the same. A name can change or be shared by two clients, so it is a poor key. Client-chosen levels can flood the shared logs.',
   },
   {
     id: 'log-8014',
@@ -294,13 +294,13 @@ export const SET_8 = [
     situation: 'Which line should Bellmont log when a sync conflict is settled by a rule?',
     options: [
       'Sync conflict resolved customerId=C-2231 field=phone crmVersion=14 erpVersion=15 detectedBy=nightly-sync correlationId=7f3c2a',
-      'Conflict: CRM phone +44 7700 900123, ERP phone +44 7700 900456',
-      'WARN data mismatch between CRM and ERP for a customer, resolved by rule',
+      'Sync conflict resolved customerId=C-2231 field=phone winner=crm rule=erp-wins-contact-fields correlationId=7f3c2a',
+      'Sync conflict detected customerId=C-2231 field=phone crmVersion=14 erpVersion=15 correlationId=7f3c2a',
       'Sync conflict resolved customerId=C-2231 field=phone winner=erp rule=erp-wins-contact-fields correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'It names the record, the field, which side won and why. The line with detectedBy=nightly-sync leaves out the winner and the rule, so a user who lost a change gets no answer. The "Conflict: CRM phone" line copies phone numbers, which are personal data, into the logs.',
+      'It names the record, the field, which side won and why. The line with detectedBy=nightly-sync leaves out the winner and the rule, so a user who lost a change gets no answer. The "detected" line is written before the rule runs, so it says nothing about the outcome. The line with winner=crm names a rule under which the ERP wins a phone field, so the line contradicts itself and support cannot tell which value was kept.',
   },
   {
     id: 'log-8018',
@@ -309,13 +309,13 @@ export const SET_8 = [
     options: [
       'Both phone numbers, so support can see which value was lost',
       'The customer ID',
-      'The full customer record from each system',
+      "The customer's name, so support can find the record without the ID",
       'The field name',
       'Which side won and the rule used',
     ],
     answers: [1, 3, 4],
     explain:
-      'IDs, field and rule explain the decision. The values themselves are personal data and can be read in each system by someone allowed to see them.',
+      'IDs, field and rule explain the decision. The values and the name are personal data, and someone allowed to see them can read them in each system by the customer ID.',
   },
   {
     id: 'log-8019',
@@ -382,14 +382,14 @@ export const SET_8 = [
     kind: 'choice',
     situation: 'Which progress line should the Wrenfield migration log?',
     options: [
-      'Progress: still running, about 40 percent of the policies done so far',
+      'Policy migration progress migrated=850000 total=2000000 failed=312 percentDone=42.5 lastPolicyId=P-850000',
       'Policy migration progress migrated=850000 total=2000000 failed=312 ratePerMin=4100 elapsedMin=207 runId=MIG-07',
       'Policy migration progress migrated=850000 total=2000000 failed=312 ratePerMin=4100 lastPolicyId=P-850000',
-      'Migrated policy P-000001 (one line for every policy)',
+      'Policy migrated policyId=P-850000 status=ok durationMs=12 runId=MIG-07',
     ],
     answer: 2,
     explain:
-      'The counts and the rate show how far the job is and when it will end. lastPolicyId shows where to restart, and the line with runId=MIG-07 lacks it. One line per policy is 2 million lines that bury the failures.',
+      'The counts and the rate show how far the job is and when it will end, and lastPolicyId shows where to restart. The line with runId=MIG-07 lacks the restart point. percentDone repeats what the counts say but gives no rate, so nobody can tell when the job ends. A line per policy is 2 million lines that bury the failures.',
   },
   {
     id: 'log-8023',
@@ -399,12 +399,12 @@ export const SET_8 = [
       'The last committed policy ID on every progress line',
       'A line for every policy at INFO, so a restart can find the last one',
       'A line for each failed policy, with its ID and the error',
-      'The full policy at DEBUG, left on in production',
-      'The run ID on every line, so two runs are never mixed',
+      'The total number of policies, logged once when the run starts',
+      'The run ID on every line, so two runs are not mixed up',
     ],
     answers: [0, 2, 4],
     explain:
-      'The last committed ID tells you where to restart, failure lines tell you what to rerun, and the run ID keeps runs apart. A line per policy and full policies flood the logs.',
+      'The last committed ID tells you where to restart, failure lines tell you what to rerun, and the run ID keeps runs apart. The total shows progress but says nothing about where a crash stopped. A line per policy floods the logs.',
   },
   {
     id: 'log-8024',

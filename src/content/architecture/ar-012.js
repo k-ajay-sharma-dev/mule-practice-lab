@@ -34,13 +34,13 @@ export default {
       type: 'single',
       prompt: 'Which identity should the pipeline use to deploy to CloudHub 2.0?',
       options: [
-        'A senior developer\'s Anypoint account, with its token kept in the pipeline secrets',
+        'A Connected App that acts on behalf of a user, authorized once by the release manager',
         'A dedicated Anypoint user for the pipeline, with its password kept in CI secrets',
-        'A Connected App (client credentials) with only the deployment scopes it needs',
-        'A Connected App with Organization Administrator rights, so no scope is ever missing',
+        'A Connected App that acts on its own behalf, with deploy scopes for the target environments',
+        'A Connected App that acts on its own behalf, with deploy scopes across every business group',
       ],
       answer: 2,
-      explain: 'Connected Apps give the pipeline its own least-privilege identity. Humans keep read-only access to Prod.',
+      explain: 'A Connected App with client credentials gives the pipeline its own identity, and scopes limited to the environments it deploys to keep it least privilege. Humans keep read-only access to Prod. An app acting on behalf of a user carries that person\'s rights and stops working when they leave. A pipeline user with a password is a shared human-style login that MFA and rotation fit badly. Scopes across every business group give one leaked secret far more reach than the pipeline needs.',
     },
     {
       type: 'single',
@@ -72,11 +72,11 @@ export default {
       options: [
         'A change advisory board reviews each release, and a senior developer then deploys it by hand',
         'A reviewer approves the Prod stage against a change ticket, and only the pipeline can deploy',
-        'Any developer can deploy with a personal account, and raises a change ticket afterwards',
-        'The pipeline deploys to Prod with no review, and developers keep deploy rights for emergencies',
+        'Developers trigger the Prod deploy from their own machines with the Mule Maven plugin, after a pull request review',
+        'The pipeline deploys to Prod once tests pass, and developers keep Prod deploy rights for hotfixes',
       ],
       answer: 1,
-      explain: 'Lightweight approval plus pipeline-only deploy rights fits a small team. Nobody can upload a local build to Prod, and the reviewer step stays quick. A heavy board, such as a two-week change advisory board, would slow delivery without adding safety the pipeline does not already give. Also deploy in working hours rather than on Friday evenings, except in emergencies, so people can react.',
+      explain: 'Lightweight approval plus pipeline-only deploy rights fits a small team. Nobody can upload a local build to Prod, and the reviewer step stays quick. A heavy board, such as a two-week change advisory board, would slow delivery without adding safety the pipeline does not already give, and a hand deploy is how the untested JAR got in. A Maven deploy from a laptop pushes a local build even after a good review. Developer deploy rights for hotfixes leave the same door open. Also deploy in working hours rather than on Friday evenings, except in emergencies, so people can react.',
     },
   ],
   description: `

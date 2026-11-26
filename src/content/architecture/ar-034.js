@@ -47,11 +47,11 @@ export default {
         'Delivery model: queue or log',
         'Retention and replay needs',
         'Ordering guarantees and fan-out',
-        'Which broker the team used on its last project',
+        'Which broker the company\'s cloud provider recommends',
         'How many connectors Anypoint Exchange lists for each broker',
       ],
       answer: [0, 1, 2],
-      explain: 'The criteria are about the workload and the team that runs it, documented so the choice is repeatable. Throughput, operations effort (managed or self-run), skills and cost belong on the same list. Habit and the number of listed connectors say nothing about the workload.',
+      explain: 'The criteria are about the workload and the team that runs it, documented so the choice is repeatable. Throughput, operations effort (managed or self-run), skills and cost belong on the same list. A provider recommends its own service whatever the workload, and the number of listed connectors says nothing about it either; one connector per broker is all a flow needs.',
     },
     {
       type: 'single',

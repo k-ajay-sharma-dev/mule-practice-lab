@@ -92,13 +92,13 @@ export default {
       detail: true,
       prompt: 'The app declares `minMuleVersion` 4.9.0, and production runs a later 4.9 patch. Which runtime do the tests use in Maven unless you change it?',
       options: [
-        'The version in `minMuleVersion`, unless you override it',
-        'The latest runtime in the Enterprise repository',
+        '4.9.0, the minimum version the app declares',
+        'The latest 4.9 patch in the Enterprise repository',
         'The runtime of the Production deployment target',
         'The runtime set in the `armDeployment` block',
       ],
       answer: 0,
-      explain: 'The `munit.runtimeversion` property overrides it. The deprecated `runtimeVersion` property is still supported, but it shows a warning that asks you to migrate. `runtimeProduct` comes from `requiredProduct` in the same way.',
+      explain: 'By default MUnit runs against the version in `minMuleVersion`, not the latest patch and not the version of any deployment target or deployment block. The `munit.runtimeversion` property overrides it. The deprecated `runtimeVersion` property is still supported, but it shows a warning that asks you to migrate. `runtimeProduct` comes from `requiredProduct` in the same way.',
     },
   ],
   description: `

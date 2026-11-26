@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'A partner sends a 5 MB zip that expands to 40 GB. What is this called, and what is the risk?',
       options: [
-        'Good compression of text data, which carries no real risk',
+        'Normal for CSV or log data, which often packs this well',
         'A zip bomb: unpacking it can fill memory or disk and stop the worker',
         'A corrupt archive, since a real zip cannot grow that much',
         'A split archive whose other parts have not arrived yet',
       ],
       answer: 1,
-      explain: 'It may be an attack or a mistake. Either way, the flow must protect itself.',
+      explain: 'A ratio of 8,000 to 1 is far beyond what real data packs to, so treat it as a zip bomb. It may be an attack or a mistake. Either way, the flow must protect itself. The zip format allows this growth, so the file need not be corrupt. A split archive part holds only its own share of the data.',
     },
     {
       type: 'multi',
@@ -62,11 +62,11 @@ export default {
       options: [
         'Read the file into a byte array and compress it in one call',
         'Pipe the stream through the compressor while the file is written',
-        'Load the file into a variable, then compress the variable',
+        'Write the file first, then have a second flow read it as a string and compress it',
         'Send it as is and ask the receiver to compress it after upload',
       ],
       answer: 1,
-      explain: 'For example the Compression module on a stream, or a small Java helper. Check that the compressor you use streams. Some tools build the whole output first.',
+      explain: 'For example the Compression module on a stream, or a small Java helper. Check that the compressor you use streams. Some tools build the whole output first. A byte array or a string holds the whole file in heap, even when a second flow does the work. Sending it as is moves the problem to the transfer and the receiver.',
     },
     {
       type: 'single',

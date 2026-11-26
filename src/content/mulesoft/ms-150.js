@@ -12,12 +12,12 @@ export default {
       prompt: '`exp-tracking` handles a steady 60 requests per second and has a strict latency target. The owner proposes 2 replicas of 0.1 vCore because "small replicas can burst". What do the docs say?',
       options: [
         'Bursting is not guaranteed; steady load needs 1 vCore or more',
-        'Every replica size bursts to a full vCore whenever it needs to',
-        'Bursting is guaranteed in a production environment only',
-        'Two 0.1 vCore replicas perform like one 1 vCore replica',
+        'Bursting is not guaranteed; steady load needs more 0.1 vCore replicas, not bigger ones',
+        'Bursting is reliable for steady load once the app runs in a private space',
+        'Two 0.1 vCore replicas handle steady load like one 1 vCore replica',
       ],
       answer: 0,
-      explain: 'Replicas under 1 vCore have limited CPU and I/O, and bursting depends on node resources. Bursting helps start-up time and infrequent large workloads, and it is explicitly not guaranteed. A steady latency-sensitive load is the case the docs point to larger replicas for.',
+      explain: 'Replicas under 1 vCore have limited CPU and I/O, and bursting depends on node resources. Bursting helps start-up time and infrequent large workloads, and it is explicitly not guaranteed, in a shared or a private space. A steady latency-sensitive load is the case the docs point to larger replicas for. More small replicas add capacity, but each one still has the same limited CPU, so latency stays uneven.',
     },
     {
       type: 'match',

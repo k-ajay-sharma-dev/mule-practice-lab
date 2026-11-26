@@ -37,13 +37,13 @@ export default {
       needsScenario: true,
       prompt: 'How should the framework be distributed to 60 apps?',
       options: [
-        'Copy the 300 lines of error XML into each project',
+        'A Mule domain project with the global error handler, shared by all 60 apps',
         'A shared Mule library added as a dependency and set as the default error handler',
         'A Maven archetype that generates the error XML into each new project',
         'A separate Mule app that every API calls on error',
       ],
       answer: 1,
-      explain: 'A dependency (a mule-plugin with global error handlers, logging and DataWeave modules) is reused, not copied, so a fix ships by bumping a version instead of editing 60 apps. A separate error app adds a network call to every failure.',
+      explain: 'A dependency (a mule-plugin with global error handlers, logging and DataWeave modules) is reused, not copied, so a fix ships by bumping a version instead of editing 60 apps. A domain project cannot be installed through Runtime Manager, which is how apps reach CloudHub 2.0. A domain also shares resources such as connector configs, not behavior such as error handlers. An archetype copies the XML once at creation, so later fixes still mean editing 60 apps. A separate error app adds a network call to every failure.',
     },
     {
       type: 'single',
@@ -62,13 +62,13 @@ export default {
       type: 'single',
       prompt: 'A System API returns 500 to the Process API. What does the Process API return to its caller?',
       options: [
-        '500 with the System API\'s stack trace',
+        '503 with a Retry-After header and the standard error body',
         '502 with the standard error body',
         '500 with the System API\'s error body passed on unchanged',
-        '400, so the caller does not retry',
+        '504 with the standard error body',
       ],
       answer: 1,
-      explain: 'Errors are propagated with meaning: a downstream failure becomes a gateway-type error at the next layer, never a leaked stack trace.',
+      explain: 'Errors are propagated with meaning: a downstream failure becomes a gateway-type error at the next layer, with the standard body and no leaked details. A 503 says this API itself is overloaded or down, and Retry-After promises a recovery time nobody knows. Passing the System API body on leaks its internals and its format. A 504 means the downstream call timed out, but here the System API answered.',
     },
     {
       type: 'single',

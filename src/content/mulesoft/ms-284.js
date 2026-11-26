@@ -70,13 +70,13 @@ export default {
       type: 'single',
       prompt: 'The flow reads files from the listener and the app runs on two cluster nodes. What should you set?',
       options: [
-        'Nothing, because the FTP server locks a file once a client reads it',
+        'Set max concurrency to one on the listener of each node',
         'Run the listener on the primary node only',
         'Enable the watermark, which keeps the nodes from reading the same file',
         'Give each node a different polling frequency so they do not overlap',
       ],
       answer: 1,
-      explain: 'With primary node only, the two nodes do not pick the same file. Polling sources in a cluster should run on the primary node. Check that your runtime and deployment model support this setting.',
+      explain: 'With primary node only, the two nodes do not pick the same file. Max concurrency limits work on one node, so both nodes can still pick the same file. Polling sources in a cluster should run on the primary node. Check that your runtime and deployment model support this setting.',
     },
   ],
   description: `

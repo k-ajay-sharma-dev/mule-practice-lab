@@ -13,11 +13,11 @@ export default {
       options: [
         'Raise the checkout timeout to 60 seconds so slow calls finish before a retry',
         'Send the basket ID as an idempotency key; a repeated key gets the first result',
-        'Stop the checkout retrying and show an error so the customer orders again',
+        'Before creating, look for an order with the same customer and total from the last minute',
         'Run a nightly job that finds and cancels duplicate orders before they ship',
       ],
       answer: 1,
-      explain: 'A timeout does not mean the order failed, so retries are needed but must be safe. An idempotency key stored with the first result makes the retry return the same order. Longer timeouts and nightly clean-up only hide the problem.',
+      explain: 'A timeout does not mean the order failed, so retries are needed but must be safe. An idempotency key stored with the first result makes the retry return the same order. A longer timeout only moves the point where the retry starts. Matching on customer and total is a guess: it blocks a real second order with the same total, and two calls in flight at once both find nothing and both create. Nightly clean-up finds duplicates after customers have seen them and stock was reserved twice.',
     },
     {
       type: 'single',

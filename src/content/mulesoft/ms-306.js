@@ -70,15 +70,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Where should the counts of loaded and failed records be written at the end?',
+      prompt: 'On Complete writes the failed count from the batch job result. The row by row fallback sent 7 rows to the reject table, yet the failed count is 0. Why?',
       options: [
-        'In each batch step, with a Logger per record',
-        'In On Complete, from the batch job result, into the job log table',
-        'In the flow after the batch job, from the payload it returns',
-        'In the aggregator, by adding up the size of each block',
+        'The fallback handled each error inside the aggregator, so the job saw those records as successful',
+        'On Complete ran before the last aggregator block had committed, so its failures were not counted yet',
+        'Aggregator failures are counted once per block, so the count only rises when a whole block fails',
+        'Failed records are counted only by a step with an ONLY_FAILURES accept policy, and the job has none',
       ],
-      answer: 1,
-      explain: 'On Complete sees totals for the job. Add your own counts for rows that the fallback rejected.',
+      answer: 0,
+      explain: 'A record counts as failed only when an error reaches the batch step. The fallback caught each error, so the job marked the records as successful. Count the run rows in the reject table and use that number in the job log. On Complete runs after all blocks are done. A failed aggregator marks every record of its block as failed, one per record. Accept policies decide which records enter a step, not how failures are counted.',
     },
   ],
   description: `

@@ -35,13 +35,13 @@ export default {
       type: 'single',
       prompt: 'The maximum deliveries is set to 10 and the target API is down for an hour. What is the risk?',
       options: [
-        'None, the messages wait on the queue',
+        'The queue stops delivering after 10 failures in a row, until someone resumes it',
         'Good messages use up their deliveries and land in the DLQ',
-        'None, as only an explicit Nack counts toward the limit',
+        'A failed call to the API is not a delivery, so the messages wait on the queue',
         'Anypoint MQ slows redelivery until the API is back',
       ],
       answer: 1,
-      explain: 'Good messages can use up their 10 deliveries in minutes, though nothing is wrong with them. Fast redelivery burns through the limit during an outage. Stop consuming while the target is down, or retry with a delay, so the DLQ holds only real failures.',
+      explain: 'Every delivery counts, whatever made the flow fail, and Anypoint MQ does not pause the queue or slow redelivery for you. Good messages can use up their 10 deliveries in minutes, though nothing is wrong with them. Fast redelivery burns through the limit during an outage. Stop consuming while the target is down, or retry with a delay, so the DLQ holds only real failures.',
     },
     {
       type: 'single',

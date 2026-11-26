@@ -24,12 +24,12 @@ export default {
       prompt: 'Finance must keep invoices for seven years by law. What happens to the customer’s data in finance?',
       options: [
         'Keep what the law requires, restrict its use, and record why in the case',
-        'Delete the invoices too, because erasure overrides other duties',
-        'Refuse the whole erasure request, because some data must be kept',
+        'Anonymise the name and address on the invoices, and keep the amounts and dates',
+        'Keep the invoices, and mark finance as erased in the case so it can close',
         'Keep all finance data, including marketing preferences, unchanged',
       ],
       answer: 0,
-      explain: 'A legal duty to keep records can override erasure for that data. The case must record the reason, and the data must not be used for other purposes.',
+      explain: 'A legal duty to keep records can override erasure for that data. The case must record the reason, and the data must not be used for other purposes. An invoice with the customer removed no longer meets the duty to keep it. Marking finance as erased records something that did not happen. Marketing preferences are not covered by the duty, so they must go.',
     },
     {
       type: 'multi',

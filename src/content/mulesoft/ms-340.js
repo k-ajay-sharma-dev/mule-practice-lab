@@ -13,10 +13,10 @@ export default {
         'When the first part appears, so the load can start early',
         'When the control file appears and every part it lists is present',
         'At a fixed time each night, when the parts are usually there',
-        'When the folder holds as many files as it did the day before',
+        'When the control file appears, since the platform writes it after the parts',
       ],
       answer: 1,
-      explain: 'Each listed part must also have the right size. The control file is the signal that the set is complete.',
+      explain: 'The control file is the signal that the set is complete, but each part it lists must also be there with the right size, since a part upload can still be running or can have failed. The first part alone is half a set. A fixed time is a guess.',
     },
     {
       type: 'order',
@@ -36,11 +36,11 @@ export default {
       options: [
         'Load the 5 parts now, then load part 3 on its own when it arrives',
         'Do not load, alert the platform team, and keep checking until a cut off',
-        'Load yesterday’s part 3 in its place so the plan is whole',
+        'Load the 5 parts and mark the plan partial, so planners know part 3 is missing',
         'Delete the control file, so the platform sees the gap and sends the set again',
       ],
       answer: 1,
-      explain: 'The alert names the missing part. Half a plan is worse than a late plan. Stores would order from wrong numbers.',
+      explain: 'The alert names the missing part. Half a plan is worse than a late plan, since stores would order from wrong numbers, flag or no flag. Loading part 3 later leaves hours with a broken plan in use. Deleting the control file loses the evidence and tells the platform nothing.',
     },
     {
       type: 'multi',
@@ -62,11 +62,11 @@ export default {
       options: [
         'Load it, since 50 rows in 2 million is within tolerance',
         'Mark the run failed, find the short part from per part counts, and reload',
-        'Insert 50 placeholder rows so the totals match and the plan can load',
-        'Update the control file count to match what was loaded',
+        'Load it, and send the 50 row gap to the platform team as a warning',
+        'Rerun the whole load from the same files, since a block may have failed silently',
       ],
       answer: 1,
-      explain: 'Per part counts point straight at the part with the gap.',
+      explain: 'Per part counts point straight at the part with the gap. A plan short of rows is wrong whatever the share, so it must not load, with or without a warning. A blind rerun from the same files gives the same count when a part is short at the source.',
     },
     {
       type: 'single',

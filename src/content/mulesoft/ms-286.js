@@ -45,10 +45,10 @@ export default {
         'The server host key fingerprint, added to a known_hosts file',
         'A keystore with the client certificate and its private key',
         'A TLS context on the FTP connection config',
-        'A truststore set to insecure, since a private CA cannot be checked',
+        'Implicit FTPS on port 990, as client certificates need it',
       ],
       answer: [0, 2, 3],
-      explain: 'FTPS uses TLS certificates, like HTTPS. The truststore lets Mule trust a server certificate from a private CA, the keystore holds the client certificate the partner asks for, and the TLS context on the connection ties them in. Host key fingerprints and known_hosts belong to SFTP, which runs over SSH. A private CA can be checked once its certificate is in the truststore. Setting the truststore to insecure accepts any server certificate, which throws the protection away.',
+      explain: 'FTPS uses TLS certificates, like HTTPS. The truststore lets Mule trust a server certificate from a private CA, the keystore holds the client certificate the partner asks for, and the TLS context on the connection ties them in. Host key fingerprints and known_hosts belong to SFTP, which runs over SSH. Client certificates work with explicit FTPS too, so the mode and port of the partner decide that, not the certificate.',
     },
     {
       type: 'single',

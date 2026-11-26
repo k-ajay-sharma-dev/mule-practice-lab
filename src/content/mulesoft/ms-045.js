@@ -24,12 +24,12 @@ export default {
       prompt: 'The insurer\'s security team allows outbound HTTPS from the cluster but refuses any inbound rule from the internet. Can the platform team still deploy and manage apps on RTF from Runtime Manager?',
       options: [
         'Only with an inbound rule for MuleSoft\'s control plane IP ranges',
-        'Only through an Anypoint VPN tunnel between the cluster and MuleSoft',
+        'No, as Runtime Manager pushes each deployment into the cluster',
         'Yes, but each deployment must then be applied with `kubectl` by hand',
         'Yes, since the RTF agent opens outbound connections to the control plane',
       ],
       answer: 3,
-      explain: 'The RTF agent initiates outbound connections to the control plane and turns deployments from Runtime Manager into Kubernetes objects, so no inbound connectivity from MuleSoft is needed. No VPN is required, and deployments still come from Runtime Manager. The cluster also needs outbound access to pull runtime images and app artifacts.',
+      explain: 'The RTF agent initiates outbound connections to the control plane and turns deployments from Runtime Manager into Kubernetes objects, so no inbound connectivity from MuleSoft is needed. Runtime Manager does not push into the cluster, no VPN is required, and deployments still come from Runtime Manager. The cluster also needs outbound access to pull runtime images and app artifacts.',
     },
     {
       type: 'single',
@@ -38,11 +38,11 @@ export default {
       options: [
         'It works, as both replicas share one runtime inside the RTF agent',
         'It fails at times, as each replica is a pod with its own filesystem',
-        'It works, as RTF mounts one shared volume for all replicas by default',
+        'It fails each time, as the two steps always run in separate pods',
         'It works once clustering is enabled, since the replicas then share files',
       ],
       answer: 1,
-      explain: 'The agent creates the Kubernetes objects for the app in an environment-linked namespace; each replica is a pod with its own Mule runtime and its own local filesystem. The agent runs no apps, and RTF mounts no shared volume by default. Clustering shares things such as primary-node scheduling and VM queues, not local files. Keep shared state in Persistence Gateway, a database or external storage.',
+      explain: 'The agent creates the Kubernetes objects for the app in an environment-linked namespace; each replica is a pod with its own Mule runtime and its own local filesystem. The agent runs no apps, and RTF mounts no shared volume by default. It fails only some of the time, because the later step often runs on the same replica as the write. Clustering shares things such as primary-node scheduling and VM queues, not local files. Keep shared state in Persistence Gateway, a database or external storage.',
     },
     {
       type: 'single',
@@ -51,10 +51,10 @@ export default {
         'Object Store v2 in MuleSoft\'s cloud, with no configuration',
         'Persistence Gateway, backed by a PostgreSQL database you provide',
         'A Kubernetes volume that RTF mounts by default',
-        'None, because Object Store cannot be used on RTF',
+        'Clustering the replicas, so the store is shared in memory across pods',
       ],
       answer: 1,
-      explain: 'The docs describe Persistence Gateway as what lets apps store and share data across replicas and restarts. It keeps the data in a PostgreSQL database you create.',
+      explain: 'The docs describe Persistence Gateway as what lets apps store and share data across replicas and restarts. It keeps the data in a PostgreSQL database you create. Object Store v2 is a CloudHub service, RTF mounts no volume for it, and a clustered in-memory store is lost when all replicas restart.',
     },
     {
       type: 'match',

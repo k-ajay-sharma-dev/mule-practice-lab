@@ -71,13 +71,13 @@ export default {
       type: 'single',
       prompt: 'Why do some teams use UPDATE then INSERT instead of MERGE?',
       options: [
-        'MERGE cannot be called from the Mule Database connector',
+        'MERGE plans are compiled again on each run, while plain statements reuse theirs',
         'Two plain statements are clearer to tune and avoid known MERGE issues',
-        'UPDATE then INSERT is safe under concurrency without any lock hints',
-        'MERGE cannot update and insert in the same statement',
+        'UPDATE then INSERT takes fewer locks, so it needs no hints under concurrency',
+        'MERGE scans the whole target, while UPDATE then INSERT can seek on the key',
       ],
       answer: 1,
-      explain: 'The cost is two passes over the data. Both need protection against concurrency. Both work. Choose one, protect it against concurrency and test it with duplicates and empty sources.',
+      explain: 'Separate statements are clearer to read and tune, and they avoid the known MERGE bugs. The cost is two passes over the data. MERGE plans are cached like other plans, and MERGE can seek on an indexed key. Both forms need protection against concurrency, such as HOLDLOCK or a unique key with a retry. Both work. Choose one, protect it against concurrency and test it with duplicates and empty sources.',
     },
   ],
   description: `

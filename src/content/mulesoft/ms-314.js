@@ -34,13 +34,13 @@ export default {
       type: 'single',
       prompt: 'An HTML job report shows customer data that a record contained, such as a name with a <script> tag. What should the flow do?',
       options: [
-        'Nothing, since mail clients never run scripts in a message',
+        'Remove any text between < and > from each value before it goes into the body',
         'Escape values put into HTML, so text cannot become markup',
-        'Encode the HTML body in base64 so the tag cannot be read',
+        'Set the body content type to text/html with charset=UTF-8, so the tag shows as text',
         'Drop the record from the load, since it holds a script',
       ],
       answer: 1,
-      explain: 'Most clients block scripts, but broken or misleading markup is still a risk. Better still, keep such data out of the mail.',
+      explain: 'Escaping turns < and & into entities, so the value shows as written and cannot become markup. Removing text between angle brackets changes real data and misses broken tags. A text/html content type tells the client to render markup, which is the problem. The record may be valid data, so dropping it from the load is not the fix. Better still, keep such data out of the mail.',
     },
     {
       type: 'single',

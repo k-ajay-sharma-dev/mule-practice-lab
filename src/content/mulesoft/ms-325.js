@@ -58,13 +58,13 @@ export default {
       type: 'single',
       prompt: 'A row by row fallback rejected 7 rows inside the aggregator, but the job counts them as successful. How do you report true numbers?',
       options: [
-        'Report them as successful, since the job result is the source of truth',
+        'Raise an error after the fallback, so the aggregator marks only the 7 rows as failed',
         'In On Complete, count the run’s reject rows and subtract them from successful',
         'Fail the whole block whenever one row in it is rejected',
         'Add them up in a record variable and read it in On Complete',
       ],
       answer: 1,
-      explain: 'The reject table is the source of truth. It survives restarts, which in memory counters do not.',
+      explain: 'The reject table is the source of truth. It survives restarts, which in memory counters do not. An error from an aggregator marks every record of the block as failed, not only the 7. Failing the whole block throws away the good rows too. Record variables end with each record, so On Complete cannot read them.',
     },
     {
       type: 'single',
@@ -72,11 +72,11 @@ export default {
       options: [
         'The full batch job result as JSON, with each step result',
         'Run ID, job instance ID, table, the counts and elapsed time',
-        'Only "Job done" and the time, to keep the log small',
-        'Every record key, so support can search for any record',
+        'Run ID, job instance ID, the counts and the keys of the failed records',
+        'Run ID, job instance ID, table and the counts, at DEBUG level to keep production logs small',
       ],
       answer: 1,
-      explain: 'The counts are total, loaded, rejected and not processed. Support can then match the log line to the job log row.',
+      explain: 'The counts are total, loaded, rejected and not processed. Support can then match the log line to the job log row. The full result as JSON is long and hard to search. On Complete has no record keys, only counts, so failed keys must come from the reject table. A job summary is the line support needs in production, so DEBUG hides it.',
     },
   ],
   description: `

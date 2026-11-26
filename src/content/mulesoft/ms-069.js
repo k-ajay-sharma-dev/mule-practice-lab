@@ -36,11 +36,11 @@ export default {
       options: [
         'A deferred CSV transform written straight to sftp:write',
         'Non-repeatable streaming on db:select when the result is read only once',
-        'Logging the full payload at INFO so each nightly run can be traced',
+        'A fetchSize equal to the row count, so one round trip reads it all',
         'Logging sizeOf(payload) as the row count before the SFTP write',
       ],
       answer: [0, 1],
-      explain: 'Deferred output (`output application/csv deferred=true`) and a single read pass let rows flow from Oracle to SFTP. Logging the payload or sizeOf() consumes the whole stream (and with repeatable streaming buffers all of it) before the write.',
+      explain: 'Deferred output (`output application/csv deferred=true`) and a single read pass let rows flow from Oracle to SFTP. Logging sizeOf() consumes the whole stream (and with repeatable streaming buffers all of it) before the write. A fetchSize of 12 million makes the driver hold every row in one fetch, which is the memory spike you wanted to avoid.',
     },
     {
       type: 'single',
@@ -61,12 +61,12 @@ export default {
       prompt: 'The table also has `LABEL_PDF BLOB` (pallet labels) and `NOTES CLOB`. How should the export treat them?',
       options: [
         'Leave them out of the CSV and fetch them on demand',
-        'Include them, as LOBs cost nothing once the row is fetched',
+        'Include them, with a larger fetchSize so the LOBs arrive in fewer trips',
         'Convert the BLOB to text in SQL with TO_CHAR',
         'Encode them as Base64 in the CSV so the partner has them',
       ],
       answer: 0,
-      explain: 'LOB values are read through the open connection, add per-row cost and can be large. LOBs are fetched separately from the row data and can be megabytes each. Only select the columns the consumer needs (`SELECT *` is a common cause of slow exports).',
+      explain: 'LOB values are read through the open connection, add per-row cost and can be large. LOBs are fetched separately from the row data and can be megabytes each, so a larger fetchSize does not remove that cost. TO_CHAR does not turn a BLOB into text, and Base64 makes the CSV larger still. Only select the columns the consumer needs (`SELECT *` is a common cause of slow exports).',
     },
     {
       type: 'order',

@@ -39,10 +39,10 @@ export default {
         'Alert the business owner of the supplier feed',
         'Leave it in the inbox to retry every minute',
         'Delete it, so the inbox only holds mail that can be processed',
-        'Reply to the sender with the parse error and stack trace',
+        'Reply to the sender with the parse error, so the supplier can resend',
       ],
       answer: [0, 1, 2],
-      explain: 'An Error folder stops the repeat and keeps the mail for checks, the Message-ID ties the reason to the mail, and the owner can chase the supplier. Leaving a bad mail in the inbox creates a poison message that fails on every poll. Deleting it loses the evidence and the file. An automatic reply with a stack trace exposes internal details to an outside party.',
+      explain: 'An Error folder stops the repeat and keeps the mail for checks, the Message-ID ties the reason to the mail, and the owner can chase the supplier. Leaving a bad mail in the inbox creates a poison message that fails on every poll. Deleting it loses the evidence and the file. An automatic reply goes to whatever the From header says, which can be forged, and it can start a mail loop with an auto responder. The feed owner should talk to the supplier.',
     },
     {
       type: 'single',
@@ -72,13 +72,13 @@ export default {
       type: 'single',
       prompt: 'How do you guard against a mail from an unknown sender that looks like a supplier file?',
       options: [
-        'Trust the From header, since the relay checks it on every mail',
+        'Accept mail only when the From domain matches the domain of a known supplier',
         'Allow only known senders, and check the mail system enforces SPF, DKIM and DMARC',
         'Reply to each new sender and process the file once they confirm',
         'Accept a sender when the attachment parses as a valid supplier file with known item codes',
       ],
       answer: 1,
-      explain: 'Treat the From header as weak proof. The From header can be forged. Inbound checks by the mail system make forging harder.',
+      explain: 'The From header can be forged, so a sender list works only when the mail system checks SPF, DKIM and DMARC on the way in. A domain match on its own trusts that forgeable header. A reply goes to the From address, which a forger can control. A file that parses only shows the attacker knows the format.',
     },
   ],
   description: `

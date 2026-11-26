@@ -12,11 +12,11 @@ export default {
       options: [
         'One Connected App with broad scopes, shared by all pipelines so rotation happens in one place',
         'One Connected App per team, with deploy rights in every environment',
-        'A shared service user with a username and password, kept as a CI secret',
+        'One Connected App per environment, shared by the pipelines that deploy there',
         'Separate Connected Apps per purpose, each with only the scopes it needs',
       ],
       answer: 3,
-      explain: 'Separate identities for publishing to Exchange, deploying to non-production and deploying to Production, each with only the scopes and environments it needs, keep a leak small. Keep Production credentials in the Production environment of the CI tool, behind an approval, and rotate secrets on a schedule. A single powerful identity turns any pull request job that can read it into a route to Production. The Runtime Manager Continuous Deployment page also advises a dedicated account for deployment and CI.',
+      explain: 'Separate identities for publishing to Exchange, deploying to non-production and deploying to Production, each with only the scopes and environments it needs, keep a leak small. A Connected App per team still deploys everywhere, and one per environment still lets one leak deploy every app in Production. Keep Production credentials in the Production environment of the CI tool, behind an approval, and rotate secrets on a schedule. A single powerful identity turns any pull request job that can read it into a route to Production. The Runtime Manager Continuous Deployment page also advises a dedicated account for deployment and CI.',
     },
     {
       type: 'match',
@@ -73,10 +73,10 @@ export default {
         'Store Production secrets as masked CI variables, so no job can print them',
         'Require two approvals on application code, and treat workflow files as config',
         'Require platform team review of pipeline definition changes',
-        'Let pipeline definition changes merge once the build and its tests pass',
+        'Pin the third-party CI actions to a full commit, so the pipeline cannot drift',
       ],
       answer: 2,
-      explain: 'If a pull request can change the pipeline definition, and that definition can read secrets, then the review of the code protects nothing. So pipeline definitions and shared templates need a review from the platform team, and masking is a safety net, not a control. Other sound protections: jobs triggered from a fork get no secrets and do not deploy, third-party CI actions or extensions are pinned to a full commit or version, and Production deployment runs only from a protected branch or tag.',
+      explain: 'If a pull request can change the pipeline definition, and that definition can read secrets, then the review of the code protects nothing. So pipeline definitions and shared templates need a review from the platform team, and masking is a safety net, not a control. Pinning actions protects against a changed action, not against a changed pipeline file in the same repository. Other sound protections: jobs triggered from a fork get no secrets and do not deploy, third-party CI actions or extensions are pinned to a full commit or version, and Production deployment runs only from a protected branch or tag.',
     },
     {
       type: 'order',

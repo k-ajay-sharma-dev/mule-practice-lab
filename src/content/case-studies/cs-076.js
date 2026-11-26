@@ -12,12 +12,12 @@ export default {
       prompt: 'What should be the first piece of integration work after the deal is signed?',
       options: [
         'Start building the new company’s SAP system so it is ready by Day 1',
-        'Inventory every interface with its data, volume and owner after the split',
+        'Map each interface to the company that will own it after the split',
         'Copy the whole Anypoint organisation so the new company has everything',
         'Move the dealer APIs to new hostnames so dealers can start testing early',
       ],
       answer: 1,
-      explain: 'Every later decision (clone, rebuild, keep under the transition service agreement, retire) depends on knowing each interface and who will own each end. Building or copying before that wastes effort and misses hidden dependencies.',
+      explain: 'Every later decision (clone, rebuild, keep under the transition service agreement, retire) depends on knowing each interface, its data and volume, and who will own each end. Building or copying before that wastes effort and misses hidden dependencies.',
     },
     {
       type: 'match',
@@ -39,11 +39,11 @@ export default {
         'Filter shared feeds so each company receives only its own data',
         'Give the new company its own client IDs and contracts in API Manager',
         'Send a monthly report per transition service with volumes and incidents',
-        'Give the new company’s support staff admin rights in the car maker’s organisation',
-        'Let both companies share one set of System API credentials until the exit date',
+        'Keep one shared Exchange so both companies reuse the same API assets during the transition',
+        'Route the new company’s incidents through the car maker’s service desk until the exit date',
       ],
       answer: [0, 1, 2],
-      explain: 'Data must be filtered, access must be separable and revocable at the exit date, and services must be measured because they are charged and time limited. Admin rights expose the car maker’s other apps, and shared credentials cannot be revoked for one company alone, so both break security and a clean exit.',
+      explain: 'Data must be filtered, access must be separable and revocable at the exit date, and services must be measured because they are charged and time limited. A shared Exchange shows the new company the car maker’s whole API catalogue and makes the split at exit harder. Using the car maker’s service desk is often part of the transition service, but it is a support route, not a control on data, access or measurement.',
     },
     {
       type: 'order',
@@ -65,11 +65,11 @@ export default {
       options: [
         'Dealers sign in to a second portal for parts from Day 1',
         'The portal keeps calling the same parts API contract, now run by the new company',
-        'The car maker copies the parts ordering code into its own portal',
+        'The car maker keeps parts orders in its SAP and sends them to the new company each night',
         'The new company reads dealer orders straight from the car maker’s SAP',
       ],
       answer: 1,
-      explain: 'Keeping the contract stable avoids changing 3,000 dealers on Day 1. The API moves owner and is secured like any partner API, with a client ID for the car maker’s portal, and neither company reaches into the other company’s systems.',
+      explain: 'Keeping the contract stable avoids changing 3,000 dealers on Day 1. The API moves owner and is secured like any partner API, with a client ID for the car maker’s portal, and neither company reaches into the other company’s systems. A second portal changes every dealer on Day 1. Holding parts orders in the car maker’s SAP keeps the new company’s business data in the wrong company, and a nightly batch delays every order by a day.',
     },
     {
       type: 'single',

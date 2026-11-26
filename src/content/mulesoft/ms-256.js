@@ -29,7 +29,7 @@ export default {
       prompt: 'The hub marks each loaded blob by setting metadata. A rule deletes blobs 30 days after modification. What changes the clock?',
       options: [
         'Nothing, as metadata is stored apart from the content',
-        'Setting the metadata, which counts as a change',
+        'The metadata write, which moves Last-Modified',
         'Only a download, as the rule counts from the last access',
         'Only the upload, as the rule counts from the creation time',
       ],
@@ -52,13 +52,13 @@ export default {
       type: 'single',
       prompt: 'A team adds a rule and checks an hour later. Nothing has moved. Why?',
       options: [
-        'The rule is broken and must be rewritten',
+        'The prefix filter needs a trailing slash',
         'Rules run in the background and can take a day',
         'Rules act only on blobs created after the rule was added',
         'The rule must also be enabled on each container',
       ],
       answer: 1,
-      explain: 'Lifecycle rules run on their own schedule, and a new rule can take a day or more to act. Lifecycle management is not instant. Do not rely on it for anything that must happen within minutes.',
+      explain: 'Lifecycle rules run on their own schedule, and a new rule can take a day or more to act. Lifecycle management is not instant. A prefix filter is a plain string match, so it works with or without a trailing slash. Do not rely on it for anything that must happen within minutes.',
     },
     {
       type: 'single',

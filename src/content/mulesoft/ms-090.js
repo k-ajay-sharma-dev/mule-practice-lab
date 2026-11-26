@@ -26,10 +26,10 @@ export default {
         'The call must be inside a Try with an open transaction, otherwise the change does not impact SAP',
         'It is correct as it is, because a synchronous call commits the change in SAP automatically',
         'It must use Asynchronous Remote Function Call, because only that operation can change data',
-        'It must be wrapped in Until Successful, so a failed change is retried until SAP accepts it',
+        'It must be followed by a second call to `BAPI_TRANSACTION_COMMIT`, with no Try needed',
       ],
       answer: 0,
-      explain: 'The reference says you must add a `try` block when the function changes data, and the example uses `transactionalAction="ALWAYS_BEGIN"`.',
+      explain: 'The reference says you must add a `try` block when the function changes data, and the example uses `transactionalAction="ALWAYS_BEGIN"`. A synchronous call does not commit by itself. A separate commit call outside a transaction can run in another SAP session, so it does not commit the order. Asynchronous calls are not the only ones that change data.',
     },
     {
       type: 'single',

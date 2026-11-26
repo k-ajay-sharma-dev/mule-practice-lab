@@ -25,13 +25,13 @@ export const SET_7 = [
     situation: 'Which line should Copperfield Freight log for each failed attempt inside Until Successful?',
     options: [
       'Carrier booking failed, will retry shipmentId=SH-9001 errorType=HTTP:TIMEOUT carrier=northline timeoutMs=30000 correlationId=7f3c2a',
-      'Carrier booking failed, will retry shipmentId=SH-9001 attempt=2 maxAttempts=5 errorType=HTTP:TIMEOUT correlationId=7f3c2a',
-      'ERROR: carrier booking failed again, the carrier looks down, retrying the booking now',
-      'Attempt 2 failed {"shipment":{"id":"SH-9001","pallets":[...],"consignee":{...}}}',
+      'Carrier booking failed, will retry shipmentId=SH-9001 carrier=northline attempt=2 maxAttempts=5 errorType=HTTP:TIMEOUT correlationId=7f3c2a',
+      'Carrier booking failed after all retries shipmentId=SH-9001 attempt=2 maxAttempts=5 errorType=HTTP:TIMEOUT correlationId=7f3c2a',
+      'Carrier booking failed, will retry shipmentId=SH-9001 attempt=2 maxAttempts=5 errorType=MULE:RETRY_EXHAUSTED correlationId=7f3c2a',
     ],
     answer: 1,
     explain:
-      'It names the shipment, which attempt this is out of how many, and why it failed. The line with carrier=northline has no attempt number, so nobody can tell how close the booking is to giving up. The others say nothing searchable, shout ERROR for a handled case, or dump the whole shipment.',
+      'It names the shipment, which attempt this is out of how many, and why it failed. The line with timeoutMs=30000 has no attempt number, so nobody can tell how close the booking is to giving up. "After all retries" is wrong on attempt 2 of 5. MULE:RETRY_EXHAUSTED is raised only once the last attempt fails; each attempt fails with the error of the call.',
   },
   {
     id: 'log-7003',
@@ -39,15 +39,15 @@ export const SET_7 = [
     situation:
       'The retry lines Until Successful writes carry none of your IDs, so Copperfield Freight counts the attempts in vars.attempt and writes its own line for each failed attempt. Which facts belong on that line?',
     options: [
-      'The full booking request body, so the failed booking can be replayed from the log',
+      'A timestamp of the attempt, as a field in the message',
       'The attempt number and the maximum number of attempts',
       'The shipment ID',
-      'The API key sent to the carrier, to prove which account the call used',
+      "The carrier's response body, to see what the carrier said",
       'The error type and description',
     ],
     answers: [1, 2, 4],
     explain:
-      'The attempt number shows how close the booking is to giving up. The shipment ID and error say which load and why. The body is large and the API key is a secret.',
+      'The attempt number shows how close the booking is to giving up. The shipment ID and error say which load and why. The pattern layout already puts a timestamp on every line. On a timeout no response arrived, so there is no carrier body to log.',
   },
   {
     id: 'log-7004',
@@ -117,11 +117,11 @@ export const SET_7 = [
       'MULE:DUPLICATE_MESSAGE raised by the Idempotent Message Validator in flow prescription-consumer',
       'Duplicate prescription message skipped messageId=msg-7781 queue=rx-inbound source=prescriber-gateway deliveryCount=2 correlationId=7f3c2a',
       'Duplicate prescription message skipped prescriptionId=RX-55120 messageId=msg-7781 deliveryCount=2 correlationId=7f3c2a',
-      'Duplicate message received: {"patient":{"name":"...","dateOfBirth":"..."},"drug":"..."}',
+      'Duplicate prescription message processed prescriptionId=RX-55120 messageId=msg-7781 deliveryCount=2 correlationId=7f3c2a',
     ],
     answer: 2,
     explain:
-      'It says what happened and which prescription and message it was, with the delivery count. The line with queue=rx-inbound has no prescription ID, so a pharmacist who asks about one prescription cannot find it. The "Duplicate message received" line puts patient data in the logs, which a pharmacy must never do.',
+      'It says what happened and which prescription and message it was, with the delivery count. The line with queue=rx-inbound has no prescription ID, so a pharmacist who asks about one prescription cannot find it. "processed" says the copy was handled again, the opposite of what happened. The error type line names no prescription or message.',
   },
   {
     id: 'log-7008',
@@ -130,14 +130,14 @@ export const SET_7 = [
       'A pharmacist says one Larkspur prescription was filled twice. Which log lines help prove whether the duplicate check worked?',
     options: [
       'A line when each message arrives, with messageId and prescriptionId',
-      'A line with the patient name and date of birth, so the pharmacist can match the fill',
+      'A count of messages read per minute, logged once a minute',
       'The duplicate skipped line, with messageId',
-      'A DEBUG line with the full message, left on in production for one week',
+      'A line with the queue depth each time the broker reconnects',
       'A line when the Pharmacy System confirms the fill, with prescriptionId',
     ],
     answers: [0, 2, 4],
     explain:
-      'Arrival, skip and fill lines with the same IDs show whether one message was filled twice, or two different messages arrived for one prescription. Patient data and full messages do not belong in logs.',
+      'Arrival, skip and fill lines with the same IDs show whether one message was filled twice, or two different messages arrived for one prescription. A count per minute and the queue depth describe the traffic, but neither ties to one prescription.',
   },
   {
     id: 'log-7009',
@@ -205,14 +205,14 @@ export const SET_7 = [
     kind: 'choice',
     situation: 'Which line should Brambleton Travel log when the Hotel API answers 429?',
     options: [
-      'Rate limited by partner, backing off before the next call to the Hotel API',
-      'HTTP 429 from partner url=https://hotels.example.com/v2/rates?apiKey=<key> retryAfter=30',
-      'WARN Hotel API returned 429 Too Many Requests, the partner is throttling us, will retry',
+      'Hotel API rate limit hit, waiting before retry hotelId=H-2201 status=429 retryAfterMs=30 correlationId=7f3c2a',
+      'Hotel API rate limit hit, waiting before retry hotelId=H-2201 status=429 retryAfter=30 searchHotelIds=H-2201,H-2202,H-2207,H-2215,H-2230,H-2241 correlationId=7f3c2a',
+      'Hotel API call failed, giving up hotelId=H-2201 status=429 retryAfter=30 correlationId=7f3c2a',
       'Hotel API rate limit hit, waiting before retry hotelId=H-2201 status=429 retryAfter=30 correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'It says what happened, which hotel, the status and how long the flow waits. The URL line leaks the API key in the query string.',
+      'It says what happened, which hotel, the status and how long the flow waits. Retry-After is in seconds, so retryAfterMs=30 gives the wrong unit. "giving up" is wrong when the flow waits and tries again. The list of every hotel in the search says nothing about this one call, and it makes each line grow with the size of the search.',
   },
   {
     id: 'log-7013',
@@ -220,15 +220,15 @@ export const SET_7 = [
     situation:
       'The partner says Brambleton Travel calls the Hotel API too fast. Which facts in the logs let the team check that?',
     options: [
-      'Every response header, including Authorization, to read the rate limit headers',
+      'The response time of each call, labelled as durationMs',
       'A count of calls sent each minute, to compare with the partner limit',
       'The Retry-After value the partner sent with each 429',
-      'The name of the guest who searched, to see which users cause the most calls',
+      'The total number of calls since the app started, logged once at shutdown',
       'The status code, labelled, on each call line',
     ],
     answers: [1, 2, 4],
     explain:
-      'Calls per minute against the limit, plus the 429s and their Retry-After values, show whether Brambleton goes over. Headers carry credentials, and guest names are personal data.',
+      'Calls per minute against the limit, plus the 429s and their Retry-After values, show whether Brambleton goes over. Response time says how slow the partner is, not how often it is called. One total at shutdown hides the bursts that break a per minute limit.',
   },
   {
     id: 'log-7014',
@@ -292,16 +292,17 @@ export const SET_7 = [
   {
     id: 'log-7017',
     kind: 'choice',
-    situation: 'Which line should the Kestrel claims app log when it fetches a new access token?',
+    situation:
+      'The Kestrel claims app fetches a new access token every 55 minutes, and the provider answers with expires_in=3600. Which line should it log?',
     options: [
-      'Token refreshed: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJjbGFpbXMifQ.k3Lm...',
+      'Access token requested from identity provider clientId=claims-intake expiresIn=3600',
       'Access token refreshed for Claims Core API clientId=claims-intake scope=claims.write',
-      'Authorization: Bearer eyJhbGciOiJSUzI1NiJ9... clientId=claims-intake expiresIn=3600',
+      'Access token refreshed for Claims Core API clientId=claims-intake expiresIn=3300',
       'Access token refreshed for Claims Core API clientId=claims-intake expiresIn=3600',
     ],
     answer: 3,
     explain:
-      'It says what happened, which client and when the token expires, without the token. The line with scope=claims.write leaves out expiresIn, so when calls fail with 401 you cannot tell if the token had run out. Anyone who reads a logged token can call the API as the app until it expires.',
+      'It says what happened, which client and when the token expires, as the provider gave it. expiresIn=3300 is the 55 minute refresh timer of the app, not the life of the token, so it hides how long the token stays valid. The line with scope=claims.write leaves out expiresIn, so when calls fail with 401 you cannot tell if the token had run out. "requested" is written before the answer, when expiresIn is not known yet.',
   },
   {
     id: 'log-7018',
@@ -310,14 +311,14 @@ export const SET_7 = [
       'At 02:00 the Kestrel token call failed with 401 and no claims were sent for an hour. Which facts in the logs would have shown the cause fast?',
     options: [
       'The status code of the token call',
-      'The client secret, to check it is the right one',
+      'The expiry time of the last token that worked',
       'The error description from the identity provider, such as invalid_client',
-      'The full token response, to see the scopes the provider granted',
+      'The number of claims waiting to be sent',
       'The client ID used, which is not a secret',
     ],
     answers: [0, 2, 4],
     explain:
-      'The status, the provider error and the client ID point at an expired or rotated secret. The secret and the token response must never be logged.',
+      'The status, the provider error and the client ID point at an expired or rotated secret. A 401 on the token call means the credentials were refused, so the expiry of the old token does not explain it. The queue size shows the impact, not the cause.',
   },
   {
     id: 'log-7019',
@@ -382,13 +383,13 @@ export const SET_7 = [
     situation: 'Which summary line should the Ashgrove reconciliation job log at the end?',
     options: [
       'Meter reconciliation finished runDate=2026-11-16 compared=480000 matched=479988 missing=12 resent=12 durationMs=812000',
-      'Reconciliation done for all meters, a few readings were missing and were resent',
-      'Reconciliation finished. Missing: [{"meter":"M-1","customer":{...}}, ... 480000 readings]',
+      'Meter reconciliation finished runDate=2026-11-16 missing=12 resent=12 durationMs=812000',
+      'Meter reconciliation finished runDate=2026-11-16 compared=480000 matched=479988 missing=12 resent=12 duration=13m32s',
       'Meter reconciliation finished region=north-west feed=amr compared=480000 matched=479988 missing=12 resent=12 durationMs=812000',
     ],
     answer: 0,
     explain:
-      'Labelled counts can be charted night after night, and the run date ties the line to one run. The line with region=north-west has the same counts but no run date, so a rerun of last night cannot be told apart from tonight. The readings themselves belong in a report, not a log.',
+      'Labelled counts can be charted night after night, and the run date ties the line to one run. The line with region=north-west has the same counts but no run date, so a rerun of last night cannot be told apart from tonight. Without compared and matched, a chart cannot show the share that went missing. "13m32s" is text that a chart cannot plot.',
   },
   {
     id: 'log-7023',
@@ -397,13 +398,13 @@ export const SET_7 = [
     options: [
       'Every reading logged at INFO, so any meter can be looked up later',
       'One summary line at INFO with the counts',
-      'A DEBUG line for every matched reading, left on in production',
+      'One ERROR line per missing reading, since a missing reading is lost data',
       'One WARN line per missing reading, with meterId and readingDate',
       'The run date, labelled, on every line, so two runs are not mixed up',
     ],
     answers: [1, 3, 4],
     explain:
-      'A summary plus a line per problem keeps the volume small and the problems findable. 480,000 lines a night for matched readings bury the 12 that matter.',
+      'A summary plus a line per problem keeps the volume small and the problems findable. The job resends the missing readings, so they are handled, which is WARN and not ERROR. 480,000 lines a night for every reading bury the 12 that matter.',
   },
   {
     id: 'log-7024',

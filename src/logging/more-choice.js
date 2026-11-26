@@ -9,11 +9,11 @@ export const MORE_CHOICE = [
       'Duplicate message skipped messageId=b81e04 payloadHash=9f2c41d7e0 store=idempotent-os validator=order-dedupe',
       'Order processing failed errorType=MULE:DUPLICATE_MESSAGE orderId=10045 messageId=b81e04 correlationId=7f3c2a',
       'Duplicate message skipped orderId=10045 messageId=b81e04 correlationId=7f3c2a',
-      'Skipped message orderId=10045 customerName=Ann Lee phone=+44 7700 900123 correlationId=7f3c2a',
+      'Duplicate message skipped orderId=10045 messageId=b81e04 next=sent to DLQ correlationId=7f3c2a',
     ],
     answer: 2,
     explain:
-      'A skipped duplicate is expected behaviour, so the line says skipped, names the order and carries the correlation ID. The line with the hash and the store name has no orderId or correlationId, so support cannot confirm which order it was. "Order processing failed" makes a normal skip look like an error and can wake someone up for nothing. The line with customerName=Ann Lee writes a name and a phone number.',
+      'A skipped duplicate is expected behaviour, so the line says skipped, names the order and carries the correlation ID. The line with the hash and the store name has no orderId or correlationId, so support cannot confirm which order it was. "Order processing failed" makes a normal skip look like an error and can wake someone up for nothing. "next=sent to DLQ" is wrong: the message was processed the first time, so there is nothing to replay, and a DLQ copy invites a second run.',
   },
   {
     id: 'log-202',
@@ -22,12 +22,12 @@ export const MORE_CHOICE = [
     options: [
       'Order event received orderId=10045 queue=orders-in messageId=c41a77 deliveryCount=1 correlationId=7f3c2a',
       'Order event processed and acknowledged orderId=10045 queue=orders-in durationMs=145 correlationId=7f3c2a',
-      'Order event processed and acknowledged orderId=10045 queue=orders-in durationMs=145 body=<whole message body> correlationId=7f3c2a',
+      'Order event processed and acknowledged orderId=10045 queue=orders-in durationMs=145 next=redelivered when the lock expires correlationId=7f3c2a',
       'Processing order event orderId=10045 queue=orders-in durationMs=145 correlationId=7f3c2a',
     ],
     answer: 1,
     explain:
-      'The work is over, so the line says processed and acknowledged, in past tense, with the duration. "Order event received" is a good first line but says nothing about the outcome. "Processing order event" reads as if the work is still going, so nobody can tell whether the message was finished or lost. Adding the whole body puts order data, often with personal details, in the log.',
+      'The work is over, so the line says processed and acknowledged, in past tense, with the duration. "Order event received" is a good first line but says nothing about the outcome. "Processing order event" reads as if the work is still going, so nobody can tell whether the message was finished or lost. "next=redelivered when the lock expires" is wrong: an acknowledged message is removed from the queue. Only a message that is neither acked nor nacked comes back after its lock time.',
   },
   {
     id: 'log-203',
@@ -36,12 +36,12 @@ export const MORE_CHOICE = [
     options: [
       'Open orders selected rows=312 time=2.3 correlationId=7f3c2a',
       'Open orders selected rows=312 durationMs=2304 query=SELECT id, status FROM orders WHERE status = :status',
-      'Open orders selected durationMs=2304 result=[{"orderId":10045,"customer":"Ann Lee"},...] correlationId=7f3c2a',
+      'Open orders selected rows=312 durationMs=2304 orderIds=10045,10046,10051,... (all 312) correlationId=7f3c2a',
       'Open orders selected rows=312 durationMs=2304 correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'Row count, duration with its unit in the name and the correlation ID tell support how the query went. "time=2.3" could be seconds or minutes and does not match the durationMs other lines use. The line with the query text has no correlation ID, and the SQL is already in the code. Dumping the result puts customer names in the log.',
+      'Row count, duration with its unit in the name and the correlation ID tell support how the query went. "time=2.3" could be seconds or minutes and does not match the durationMs other lines use. The line with the query text has no correlation ID, and the SQL is already in the code. A list of 312 order IDs makes one very long line on every run, and the count already says how many came back; the IDs belong in the lines that handle each order.',
   },
   {
     id: 'log-204',
@@ -52,11 +52,11 @@ export const MORE_CHOICE = [
       'Salesforce accounts loaded jobId=4c1d9e total=8000 successful=7994 failed=6 durationMs=95210',
       'Salesforce account loaded accountId=A-0001 status=success, one INFO line for each of the 8,000 records',
       'Salesforce accounts loaded jobId=4c1d9e total=8000 durationMs=95210, with failures logged at DEBUG inside the step',
-      'Salesforce account load finished jobId=4c1d9e successful=7994, with the 6 failed records written in full to the log',
+      'Salesforce accounts loaded jobId=4c1d9e total=8000 successful=7994 failed=6 durationMs=95210, logged at the end of the last Batch Step',
     ],
     answer: 0,
     explain:
-      'One line in the On Complete phase with total, successful and failed tells the whole run, and failed=6 is a number someone can alert on. A line per record at INFO is 8,000 lines that bury the 6 failures. Failures at DEBUG vanish in production, where DEBUG is off. Writing the failed records in full copies account data into the log; their IDs are enough.',
+      'One line in the On Complete phase with total, successful and failed tells the whole run, and failed=6 is a number someone can alert on. A line per record at INFO is 8,000 lines that bury the 6 failures. Failures at DEBUG vanish in production, where DEBUG is off. A Logger at the end of the last Batch Step runs once for every record, not once for the job, and the job totals only exist in On Complete.',
   },
   {
     id: 'log-205',
@@ -65,12 +65,12 @@ export const MORE_CHOICE = [
     options: [
       'Scheduler triggered flow=workday-sync-main frequency=86400000 timeUnit=MILLISECONDS thread=[MuleRuntime].uber.04',
       'Workday employee sync finished runId=r-1112 correlationId=7f3c2a',
-      'Workday employee sync starting runId=r-1112 tenant=acme_prod clientId=wd-int-01 clientSecret=<secret> correlationId=7f3c2a',
+      'Workday employee sync starting runId=r-1112 employees=2310 correlationId=7f3c2a',
       'Workday employee sync starting runId=r-1112 correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'It says what is starting, in present tense, with a runId that ties it to the end-of-run line. The Scheduler line repeats the configuration and the thread but never says which business job started. "finished" at the start of a run misleads anyone reading the history. The line with the client secret leaks a credential that lets anyone call Workday as your app.',
+      'It says what is starting, in present tense, with a runId that ties it to the end-of-run line. The Scheduler line repeats the configuration and the thread but never says which business job started. "finished" at the start of a run misleads anyone reading the history. The employee count is not known when the run starts, because Workday has not been called yet, so employees=2310 can only come from an earlier run.',
   },
   {
     id: 'log-206',
@@ -78,28 +78,28 @@ export const MORE_CHOICE = [
     situation:
       'The flow could not connect to the partner SFTP server to collect invoices. The Scheduler will try again at its next run. Which message is best?',
     options: [
-      'SFTP login failed host=sftp.partner.com user=acme_int password=<password> errorType=SFTP:CONNECTIVITY',
+      'Invoice pickup found no files host=sftp.partner.com next=retry at next scheduled run correlationId=7f3c2a',
       'Invoice pickup failed errorType=SFTP:CONNECTIVITY host=sftp.partner.com next=retry at next scheduled run correlationId=7f3c2a',
       'Invoice pickup failed errorType=SFTP:CONNECTIVITY host=sftp.partner.com next=file moved to error folder correlationId=7f3c2a',
-      'Invoice pickup failed errorType=SFTP:CONNECTIVITY host=sftp.partner.com stack=<full Java stack trace> correlationId=7f3c2a',
+      'Invoice pickup failed errorType=SFTP:CONNECTIVITY host=sftp.partner.com filesWaiting=3 next=retry at next scheduled run correlationId=7f3c2a',
     ],
     answer: 1,
     explain:
-      'It says what failed, the error type, the host and that the next run tries again. The line with password= writes the SFTP password into the log. "next=file moved to error folder" is wrong here: the flow never connected, so no file was read or moved. The full stack trace adds a hundred lines for a connection error that the type already explains.',
+      'It says what failed, the error type, the host and that the next run tries again. "found no files" hides the outage: the flow never connected, so nobody knows whether files are waiting. "next=file moved to error folder" is wrong here: the flow never connected, so no file was read or moved. filesWaiting=3 cannot be known: without a connection the flow could not list the folder, so the number can only come from an earlier run.',
   },
   {
     id: 'log-207',
     kind: 'choice',
-    situation: 'Salesforce upserted a contact for a customer. Which message is best?',
+    situation: 'Salesforce upserted the contact of a customer who already had one, so the contact was updated. Which message is best?',
     options: [
       'Salesforce contact upserted contactId=0035g00000AbCdE created=false customerId=C-2231 correlationId=7f3c2a',
-      'Salesforce contact upserted contactId=0035g00000AbCdE customerId=C-2231 email=ann@example.com mobile=+44 7700 900123 correlationId=7f3c2a',
+      'Salesforce contact upserted contactId=0035g00000AbCdE created=false customerId=C-2231 email=ann.lee@example.com correlationId=7f3c2a',
       'Salesforce contact upserted success=true errors=[] id=0035g00000AbCdE created=false',
-      'Salesforce contact created contactId=0035g00000AbCdE customerId=C-2231 correlationId=7f3c2a',
+      'Salesforce contact upserted contactId=0035g00000AbCdE created=true customerId=C-2231 correlationId=7f3c2a',
     ],
     answer: 0,
     explain:
-      'The Salesforce ID, your customer ID and created=false tell support which record changed and that an existing contact was updated. The line with email= and mobile= writes an email and a mobile number, which is personal data. The raw result has no customer ID or correlation ID, so nobody can join it to the request. "contact created" is wrong when the upsert updated a contact that already existed.',
+      'The Salesforce ID, your customer ID and created=false tell support which record changed and that an existing contact was updated. The email adds personal data that the customer ID already stands for, and the log is read by far more people than the CRM. The raw result has no customer ID or correlation ID, so nobody can join it to the request. created=true says a new contact was made, when the upsert updated the one that existed.',
   },
   {
     id: 'log-208',
@@ -108,27 +108,27 @@ export const MORE_CHOICE = [
       'The Inventory System API answered 503, and your Experience API sends 502 back to the mobile app. Which message is best?',
     options: [
       'Stock check failed status=502 errorType=HTTP:BAD_GATEWAY sku=SKU-7781 next=502 returned to caller correlationId=7f3c2a',
-      'Stock check failed status=503 errorType=HTTP:SERVICE_UNAVAILABLE sku=SKU-7781 headers=<all headers> correlationId=7f3c2a',
+      'Stock check failed status=503 errorType=HTTP:SERVICE_UNAVAILABLE sku=SKU-7781 next=503 returned to caller correlationId=7f3c2a',
       'Stock check failed status=503 errorType=HTTP:SERVICE_UNAVAILABLE sku=SKU-7781 next=retry correlationId=7f3c2a',
-      'Stock check failed status=503 errorType=HTTP:SERVICE_UNAVAILABLE sku=SKU-7781 next=502 returned to caller correlationId=7f3c2a',
+      'Stock check failed status=503 errorType=HTTP:SERVICE_UNAVAILABLE sku=SKU-7781 durationMs=212 next=502 returned to caller correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'It records what Inventory answered, the error type, the item and what the mobile app got back. Logging status=502 with HTTP:BAD_GATEWAY hides that the real cause was a 503 from Inventory. Dumping all request headers can copy client secrets and tokens into the log. "next=retry" is wrong: the flow returned 502 at once, so support would wait for a retry that never comes.',
+      'It records what Inventory answered, the error type, the item, how long the call took and what the mobile app got back. Logging status=502 with HTTP:BAD_GATEWAY hides that the real cause was a 503 from Inventory. "next=503 returned to caller" is wrong: the mobile app got 502, so support would look for a response that was never sent. "next=retry" is wrong: the flow returned 502 at once, so support would wait for a retry that never comes.',
   },
   {
     id: 'log-209',
     kind: 'choice',
     situation: 'The app refreshed its OAuth access token for the Workday API. Which message is best?',
     options: [
-      'Workday access token refreshed clientId=wd-int-01 accessToken=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9 expiresInSec=3600',
+      'Workday access token refreshed clientId=wd-int-01 expiresInSec=3600 next=token cached for 24 hours correlationId=7f3c2a',
       'Workday access token refreshed clientId=wd-int-01 expiresInSec=3600 correlationId=7f3c2a',
-      'Workday token request sent clientId=wd-int-01 clientSecret=<client-secret> grantType=client_credentials correlationId=7f3c2a',
+      'Workday access token expired clientId=wd-int-01 expiresInSec=3600 correlationId=7f3c2a',
       'Workday access token refreshed clientId=wd-int-01 expiresIn=3600 correlationId=7f3c2a',
     ],
     answer: 1,
     explain:
-      'The client ID and the expiry with its unit tell support what they need. A token in the log lets anyone who reads it call Workday as your app until it expires, and a client secret is worse, because it works until someone rotates it. "expiresIn=3600" gives no unit, so the reader has to guess seconds or minutes.',
+      'The client ID and the expiry with its unit tell support what they need. "next=token cached for 24 hours" contradicts the expiry: the token works for 3600 seconds, so a reader would expect no refresh for a day when the next one comes within the hour. "token expired" names the reason for a refresh, not the refresh, and reads as a fault. "expiresIn=3600" gives no unit, so the reader has to guess seconds or minutes.',
   },
   {
     id: 'log-210',
@@ -136,14 +136,14 @@ export const MORE_CHOICE = [
     situation:
       'After 5 failures in a row, your app stops calling the pricing service for 60 seconds and uses cached prices meanwhile. Which message is best?',
     options: [
-      'Pricing service call failed errorType=HTTP:TIMEOUT failuresInRow=5 durationMs=10000 correlationId=7f3c2a',
+      'Pricing service call failed errorType=HTTP:TIMEOUT failuresInRow=5 correlationId=7f3c2a',
       'Pricing calls paused after 5 failures in a row pauseMs=60000 next=error returned to caller correlationId=7f3c2a',
-      'Calls to pricing service paused after 5 failures in a row pauseMs=60000 next=cached prices used correlationId=7f3c2a',
-      'Circuit OPEN breaker=cb-pricing-02 threshold=5 resetTimeout=60 correlationId=7f3c2a',
+      'Calls to pricing service paused after 5 failures in a row lastErrorType=HTTP:TIMEOUT pauseMs=60000 next=cached prices used correlationId=7f3c2a',
+      'Circuit OPEN breaker=cb-pricing-02 resetTimeout=60 correlationId=7f3c2a',
     ],
     answer: 2,
     explain:
-      'It says in plain words that calls are paused, for how long, and what customers get meanwhile. The timeout line reads like one more failed call and does not say calls are now paused. "next=error returned to caller" is wrong here: callers get cached prices, so support would chase errors that do not exist. The circuit state line speaks the developer\'s terms, gives resetTimeout=60 with no unit, and never says cached prices are used.',
+      'It says in plain words that calls are paused, why, for how long, and what customers get meanwhile. The timeout line reads like one more failed call and does not say calls are now paused. "next=error returned to caller" is wrong here: callers get cached prices, so support would chase errors that do not exist. The circuit state line speaks the developer\'s terms, gives resetTimeout=60 with no unit, and never says cached prices are used.',
   },
   {
     id: 'log-211',
@@ -151,14 +151,14 @@ export const MORE_CHOICE = [
     situation:
       'The redelivery policy on a JMS listener raised MULE:REDELIVERY_EXHAUSTED after 5 deliveries. Your error handler sends the message to a DLQ. Which message is best?',
     options: [
-      'Shipment update failed errorType=MULE:REDELIVERY_EXHAUSTED message={"shipmentId":"SH-5521","address":"12 High St, Leeds"}',
+      'Shipment update not processed after 5 deliveries errorType=MULE:REDELIVERY_EXHAUSTED shipmentId=SH-5521 next=sent to DLQ correlationId=7f3c2a, logged at DEBUG',
       'Shipment update failed errorType=MULE:REDELIVERY_EXHAUSTED shipmentId=SH-5521 next=message redelivered by the broker correlationId=7f3c2a',
       'Redelivery exhausted for JMS message messageId=ID:broker-01-4471 deliveries=5 errorType=MULE:REDELIVERY_EXHAUSTED correlationId=7f3c2a',
-      'Shipment update not processed after 5 deliveries errorType=MULE:REDELIVERY_EXHAUSTED shipmentId=SH-5521 next=sent to DLQ correlationId=7f3c2a',
+      'Shipment update not processed after 5 deliveries errorType=MULE:REDELIVERY_EXHAUSTED shipmentId=SH-5521 messageId=ID:broker-01-4471 next=sent to DLQ correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'What failed, why, which shipment and where the message is now, so someone can replay it from the DLQ. The line with message={...} dumps the message with an address in it. "next=message redelivered by the broker" is wrong: once redelivery is exhausted the error handler takes the message, and here it goes to the DLQ. The broker message ID line names neither the shipment nor where the message went.',
+      'What failed, why, which shipment and broker message, and where the message is now, so someone can replay it from the DLQ. The line at DEBUG is gone in production, where DEBUG is off, so a message parked in the DLQ leaves no trace in the log. "next=message redelivered by the broker" is wrong: once redelivery is exhausted the error handler takes the message, and here it goes to the DLQ. The broker message ID line names neither the shipment nor where the message went.',
   },
   {
     id: 'log-212',
@@ -180,14 +180,14 @@ export const MORE_CHOICE = [
     kind: 'choice',
     situation: 'At start-up the app checks that it can reach the database. The check passed. Which message is best?',
     options: [
-      'Connected jdbc:sqlserver://db-prod-01;user=svc_orders;password=<password> durationMs=38',
+      'Database reachable at start-up host=db-prod-01 durationMs=38 app=order-papi version=1.4.2, logged at DEBUG',
       'Database reachable at start-up host=db-prod-01 durationMs=38 app=order-papi version=1.4.2 correlationId=7f3c2a',
       'Database check starting host=db-prod-01 app=order-papi version=1.4.2 correlationId=7f3c2a',
       'Database reachable host=db-prod-01 durationMs=38, logged at INFO every 10 seconds by a health check',
     ],
     answer: 1,
     explain:
-      'It says what was checked, against which host, how long it took and which app and version ran the check. The connection string carries the password into the log. "Database check starting" at the end of a check that passed leaves the reader unsure it ever finished. A health line every 10 seconds at INFO floods the log with thousands of identical lines that hide the ones that matter.',
+      'It says what was checked, against which host, how long it took and which app and version ran the check. At DEBUG the line is gone in production, where the start-up facts help most when a deploy goes wrong. "Database check starting" at the end of a check that passed leaves the reader unsure it ever finished. A health line every 10 seconds at INFO floods the log with thousands of identical lines that hide the ones that matter.',
   },
   {
     id: 'log-214',
@@ -196,12 +196,12 @@ export const MORE_CHOICE = [
     options: [
       'Invoice file processed fileName=invoices_20261112.csv rows=412 durationMs=930 correlationId=7f3c2a',
       'Invoice file archived fileName=invoices_20261112.csv toPath=/archive/2026/11 size=47 correlationId=7f3c2a',
-      'Invoice file archived fileName=invoices_20261112.csv toPath=/archive/2026/11 sizeBytes=48213 correlationId=7f3c2a',
-      'Invoice file archived fileName=invoices_20261112.csv toPath=sftp://acme_int:<password>@sftp.partner.com/archive/2026/11 correlationId=7f3c2a',
+      'Invoice file archived fileName=invoices_20261112.csv fromPath=/inbound toPath=/archive/2026/11 sizeBytes=48213 correlationId=7f3c2a',
+      'Archiving invoice file fileName=invoices_20261112.csv toPath=/archive/2026/11 sizeBytes=48213 correlationId=7f3c2a',
     ],
     answer: 2,
     explain:
-      'It says the result, which file, where it went and its size with the unit in the name. "Invoice file processed" does not say the file was moved or where to find it. "size=47" gives no unit, so nobody can tell bytes from KB. Writing the full SFTP URL copies the user name and password into the log.',
+      'It says the result, which file, where it came from and went, and its size with the unit in the name. "Invoice file processed" does not say the file was moved or where to find it. "size=47" gives no unit, so nobody can tell bytes from KB. "Archiving invoice file" is the line before the move, so it does not say the move worked.',
   },
   {
     id: 'log-215',
@@ -210,13 +210,13 @@ export const MORE_CHOICE = [
       'The nightly reconciliation compared 4,210 orders between the web shop and SAP and found 3 that differ. Which message is best?',
     options: [
       'Reconciliation finished compared=4210 matched=4207 mismatched=3 durationMs=81520 correlationId=7f3c2a',
-      'Reconciliation finished compared=4210 matched=4207 mismatched=3 mismatchedOrderIds=10045,10077,10102 correlationId=7f3c2a',
-      'Reconciliation mismatch orderId=10045 webTotal=129.90 sapTotal=119.90 customer=Ann Lee correlationId=7f3c2a, one line per mismatch and no summary',
+      'Reconciliation finished compared=4210 matched=4207 mismatched=3 mismatchedOrderIds=10045,10077,10102 durationMs=81520 correlationId=7f3c2a',
+      'Reconciliation mismatch orderId=10045 webTotal=129.90 sapTotal=119.90 correlationId=7f3c2a, one line per mismatch and no summary',
       'Reconciliation finished rc=3 job=recon_job host=mule-worker-2 durationMs=81520 correlationId=7f3c2a',
     ],
     answer: 1,
     explain:
-      'One summary line gives the totals and the IDs someone has to fix. Without mismatchedOrderIds the reader knows there are 3 problems but not which orders, so someone has to run the job again to find them. One line per mismatch never says how many orders were checked, and it adds a customer name. "rc=3" means nothing outside the team that wrote the job.',
+      'One summary line gives the totals and the IDs someone has to fix. Without mismatchedOrderIds the reader knows there are 3 problems but not which orders, so someone has to run the job again to find them. One line per mismatch never says how many orders were checked, so a quiet night and a broken run look the same. "rc=3" means nothing outside the team that wrote the job.',
   },
   {
     id: 'log-216',
@@ -224,14 +224,14 @@ export const MORE_CHOICE = [
     situation:
       'A Scatter-Gather called the stock, price and review services. The review route failed, and the API returned the product without reviews. Which message is best?',
     options: [
-      'Product reviews not loaded errorType=MULE:COMPOSITE_ROUTING failedRoute=reviews productId=P-3301 next=product returned without reviews correlationId=7f3c2a',
+      'Product reviews not loaded errorType=MULE:COMPOSITE_ROUTING failedRoute=reviews productId=P-3301 durationMs=640 next=product returned without reviews correlationId=7f3c2a',
       'Product request failed errorType=MULE:COMPOSITE_ROUTING productId=P-3301 status=500 next=error returned to caller correlationId=7f3c2a',
       'Product reviews not loaded errorType=MULE:COMPOSITE_ROUTING failedRoute=2 productId=P-3301 next=product returned without reviews correlationId=7f3c2a',
-      'Product reviews not loaded errorType=MULE:COMPOSITE_ROUTING failedRoute=reviews productId=P-3301 routeResults=<payload and attributes of all three routes> correlationId=7f3c2a',
+      'Product reviews not loaded errorType=MULE:COMPOSITE_ROUTING failedRoute=reviews productId=P-3301 next=review route retried by the Scatter-Gather correlationId=7f3c2a',
     ],
     answer: 0,
     explain:
-      'It names the part that failed in words the business understands and says what the caller got. "Product request failed" with status=500 is wrong: the API still returned the product. "failedRoute=2" makes the reader count routes in the XML to know which call it was. Dumping the results of every route copies stock, prices and attributes into the log and buries the one fact that matters.',
+      'It names the part that failed in words the business understands, the time taken and what the caller got. "Product request failed" with status=500 is wrong: the API still returned the product. "failedRoute=2" makes the reader count routes in the XML to know which call it was. Scatter-Gather does not retry a failed route by itself, so "next=review route retried" promises a second try that never happens.',
   },
   {
     id: 'log-217',
@@ -241,12 +241,12 @@ export const MORE_CHOICE = [
     options: [
       'Sending order confirmation email orderId=10045 templateId=order-confirm correlationId=7f3c2a',
       'Order confirmation email sent orderId=10045 templateId=order-confirm durationMs=420 correlationId=7f3c2a',
-      'Order confirmation email sent orderId=10045 to=ann@example.com templateId=order-confirm durationMs=420 correlationId=7f3c2a',
+      'Order confirmation email sent orderId=10045 templateId=order-confirm durationMs=420 correlationId=<new ID made by the Async scope>',
       'Order confirmation email sent orderId=10045 templateId=order-confirm durationMs=420 body=<rendered HTML of the email>',
     ],
     answer: 1,
     explain:
-      'After the send, the reader needs to know the email went out, for which order and how long it took. "Sending order confirmation email" is a good line before the send but says nothing about the result. The address is personal data, and the order ID is enough to look it up. The rendered body holds the customer name and the order details, makes every line huge, and drops the correlation ID.',
+      'After the send, the reader needs to know the email went out, for which order and how long it took. "Sending order confirmation email" is a good line before the send but says nothing about the result. The Async scope keeps the correlation ID of the event that started it, so a new ID breaks the join to the order request. The rendered body holds the customer name and the order details, makes every line huge, and drops the correlation ID.',
   },
   {
     id: 'log-218',
@@ -268,28 +268,28 @@ export const MORE_CHOICE = [
     kind: 'choice',
     situation: 'The Workday API answered 429 Too Many Requests. The flow waits 30 seconds and tries again. Which message is best?',
     options: [
-      'Workday rate limit hit status=429 workerId=W-4410 attempt=1 of 3 retryAfterMs=30000 next=retry correlationId=7f3c2a',
+      'Workday rate limit hit status=429 workerId=W-4410 attempt=1 of 3 durationMs=95 retryAfterMs=30000 next=retry correlationId=7f3c2a',
       'Workday call failed status=429 errorType=HTTP:TOO_MANY_REQUESTS workerId=W-4410 next=sent to error queue',
       'Workday rate limit hit status=429 workerId=W-4410 attempt=1 retryAfter=30 next=retry correlationId=7f3c2a',
-      'Workday rate limit hit status=429 worker={"name":"Lena Fischer","salary":64000} next=retry correlationId=7f3c2a',
+      'Workday rate limit hit status=429 workerId=W-4410 attempt=1 of 3 retryAfterMs=30000 next=retry correlationId=7f3c2a, logged at ERROR',
     ],
     answer: 0,
     explain:
-      'It gives the status, the record, which attempt out of how many, the wait with its unit and what happens next. "next=sent to error queue" is wrong here: the flow waits and tries again, so support would look for a record that is not there. "retryAfter=30" has no unit, and "attempt=1" does not say how many tries are left. The worker object copies a name and a salary into the log.',
+      'It gives the status, the record, which attempt out of how many, the wait with its unit and what happens next. "next=sent to error queue" is wrong here: the flow waits and tries again, so support would look for a record that is not there. "retryAfter=30" has no unit, and "attempt=1" does not say how many tries are left. At ERROR a retry that may still work fires the alerts; WARN fits a retry, and ERROR waits until the tries are used up.',
   },
   {
     id: 'log-220',
     kind: 'choice',
     situation: 'SAP sent an ORDERS05 IDoc to your app through the SAP connector listener. Which message is best?',
     options: [
-      'SAP IDoc received idocType=ORDERS05 soldTo=Ann Lee shipTo=12 High St, Leeds idocNumber=0000000004512873',
-      'SAP IDoc received idocType=ORDERS05 segments=42 sizeBytes=18342 thread=[MuleRuntime].uber.04 correlationId=7f3c2a',
+      'SAP IDoc sent idocType=ORDERS05 idocNumber=0000000004512873 segments=42 correlationId=7f3c2a',
+      'SAP IDoc received idocType=ORDERS05 segments=42 sizeBytes=18342 correlationId=7f3c2a',
       'SAP order created idocType=ORDERS05 idocNumber=0000000004512873 correlationId=7f3c2a',
-      'SAP IDoc received idocType=ORDERS05 idocNumber=0000000004512873 segments=42 correlationId=7f3c2a',
+      'SAP IDoc received idocType=ORDERS05 idocNumber=0000000004512873 segments=42 sizeBytes=18342 correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'The IDoc number lets the SAP team find the same IDoc on their side, and the segment count says how big it was. The line with soldTo and shipTo copies a name and an address out of the IDoc. Without idocNumber the SAP team has nothing to search for, however many other facts the line carries. "SAP order created" claims a result when the IDoc has only arrived.',
+      'The IDoc number lets the SAP team find the same IDoc on their side, and the segment count and the size say how big it was. "SAP IDoc sent" gets the direction wrong: the listener received this IDoc from SAP. Without idocNumber the SAP team has nothing to search for, however many other facts the line carries. "SAP order created" claims a result when the IDoc has only arrived.',
   },
   {
     id: 'log-221',
@@ -298,13 +298,13 @@ export const MORE_CHOICE = [
       'The insert into the orders table failed because the database refused the connection. The API sends 503 back. Which message is best?',
     options: [
       'Order not saved errorType=DB:CONNECTIVITY orderId=10045 next=503 returned to caller correlationId=7f3c2a',
-      "Insert failed errorType=DB:CONNECTIVITY sql=INSERT INTO orders VALUES (10045, 'Ann Lee', '12 High St') correlationId=7f3c2a",
+      'Order not saved errorType=DB:CONNECTIVITY orderId=10045 next=500 returned to caller correlationId=7f3c2a',
       'Order not saved errorType=DB:QUERY_EXECUTION orderId=10045 next=503 returned to caller correlationId=7f3c2a',
       'Order not saved errorType=DB:CONNECTIVITY orderId=10045 next=retry in 5 minutes correlationId=7f3c2a',
     ],
     answer: 0,
     explain:
-      'What failed, why, which order and what the caller got. The SQL text copies a name and an address into the log. DB:QUERY_EXECUTION points support at a bad query when the database refused the connection. "next=retry in 5 minutes" is wrong: the API returned 503, and the caller decides whether to try again.',
+      'What failed, why, which order and what the caller got. "next=500 returned to caller" is wrong: the caller got 503, which tells a client the fault is passing and a later retry may work. DB:QUERY_EXECUTION points support at a bad query when the database refused the connection. "next=retry in 5 minutes" is wrong: the API returned 503, and the caller decides whether to try again.',
   },
   {
     id: 'log-222',
@@ -314,11 +314,11 @@ export const MORE_CHOICE = [
       'One INFO line inside the loop for each store: Store price sent storeId=S-001 status=200 durationMs=310 correlationId=7f3c2a',
       'One line after the loop: Store prices sent stores=120 durationMs=40211 correlationId=7f3c2a, with failures logged at DEBUG inside the loop',
       'One line after the loop: Store prices sent stores=120 successful=118 failed=2 failedStoreIds=S-014,S-087 durationMs=40211 correlationId=7f3c2a',
-      'One line after the loop: Store prices sent stores=120 failed=2 failedStores=<full price list of each failed store> correlationId=7f3c2a',
+      'One line after the loop: Store prices sent stores=120 successful=120 durationMs=40211 correlationId=7f3c2a, with successful taken from the For Each counter',
     ],
     answer: 2,
     explain:
-      'A summary after the loop gives the counts and the stores to look at. A line per store at INFO is 120 lines per run that bury the 2 failures. Failures at DEBUG disappear in production, where DEBUG is off. The full price lists of the failed stores make the line huge, when their IDs are all someone needs to send the prices again.',
+      'A summary after the loop gives the counts and the stores to look at. A line per store at INFO is 120 lines per run that bury the 2 failures. Failures at DEBUG disappear in production, where DEBUG is off. The For Each counter counts the stores the loop visited, not the ones that worked, so successful=120 hides the 2 failures.',
   },
   {
     id: 'log-223',
@@ -328,11 +328,11 @@ export const MORE_CHOICE = [
       'SAP order created orderId=10045 sapDocNo=4500021 durationMs=1180 source=orders-in correlationId=7f3c2a',
       'DLQ order reprocessed orderId=10045 sapDocNo=4500021 originalErrorType=HTTP:TIMEOUT correlationId=7f3c2a',
       'Reprocessing DLQ order orderId=10045 originalErrorType=HTTP:TIMEOUT attempt=2 correlationId=7f3c2a',
-      'DLQ order reprocessed orderId=10045 sapDocNo=4500021 message={"orderId":10045,"customer":"Ann Lee","address":"12 High St"}',
+      'DLQ order reprocessed orderId=10045 sapDocNo=4500021 originalErrorType=HTTP:TIMEOUT next=sent to DLQ again correlationId=7f3c2a',
     ],
     answer: 1,
     explain:
-      'It says the replay worked, which order, the SAP document now created and why it failed the first time. "SAP order created" looks like a normal order, so nobody can count the replays or see why the order needed one. "Reprocessing DLQ order" says the replay began, not whether it worked. The line with message={...} dumps the message with a name and an address.',
+      'It says the replay worked, which order, the SAP document now created and why it failed the first time. "SAP order created" looks like a normal order, so nobody can count the replays or see why the order needed one. "Reprocessing DLQ order" says the replay began, not whether it worked. "next=sent to DLQ again" contradicts the result: SAP created the order, so nothing is left to replay.',
   },
   {
     id: 'log-224',
@@ -342,12 +342,12 @@ export const MORE_CHOICE = [
     options: [
       'Order rejected by SAP status=400 reason=material MAT-889 not found orderId=10045 attempt=2 of 3 next=retry in 30 seconds correlationId=7f3c2a',
       'Order rejected by SAP status=400 errorType=HTTP:BAD_REQUEST orderId=10045 next=sent to error queue correlationId=7f3c2a',
-      'Order rejected by SAP status=400 errorType=HTTP:BAD_REQUEST requestBody=<whole order with customer address> correlationId=7f3c2a',
+      'Order rejected by SAP status=400 errorType=HTTP:BAD_REQUEST reason=material MAT-889 not found orderId=10045 next=sent to error queue after 3 attempts correlationId=7f3c2a',
       'Order rejected by SAP status=400 errorType=HTTP:BAD_REQUEST reason=material MAT-889 not found orderId=10045 next=sent to error queue correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'It gives the reason, the record and where the order went, so someone can fix the material and replay it. The retry line is well worded but wrong for a 400: the same bad material fails on every attempt. Without the reason, someone has to open the error queue to learn what to fix. The request body copies the customer address into the log.',
+      'It gives the reason, the record and where the order went, so someone can fix the material and replay it. The retry line is well worded but wrong for a 400: the same bad material fails on every attempt. Without the reason, someone has to open the error queue to learn what to fix. "after 3 attempts" says the order was retried, when a 400 should go to the error queue at once.',
   },
   {
     id: 'log-225',
@@ -357,11 +357,11 @@ export const MORE_CHOICE = [
       'Shipment event published shipmentId=SH-5521 exchange=shipments-x messageId=c41a77 correlationId=7f3c2a',
       'Publishing shipment event shipmentId=SH-5521 exchange=shipments-x correlationId=7f3c2a',
       'Shipment event published shipmentId=SH-5521 exchange=shipments-x body={"address":"12 High St, Leeds","phone":"+44 7700 900123"}',
-      'Shipment event published shipmentId=SH-5521 exchange=shipments-x clientId=<client-id> clientSecret=<client-secret> correlationId=7f3c2a',
+      'Shipment event received shipmentId=SH-5521 exchange=shipments-x messageId=c41a77 correlationId=7f3c2a',
     ],
     answer: 0,
     explain:
-      'It says the event went out, which shipment, and the message ID that the consumers will see. "Publishing shipment event" is written before the publish, so it does not say the event left. The body copies an address and a phone number into the log. The client secret of the Anypoint MQ client app lets anyone who reads the log publish as your app.',
+      'It says the event went out, which shipment, and the message ID that the consumers will see. "Publishing shipment event" is written before the publish, so it does not say the event left. The body copies an address and a phone number into the log. "Shipment event received" is the line a consumer writes, so it reads as if this app took the event in.',
   },
   {
     id: 'log-226',
@@ -371,11 +371,11 @@ export const MORE_CHOICE = [
       'Workday worker load finished jobId=9e2b17 durationMs=184220 correlationId=7f3c2a',
       'Workday worker load finished jobId=9e2b17 total=2310 successful=2310 failed=0 durationMs=184220',
       'Workday worker load finished jobId=9e2b17 total=2310 successful=2310 durationMs=184220, with failed left out when it is zero',
-      'Workday worker loaded workerId=W-0001 name=Lena Fischer status=success, one INFO line for each of the 2,310 workers',
+      'Workday worker load finished jobId=9e2b17 total=2310 successful=2310 failed=0 durationMs=184220 next=failed records sent to error queue',
     ],
     answer: 1,
     explain:
-      'The counts show it was a full success, and failed=0 can be charted next to the bad nights. Without counts nobody can tell how many workers were loaded. Leaving failed out when it is zero leaves gaps in any chart or alert on failed, and a search for failed=0 finds nothing. A line per worker is 2,310 lines with a name in each.',
+      'The counts show it was a full success, and failed=0 can be charted next to the bad nights. Without counts nobody can tell how many workers were loaded. Leaving failed out when it is zero leaves gaps in any chart or alert on failed, and a search for failed=0 finds nothing. "next=failed records sent to error queue" claims a step that did not happen: nothing failed, so support would open an error queue with nothing in it.',
   },
   {
     id: 'log-227',

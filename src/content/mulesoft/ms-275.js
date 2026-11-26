@@ -50,11 +50,11 @@ export default {
         'Waiting for a control file that the writer sends last',
         'Checking a trailer record count',
         'Waiting for the SFTP server to send a file closed event',
-        'Reading each file as soon as it is listed, and reading it again if parsing fails',
+        'Taking an exclusive lock on the file before reading it',
         'Picking only files whose size is above zero',
       ],
       answer: [0, 1, 2],
-      explain: 'A matcher that skips files updated in the last minute leaves files that are still growing. A control file sent last tells the reader the data file is done. A trailer record count shows whether every record arrived. SFTP has no events, so the reader polls and relies on time, names or agreed markers. Reading again after a parse error treats the symptom: a cut short file can still parse, as the planning platform found. A half written file already has a size above zero.',
+      explain: 'A matcher that skips files updated in the last minute leaves files that are still growing. A control file sent last tells the reader the data file is done. A trailer record count shows whether every record arrived. SFTP has no events, so the reader polls and relies on time, names or agreed markers. SFTP gives the reader no file lock it can rely on, so a lock request does not stop a writer. A half written file already has a size above zero.',
     },
     {
       type: 'order',

@@ -76,11 +76,11 @@ export default {
       options: [
         'Status `Update failed`, and a rollback is tried that may also fail',
         'The new configuration stays active and old replicas are deleted',
-        'A rollback is tried and always succeeds, so no follow-up is needed',
+        'The platform retries the same update with backoff until it deploys',
         'The failed configuration is removed from the Config changes history',
       ],
       answer: 0,
-      explain: 'CloudHub 2.0 reports that it did not apply the configuration, and the deployment attempts to roll back to the last successful version, which might not always succeed. A failed configuration appears in the Config changes history without a label. Check the replica status, because a rollback can also fail.',
+      explain: 'CloudHub 2.0 reports that it did not apply the configuration, and the deployment attempts to roll back to the last successful version, which might not always succeed. It does not keep retrying the failed update, and the new configuration does not stay active. A failed configuration appears in the Config changes history without a label. Check the replica status, because a rollback can also fail.',
     },
     {
       type: 'multi',

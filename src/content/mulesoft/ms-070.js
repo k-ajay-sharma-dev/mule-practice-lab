@@ -34,13 +34,13 @@ export default {
       type: 'single',
       prompt: 'A Mule app loads sales lines into Oracle with `db:bulk-insert`, one chunk at a time, in a Try with a LOCAL transaction. A bad row makes one chunk fail, and that chunk rolls back. How do you still load its good rows and keep bulk speed?',
       options: [
-        'Switch the whole load to row-by-row inserts permanently',
-        'Run the same bulk insert again for the whole file',
+        'Lower the chunk size to 10 rows for the whole load',
+        'Retry that chunk as a bulk insert outside the transaction',
         'Skip the failed chunk, and log the number of lost rows',
         'Retry only that chunk row by row, and park the bad rows',
       ],
       answer: 3,
-      explain: 'The row-by-row fallback only runs for the rare failing chunk, so bad rows are parked with a reason and good rows are loaded. Atomic chunks make failure predictable, and validating lines in DataWeave first catches most problems cheaply and sends invalid ones to an error table with the reason. Row-by-row everywhere throws away the bulk gain.',
+      explain: 'The row-by-row fallback only runs for the rare failing chunk, so bad rows are parked with a reason and good rows are loaded. Atomic chunks make failure predictable, and validating lines in DataWeave first catches most problems cheaply and sends invalid ones to an error table with the reason. Tiny chunks everywhere throw away most of the bulk gain and still fail a chunk. A bulk retry outside the transaction fails again on the same row and leaves an unknown part applied. Skipping the chunk loses its good rows.',
     },
     {
       type: 'single',

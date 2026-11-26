@@ -43,16 +43,16 @@ export const SET_6 = [
     id: 'log-6003',
     kind: 'choice',
     situation:
-      'The Brightleaf Basket Process API has priced a basket. Which line can be joined to the lines the Experience API wrote for the same request?',
+      'The Brightleaf Basket Process API has priced a basket. It also makes a requestId of its own with uuid(). Which line can be joined to the lines the Experience API wrote for the same request?',
     options: [
-      'Basket priced basketId=B-2291 items=7 durationMs=184',
+      'Basket priced basketId=B-2291 items=7 durationMs=184 sessionId=S-4410',
       'Basket priced basketId=B-2291 items=7 durationMs=184 correlationId=7f3c2a',
-      'Basket priced for request 7f3c2a!!!',
-      'Basket priced basketId=B-2291 requestId=91ad0e (a new ID made in this app)',
+      'Basket priced basketId=B-2291 items=7 durationMs=184',
+      'Basket priced basketId=B-2291 items=7 durationMs=184 requestId=91ad0e',
     ],
     answer: 1,
     explain:
-      'The correlation ID came in with the X-Correlation-ID header, so both apps write the same value. A new ID made in this app joins nothing, and an unlabelled value cannot be searched by field.',
+      'The correlation ID came in with the X-Correlation-ID header, so both apps write the same value. The requestId is new in this app, so the Experience API never wrote it. A session and a basket both span many requests, so joining on them mixes requests.',
   },
   {
     id: 'log-6004',
@@ -60,14 +60,14 @@ export const SET_6 = [
     situation:
       'For the same basket request, the Brightleaf Basket Process API logs a different correlation ID from the Experience API. What can cause it?',
     options: [
-      'The Process API logs at DEBUG instead of INFO',
+      'The Process API flow starts with a Set Variable that stores uuid() as vars.requestId',
       'The HTTP Request in the Experience API has sendCorrelationId="NEVER", so no X-Correlation-ID header is sent',
-      'The Process API writes its lines as JSON instead of plain text',
+      'The two apps write their Loggers under different log4j2 categories',
       'A gateway between the two apps drops the X-Correlation-ID header',
     ],
     answers: [1, 3],
     explain:
-      'The HTTP Listener takes the correlation ID from the X-Correlation-ID header. If the header never arrives, Mule makes a new ID. The level and the format of the line do not change which ID it carries.',
+      'The HTTP Listener takes the correlation ID from the X-Correlation-ID header. If the header never arrives, Mule makes a new ID. A variable that holds a uuid() is a new field, but it does not replace correlationId. A Logger category only picks which log4j2 logger writes the line. It does not change the correlation ID on it.',
   },
   {
     id: 'log-6005',
@@ -108,11 +108,11 @@ export const SET_6 = [
       '#[output application/json --- { event: "Quote priced", quoteId: vars.quoteId, correlationId: correlationId }]',
       '#["{ event: Quote priced, quoteId: $(vars.quoteId), correlationId: $(correlationId) }"]',
       '#[output application/json indent=false --- { event: "Quote priced", quoteId: vars.quoteId, correlationId: correlationId }]',
-      '#[output application/json indent=false --- payload ++ { event: "Quote priced", correlationId: correlationId }]',
+      '#[write({ event: "Quote priced", quoteId: vars.quoteId, correlationId: correlationId }, "application/json")]',
     ],
     answer: 2,
     explain:
-      'Without indent=false the JSON is written over several lines, and the log tool splits it into several events. The line built as a quoted string is not valid JSON, and the line with payload ++ dumps the whole payload.',
+      'The JSON writer indents by default, so without indent=false the object is written over several lines and the log tool splits it into several events. write() with no writer settings indents too. The line built as a quoted string is not valid JSON.',
   },
   {
     id: 'log-6008',
@@ -195,14 +195,14 @@ export const SET_6 = [
     kind: 'choice',
     situation: 'The Alderwood team wants a chart of how long the Stock System API takes. Which line is best?',
     options: [
-      'Stock checked durationMs=412 storeId=PC-118 correlationId=7f3c2a',
-      'Stock checked in 0.4 seconds at store PC-118 for request 7f3c2a, within the target',
+      'Stock checked status=200 durationMs=412 storeId=PC-118 correlationId=7f3c2a',
+      'Stock checked durationMs=412ms storeId=PC-118 correlationId=7f3c2a',
       'Stock checked time=412 storeId=PC-118 correlationId=7f3c2a',
-      'Stock check started storeId=PC-118 correlationId=7f3c2a',
+      'Stock checked status=200 storeId=PC-118 correlationId=7f3c2a',
     ],
     answer: 0,
     explain:
-      'durationMs is a plain number with the unit in its name, so a log tool can chart it. "time=412" does not say the unit, and a number inside a sentence cannot be charted.',
+      'durationMs is a plain number with the unit in its name, so a log tool can chart it. "412ms" is text, not a number, so it cannot be charted without parsing. "time=412" does not say the unit, and the status line has no duration at all.',
   },
   {
     id: 'log-6013',
@@ -227,13 +227,14 @@ export const SET_6 = [
     options: [
       'Nobody can tell from the log how long the call took',
       'The HTTP Request operation writes its own INFO line with the status and duration, so no logger is needed after it',
-      'Nobody can tell whether the call worked',
+      'A line that only says a call is about to start is DEBUG detail, so INFO is the wrong level for it',
       'Mule appends the elapsed time of the last outbound call to the next logger line by itself',
       'The message carries no correlation ID of its own',
+      'It is missing the request body, which support needs to see what was asked for',
     ],
     answers: [0, 2, 4],
     explain:
-      'A line before a call only says something started. The line after the call gives the status and the duration. Mule does not time the call for you in a Logger. The log4j2 pattern Studio generates usually prints %X{correlationId} in the line prefix, so put the ID in the message you control as well. Then the line can be searched and joined wherever the pattern does not carry it.',
+      'A line before a call only says something started, so it is DEBUG detail. The INFO line belongs after the call, with the status and the duration. Mule does not time the call for you in a Logger, and the HTTP Request writes no INFO line of its own. The request body is payload, which stays out of INFO lines; an ID such as the store ID is enough to find the request. The log4j2 pattern Studio generates usually prints %X{correlationId} in the line prefix, so put the ID in the message you control as well. Then the line can be searched and joined wherever the pattern does not carry it.',
   },
   {
     id: 'log-6015',
@@ -285,14 +286,14 @@ export const SET_6 = [
     kind: 'choice',
     situation: 'The Wyecombe team wants one INFO line per loan application that shows which loan team got it. Which line is best?',
     options: [
-      'Route taken: second when expression matched in Choice router loan-routing',
+      'Loan application routed loanType=car route=car-loans applicationId=LA-55120 applicantIncome=52000 correlationId=7f3c2a',
       'Loan application routed loanType=car route=car-loans team=north-region channel=broker correlationId=7f3c2a',
-      'Loan application routed: {"loanType":"car","applicant":{"name":"Ravi Mehta","income":52000}}',
+      'Loan application received loanType=car applicationId=LA-55120 channel=broker correlationId=7f3c2a',
       'Loan application routed loanType=car route=car-loans applicationId=LA-55120 correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'It names the route and the application, with labelled fields. The line with team=north-region has no application ID, so nobody can tell which application went to the car loan team. "Route taken" says nothing, and the payload dump puts a name and an income in the log.',
+      'It names the route and the application, with labelled fields. The line with team=north-region has no application ID, so nobody can tell which application went to the car loan team. The "received" line is written before routing, so it does not say where the application went. The income is personal financial data.',
   },
   {
     id: 'log-6019',
@@ -304,10 +305,11 @@ export const SET_6 = [
       'The otherwise route must start with a Raise Error, so a Logger placed before it never runs',
       'It gives no application ID, and no correlation ID of its own',
       'A 400 that the flow sends back is unexpected but handled, so WARN fits better than INFO',
+      'A 400 means the request failed, so ERROR fits better than INFO',
     ],
     answers: [0, 2, 3],
     explain:
-      'Any processor can sit in the otherwise route, a Logger too. The reader needs the value that matched no route and the application, at WARN. The correlation ID belongs in the message you control, even though the log4j2 pattern usually prints it in the line prefix, so the line can be searched and joined wherever the pattern does not carry it.',
+      'Any processor can sit in the otherwise route, a Logger too. The reader needs the value that matched no route and the application, at WARN. ERROR is for faults the service must fix; here the caller sent a bad value and the flow answered as designed, so ERROR would page people for client mistakes. The correlation ID belongs in the message you control, even though the log4j2 pattern usually prints it in the line prefix, so the line can be searched and joined wherever the pattern does not carry it.',
   },
   {
     id: 'log-6020',
@@ -352,12 +354,12 @@ export const SET_6 = [
     options: [
       '#["Fares returned count=$(sizeOf(payload)) airlines=aeroNord,blueKite,sunJet correlationId=$(correlationId)"]',
       '#["Fares returned aeroNord=$(sizeOf(payload."0".payload)) blueKite=$(sizeOf(payload."1".payload)) sunJet=$(sizeOf(payload."2".payload)) correlationId=$(correlationId)"]',
-      '#["Fares returned $(write(payload, \'application/json\')) correlationId=$(correlationId)"]',
+      '#["Fares returned aeroNord=$(sizeOf(payload."0")) blueKite=$(sizeOf(payload."1")) sunJet=$(sizeOf(payload."2")) correlationId=$(correlationId)"]',
       '#["Fares returned aeroNord=$(sizeOf(payload.aeroNord)) blueKite=$(sizeOf(payload.blueKite)) sunJet=$(sizeOf(payload.sunJet)) total=$(sizeOf(payload)) correlationId=$(correlationId)"]',
     ],
     answer: 1,
     explain:
-      'Each key holds the message of one route, so payload."0".payload is the first airline\'s fares. sizeOf(payload) counts the routes, which is always 3. The routes are keyed by number, not by airline name.',
+      'Each key holds the message of one route, with its payload and attributes, so payload."0".payload is the first airline\'s fares. sizeOf(payload."0") counts the keys of that message, not the fares. sizeOf(payload) counts the routes, which is always 3. The routes are keyed by number, not by airline name.',
   },
   {
     id: 'log-6023',
@@ -442,12 +444,12 @@ export const SET_6 = [
     options: [
       'Price update sent to stores storesTotal=40 durationMs=5120 maxConcurrency=8 batchNo=B-311 correlationId=7f3c2a',
       'Parallel For Each finished maxConcurrency=8 correlationId=7f3c2a',
-      'Price update sent to stores storesTotal=40 succeeded=38 failed=2 durationMs=5120 correlationId=7f3c2a',
-      'Price update sent to stores {"stores":[ ...40 store objects with all prices... ]}',
+      'Price update sent to stores storesTotal=40 succeeded=38 failed=2 durationMs=5120 maxConcurrency=8 correlationId=7f3c2a',
+      'Price update sent to store storeId=ST-07 status=200 durationMs=130 correlationId=7f3c2a',
     ],
     answer: 2,
     explain:
-      'One line with the counts and the time sums up 40 calls. The line with batchNo=B-311 gives the total but not how many stores failed, so 2 stores on old prices go unseen. "Parallel For Each finished" names the scope, not the business result, and the dump is large and slow.',
+      'One line with the counts and the time sums up 40 calls. The line with batchNo=B-311 gives the total but not how many stores failed, so 2 stores on old prices go unseen. The storeId line is the line for one call inside the scope, not the summary after it. "Parallel For Each finished" names the scope, not the business result.',
   },
   {
     id: 'log-6028',
@@ -530,7 +532,7 @@ export const SET_6 = [
     options: [
       'Welcome message accepted by Notify API memberId=M-80412 template=welcome-v2 durationMs=230',
       'Welcome message accepted by Notify API to=ann.lee@example.com durationMs=230 correlationId=7f3c2a',
-      'Welcome message accepted by Notify API memberId=M-80412 durationMs=230 correlationId=7f3c2a',
+      'Welcome message accepted by Notify API memberId=M-80412 template=welcome-v2 durationMs=230 correlationId=7f3c2a',
       'Notify API called memberId=M-80412 template=welcome-v2 correlationId=7f3c2a',
     ],
     answer: 2,
@@ -562,10 +564,11 @@ export const SET_6 = [
       "An error inside the Async scope does not reach the flow's error handler, so the scope needs its own Try and logger",
       'Lines inside the Async scope get a new correlationId, because the scope runs on another thread',
       "Lines from inside the Async scope can appear in the log after the flow's last line",
+      'A Logger inside the Async scope cannot read variables set before the scope, because it runs on another thread',
     ],
     answers: [0, 1, 3],
     explain:
-      'The Async scope runs later on another thread, with the same correlation ID. Its errors do not go back to the flow, so without a Try and a logger inside it, a failure leaves no trace.',
+      'The Async scope runs later on another thread, with the same correlation ID. Its errors do not go back to the flow, so without a Try and a logger inside it, a failure leaves no trace. The scope gets a copy of the event, variables included, so a Logger inside it can read them; changes made inside do not come back to the flow.',
   },
   {
     id: 'log-6035',
@@ -698,14 +701,14 @@ export const SET_6 = [
     kind: 'choice',
     situation: 'Which Oakridge audit line is best for a claim that was approved automatically?',
     options: [
-      'Claim decision: {"claimId":"C-77310","patient":{"name":"Lena Ortiz","diagnosis":"J45"},"amount":420.00}',
+      'Claim approved claimId=C-77310 rule=fast-track amount=420.00 diagnosis=J45 decidedBy=system correlationId=7f3c2a',
       'Claim approved claimId=C-77310 amount=420.00 policyId=PL-2208 correlationId=7f3c2a',
       'Claim C-77310 processed amount=420.00 policyId=PL-2208 correlationId=7f3c2a',
       'Claim approved claimId=C-77310 rule=fast-track amount=420.00 decidedBy=system correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'An audit line says what was decided, on which record, by whom and under which rule. The "Claim approved" line without rule= leaves out the rule and who decided, which is what an auditor asks first. "processed" does not say approved or denied, and the dump holds health data.',
+      'An audit line says what was decided, on which record, by whom and under which rule. The line without rule= leaves out the rule and who decided, which is what an auditor asks first. "processed" does not say approved or denied. The diagnosis code is health data and adds nothing to the decision record.',
   },
   {
     id: 'log-6043',
@@ -713,15 +716,15 @@ export const SET_6 = [
     situation: 'An Oakridge audit logger for denied claims:',
     code: `<logger level="DEBUG" category="audit" message='#["Claim denied claimId=$(vars.claimId) correlationId=$(correlationId)"]' />`,
     options: [
-      'Audit lines must use the root category, so the category attribute should be removed',
+      'It has no correlation ID, so the denial cannot be joined to the request that made it',
       'Audit lines at DEBUG are off in production, so the decision is not recorded',
       'It does not say why the claim was denied, such as the rule or reason code',
-      'The claim ID is personal data under health privacy rules, so it must be left out',
+      'The claim ID counts as personal data under health privacy rules, so leave it out',
       'It does not say who or what made the decision',
     ],
     answers: [1, 2, 4],
     explain:
-      'An audit category is a good idea: the audit team can send it to its own store. The claim ID is a reference, not personal data. The line needs INFO, the reason and who decided.',
+      'The line needs INFO, the reason and who decided. The message already carries correlationId, so it can be joined to the request. The claim ID is a reference, not personal data. The audit category is a good idea: the audit team can send it to its own store.',
   },
   {
     id: 'log-6044',
@@ -788,14 +791,14 @@ export const SET_6 = [
     kind: 'choice',
     situation: 'Cobalt operations want a Splunk chart of request sizes and reading counts. Which last line of the request helps most?',
     options: [
-      'Readings stored, a large batch this time, most of them valid correlationId=7f3c2a',
-      'Readings stored: 482 out of 500, 18 rejected, 96 KB received, took about 0.7 s, request 7f3c2a',
-      'Readings saved stored=482 rejected=18 requestBytes=96210 durationMs=740 correlationId=7f3c2a',
+      'Readings saved stored=482 rejected=18 requestKb=96 duration=0.7s correlationId=7f3c2a',
+      'Readings saved received=500 stored=482 rejected=18 durationMs=740 correlationId=7f3c2a',
+      'Readings saved received=500 stored=482 rejected=18 requestBytes=96210 durationMs=740 correlationId=7f3c2a',
       'Readings saved deviceGroup=north-grid status=200 correlationId=7f3c2a',
     ],
     answer: 2,
     explain:
-      'Each number has a label, so Splunk can chart it without parsing a sentence. The line "Readings stored: 482 out of 500" has the facts, but inside a sentence a tool cannot pick them out.',
+      'Each number has a label and a plain numeric value, so Splunk can chart it. "duration=0.7s" is text, so it cannot be charted without parsing. The line with received=500 has the counts but no request size, and the deviceGroup line has neither.',
   },
   {
     id: 'log-6048',
@@ -804,27 +807,27 @@ export const SET_6 = [
     options: [
       '#["Readings received $(payload.readings) correlationId=$(correlationId)"]',
       '#["Readings received count=$(payload.readings.count) correlationId=$(correlationId)"]',
-      '#["Readings received count=" ++ write(payload.readings) ++ " correlationId=" ++ correlationId]',
+      '#["Readings received count=$(sizeOf(payload)) correlationId=$(correlationId)"]',
       '#["Readings received count=$(sizeOf(payload.readings)) correlationId=$(correlationId)"]',
     ],
     answer: 3,
     explain:
-      'sizeOf counts the items of the array. payload.readings.count looks for a count field in each reading, which does not exist, and the other two write the readings themselves.',
+      'sizeOf counts the items of the array. sizeOf(payload) counts the keys of the top object, not the readings. payload.readings.count looks for a count field in each reading, which does not exist, and $(payload.readings) writes the readings themselves.',
   },
   {
     id: 'log-6049',
     kind: 'multi',
     situation: 'Cobalt builds Splunk dashboards from the fields in its log lines. Which choices make the numbers on them trustworthy?',
     options: [
-      'Use durationMs in one flow and took_ms in another, so the flows can be told apart',
+      'Write the duration in seconds with the unit in the value, such as duration=0.74s, so a reader sees the unit',
       'Use the same field name, such as stored=, in every flow that stores readings',
-      'Log the whole payload, so the dashboard can count the readings itself',
+      'Write the stored count on the line where the readings arrive, so it is there even if the flow fails later',
       'Keep the unit in the field name and only the number in the value, such as durationMs=740',
       'Write the counts once per request, after the work is done, not once per reading',
     ],
     answers: [1, 3, 4],
     explain:
-      'A dashboard adds up fields by name, so one name per fact, with the unit in the name. The app name already tells flows apart, and a dashboard cannot count readings inside a dumped payload. Cobalt builds these charts in Splunk, because custom dashboards and cross-application log search in Anypoint Monitoring need the Advanced or Titanium tier.',
+      'A dashboard adds up fields by name, so one name per fact, with the unit in the name and a plain number as the value. "0.74s" is text that cannot be summed. When the readings arrive nothing is stored yet, so a stored count there is a guess. Cobalt builds these charts in Splunk, because custom dashboards and cross-application log search in Anypoint Monitoring need the Advanced or Titanium tier.',
   },
   {
     id: 'log-6050',
@@ -867,14 +870,14 @@ export const SET_6 = [
     situation:
       'Mule does not log Cache scope hits or misses for you, so the team adds a logger of its own inside the Fennwick Cache scope, next to the FX provider call. Which line is best there?',
     options: [
-      'Cache hit: FX rate served from cache pair=EUR-GBP cache=fx-rates correlationId=7f3c2a',
-      'In cache scope pair=EUR-GBP cache=fx-rates correlationId=7f3c2a',
-      'Cache miss: {"pair":"EUR-GBP","rate":0.8571,"source":"provider"}',
+      'Cache hit: FX rate served from cache pair=EUR-GBP cache=fx-rates ageSeconds=42 durationMs=3 correlationId=7f3c2a',
+      'Cache lookup: FX rate requested pair=EUR-GBP cache=fx-rates ttlSeconds=60 durationMs=210 correlationId=7f3c2a',
+      'Cache miss: FX provider called cache=fx-rates provider=fxhub durationMs=210 correlationId=7f3c2a',
       'Cache miss: FX provider called pair=EUR-GBP cache=fx-rates correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'On a hit the content of the scope does not run, so a line inside it can only mean a miss. The pair is the cache key, which tells you what was looked up.',
+      'On a hit the content of the scope does not run, so a line inside it can only mean a miss, and the pair is the cache key that tells you what was looked up. A hit line with ageSeconds can never be written from inside the scope. Calling it a lookup with ttlSeconds counts misses as all lookups, so the numbers are wrong. The line with provider=fxhub and durationMs is a real miss line, but it leaves out the pair, so you cannot tell which currency went to the provider.',
   },
   {
     id: 'log-6053',
@@ -981,15 +984,16 @@ export const SET_6 = [
     situation: 'After the Quillstone incident, the team reviews the Experience API logger that comes after the Process API call:',
     code: `<logger level="INFO" message='#["Order forwarded"]' />`,
     options: [
-      'It does not give the order ID, so a complaint cannot be matched to it',
+      'A complaint about one order cannot be matched to this line',
       'It runs even when the call fails, so it can claim a forward that never happened',
       'It carries no correlation ID of its own',
       'INFO is the wrong level here, since a forwarded order is a DEBUG detail in production',
-      'It does not give the status or the duration of the call',
+      'Nobody can tell from it what the Process API answered or how long the call took',
+      'It does not give the customer email, so support cannot answer the complaint from the log',
     ],
     answers: [0, 2, 4],
     explain:
-      'When the call fails, the flow goes to the error handler and this line does not run. That is why the error handler needs its own logger. A forward that worked is INFO. The correlation ID belongs in the message you control, so the line can be searched and joined wherever the log4j2 pattern does not print it in the prefix.',
+      'With no order ID the line cannot be matched to a complaint, and with no status or duration it says nothing about the call. When the call fails, the flow goes to the error handler and this line does not run. That is why the error handler needs its own logger. A forward that worked is INFO. The email is personal data; the order ID finds the customer in the order system. The correlation ID belongs in the message you control, so the line can be searched and joined wherever the log4j2 pattern does not print it in the prefix.',
   },
   {
     id: 'log-6060',
@@ -1031,16 +1035,17 @@ export const SET_6 = [
   {
     id: 'log-6062',
     kind: 'choice',
-    situation: 'Which Fellstone error handler line best helps the partner and support fix the failed catalog update?',
+    situation:
+      'The Fellstone mapping failed on the price of one product. Which error handler line best helps the partner and support fix the failed catalog update?',
     options: [
-      'Catalog update rejected: price is not a number errorType=MULE:EXPRESSION sku=FS-4471 field=price status=400 correlationId=7f3c2a',
-      'Error occurred in Transform Message errorType=MULE:EXPRESSION status=400 correlationId=7f3c2a',
-      'DataWeave failed: {"items":[{"sku":"FS-4471","price":"N/A", ...1,200 more items...}]}',
-      'Catalog update rejected detail=(the whole error.detailedDescription, 40 lines with the input in it)',
+      'Catalog update rejected: price is not a number errorType=MULE:EXPRESSION sku=FS-4471 field=price partnerId=P-22 status=400 correlationId=7f3c2a',
+      'Catalog update rejected errorType=MULE:EXPRESSION status=400 items=1200 correlationId=7f3c2a',
+      'Catalog update rejected: price is not a number errorType=MULE:EXPRESSION field=price status=400 correlationId=7f3c2a',
+      'Catalog update rejected: price is not a number errorType=HTTP:BAD_REQUEST sku=FS-4471 field=price status=400 correlationId=7f3c2a',
     ],
     answer: 0,
     explain:
-      'It names the product and the field, so the partner knows what to fix. The other lines say nothing, dump the input, or break one event into 40 lines.',
+      'It names the product and the field, so the partner knows what to fix. The line with items=1200 says how big the update was but not which product broke. The line without sku leaves the partner to search 1,200 products. HTTP:BAD_REQUEST is raised when a called system answers 400, not when a mapping fails, so it points support at the wrong place.',
   },
   {
     id: 'log-6063',
@@ -1053,10 +1058,11 @@ export const SET_6 = [
       'It can run over several lines, which breaks one event into many in Splunk',
       'It gives no product ID, and no correlation ID of its own',
       "A 400 caused by the partner's data fits WARN better than ERROR",
+      'On Error Propagate rethrows the error, so a Logger inside it does not run',
     ],
     answers: [0, 2, 3, 4],
     explain:
-      'A DataWeave error message shows the script line and the value that broke it, over several lines. Log the error type and the product ID on one line, at WARN, with the correlation ID in the message you control. The log4j2 pattern usually prints the ID in the line prefix, and a line that carries it as a field can be searched and joined wherever the pattern does not.',
+      'A DataWeave error message shows the script line and the value that broke it, over several lines. The error is rethrown only after the processors inside On Error Propagate have run, so the Logger does write its line. The detailed description does not mask anything. Log the error type and the product ID on one line, at WARN, with the correlation ID in the message you control. The log4j2 pattern usually prints the ID in the line prefix, and a line that carries it as a field can be searched and joined wherever the pattern does not.',
   },
   {
     id: 'log-6064',
@@ -1124,14 +1130,14 @@ export const SET_6 = [
     kind: 'choice',
     situation: 'Velo samples its "Quote returned" lines, 1 in 100. Which kept line is best?',
     options: [
-      'Quote returned quoteId=Q-91 durationMs=38 correlationId=7f3c2a (some lines dropped)',
+      'Quote returned quoteId=Q-91 sampleRate=0.1 durationMs=38 correlationId=7f3c2a',
       'Quote returned quoteId=Q-91 sampleRate=0.01 durationMs=38 correlationId=7f3c2a',
       'Quote returned quoteId=Q-91 sampled=true durationMs=38 correlationId=7f3c2a',
-      'Quote returned quoteId=Q-91 rider=Jo Park durationMs=38 correlationId=7f3c2a',
+      'Quote returned quoteId=Q-91 durationMs=38 correlationId=7f3c2a',
     ],
     answer: 1,
     explain:
-      'sampleRate tells anyone who counts these lines to multiply by 100. Without it, a dashboard shows 30 quotes a second instead of 3000.',
+      'sampleRate=0.01 tells anyone who counts these lines to multiply by 100. sampleRate=0.1 says 1 in 10, so counts would come out ten times too low. sampled=true and no field at all do not say the rate, so a dashboard shows 30 quotes a second instead of 3000.',
   },
   {
     id: 'log-6068',

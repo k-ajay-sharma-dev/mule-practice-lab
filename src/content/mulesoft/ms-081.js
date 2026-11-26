@@ -8,15 +8,15 @@ export default {
   quiz: [
     {
       type: 'single',
-      prompt: 'An `email:listener-imap` has no Imap Matcher, and people also open emails in this mailbox. The reference says read emails are filtered by default, yet it lists Seen with a default of INCLUDE and does not define that value. What should the team do?',
+      prompt: 'An `email:listener-imap` has no Imap Matcher. People also open emails in this mailbox, and opened emails must still be processed. The reference says read emails are filtered by default, yet lists Seen with a default of INCLUDE. What should the team do?',
       options: [
         'Set Seen on an Imap Matcher and test it with read and unread emails',
-        'Nothing, because the listener ignores the read flags of emails',
-        'Turn off Enable Watermark, because it controls read flags',
-        'Rely on EMAIL:EMAIL_NOT_FOUND to report any skipped email',
+        'Keep the defaults, because Seen is listed with a default of INCLUDE',
+        'Turn off Enable Watermark, so opened emails are picked up on a later poll',
+        'Add an Imap Matcher with Recent set to INCLUDE, so new mail passes',
       ],
       answer: 0,
-      explain: 'The docs do not reconcile these two statements or define REQUIRE, INCLUDE and EXCLUDE, so do not memorise either outcome. Treat a person opening an email as a risk until a test on your own mail server shows what happens.',
+      explain: 'The docs do not reconcile these two statements or define REQUIRE, INCLUDE and EXCLUDE, so do not rely on either default. Set Seen yourself and test it on your own mail server. Trusting the INCLUDE default ignores the other statement. The watermark filters by received date, not by read flag. Recent says nothing about whether an email was opened.',
     },
     {
       type: 'single',
@@ -85,7 +85,7 @@ export default {
       prompt: 'A shared mailbox holds 40,000 emails. The Imap Matcher keeps only a few emails from one sender, yet each poll moves a lot of data. A colleague proposes Enable Remote Search, which is false by default. What is the honest assessment?',
       options: [
         'It changes nothing, because the filters already run on the mail server by default',
-        'It moves the filters to the mail server, but test it, as some servers do not support all terms',
+        'It cuts traffic, because the mail server then applies the matcher filters',
         'It cuts traffic, because the server then searches the listener folder and not the whole mailbox',
         'It cuts traffic, because the listener then reads only headers and skips the message bodies',
       ],

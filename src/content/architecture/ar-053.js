@@ -110,7 +110,7 @@ export default {
       prompt: 'In the trip summary, the airline route of a Scatter-Gather fails. What happens, and what should you do?',
       options: [
         'The failed route is skipped, and the summary comes back with the other two results and no error',
-        'Scatter-Gather raises a composite routing error; catch it and return the successful parts with a partial/warnings flag if the business accepts it',
+        'It raises a composite routing error; catch it and return the parts that worked with a warning',
         'Mule retries the failed route on its own, up to the Scatter-Gather timeout, and then returns all results',
         'The whole Scatter-Gather fails with HTTP:TIMEOUT, and nothing can be returned to the customer',
       ],
@@ -124,11 +124,11 @@ export default {
       options: [
         'In flow variables, which travel with the event through every step of the flow',
         'In an in-memory Object Store, which every flow in the app can read',
-        'In a durable process/saga record (database or persistent Object Store) or durable queues, with a recovery job that resumes or compensates',
+        'In a durable saga record, with a recovery job that resumes or compensates',
         'In the client, which sends the completed steps back with each call',
       ],
       answer: 2,
-      explain: 'Statelessness is about request handling: any replica serves any request, while long-running process state is externalised.',
+      explain: 'Statelessness is about request handling: any replica serves any request, while long-running process state is externalised in a database, a persistent Object Store or durable queues. Flow variables and an in-memory Object Store die with the pod. A client that holds the steps may never call back, so nothing resumes or compensates.',
     },
     {
       type: 'single',
@@ -148,7 +148,7 @@ export default {
       prompt: 'Why not use the Async scope to aggregate the trip summary?',
       options: [
         'The Async scope is deprecated in Mule 4 and should not be used in new flows',
-        'It is fire-and-forget and does not return results to the main flow, which aggregation needs',
+        'It does not hand its results back to the main flow, which aggregation needs',
         'It can only start work on a VM or Anypoint MQ queue, not call HTTP',
         'It runs its steps one after another, so the three calls would not overlap',
       ],

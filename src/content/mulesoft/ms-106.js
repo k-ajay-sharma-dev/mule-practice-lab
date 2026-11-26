@@ -11,12 +11,12 @@ export default {
       prompt: 'A Jenkins pipeline must deploy apps with no human present. It currently signs in with a shared user account. What do the docs require?',
       options: [
         'An internal connected app using Client Credentials, not a user',
-        'Keep the user account and turn off MFA for the organization',
+        'A dedicated user for the pipeline alone, so that it is not shared',
         'A connected app with the Password grant, using the same user account',
         'An external connected app, authorised once in the browser by the pipeline owner',
       ],
       answer: 0,
-      explain: 'MuleSoft requires internal connected apps instead of service accounts for programmatic calls. MFA cannot be turned off at organization level, and the exemption is limited to specific account types.',
+      explain: 'MuleSoft requires internal connected apps instead of service accounts for programmatic calls. A dedicated user is still a service account, and it still meets MFA at sign-in. The Password grant acts as that same user. An external app authorised in a browser needs a person at the start.',
     },
     {
       type: 'match',

@@ -37,12 +37,12 @@ export default {
       prompt: 'The hold time measured in the pool is 2 seconds, while the SQL itself takes 30 ms. Which flow design most likely explains it?',
       options: [
         'A DB transaction that also wraps the payment HTTP call',
-        'Bind parameters instead of literal values in the SQL',
+        'A pool maxWait of 2 seconds, set too high for the peak',
         'A small preparedStatementCacheSize on the pool',
         'db:insert instead of db:bulk-insert for a single row',
       ],
       answer: 0,
-      explain: 'Inside a transaction the connection is held from the first DB operation until commit, including any HTTP wait. Move remote calls out of the transaction.',
+      explain: 'Inside a transaction the connection is held from the first DB operation until commit, including any HTTP wait. Move remote calls out of the transaction. maxWait is how long a request waits to get a connection, not how long it holds one. A small statement cache costs a little parse time, and a single-row insert is fast either way.',
     },
     {
       type: 'single',

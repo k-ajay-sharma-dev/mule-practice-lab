@@ -26,7 +26,7 @@ export default {
       options: [
         'Put the root organization ID in the URL too, because the root owns every business group',
         'Keep the root organization ID, and add the business group ID as the Maven classifier',
-        'Set `groupId` to the Logistics business group ID, the same ID as in the URL',
+        'Set `groupId` to the Logistics business group ID, which names the owner',
         'Set `groupId` to a reverse domain name, such as com.acme, matching the package',
       ],
       answer: 2,

@@ -76,11 +76,11 @@ export default {
       options: [
         'A Kafka topic with a single partition, so every event has one global order',
         'A Kafka topic keyed by SKU + location, so order is kept per key at scale',
-        'One Anypoint MQ FIFO queue that carries all stock events for every store',
-        'A JMS topic with one non-durable subscriber per consumer application',
+        'One Anypoint MQ FIFO queue per region, carrying each region\'s stock events in arrival order',
+        'A JMS queue per DC on the local broker, with one consumer per queue to keep order',
       ],
       answer: 1,
-      explain: 'Kafka guarantees order within a partition, and keying by SKU + location keeps related events together while consumers scale across partitions. A single partition or a single FIFO queue serialises all traffic, and non-durable subscribers lose messages while disconnected.',
+      explain: 'Kafka guarantees order within a partition, and keying by SKU + location keeps related events together while consumers scale across partitions. A single partition serialises all traffic through one consumer. A FIFO queue per region keeps order for a whole region, which is far more than needed, and each queue is still drained in strict sequence, so a region\'s share of 20,000 events a second cannot spread across consumers. One consumer per DC queue has the same limit, and the local brokers are not where cloud consumers read stock events.',
     },
   ],
   description: `

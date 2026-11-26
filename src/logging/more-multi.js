@@ -6,7 +6,7 @@ export const MORE_MULTI = [
     situation: 'At the start of the HTTP Listener flow of a Customer Experience API:',
     code: '<logger level="INFO" message="#[attributes.headers]" />',
     options: [
-      'attributes cannot be read inside a Logger',
+      'The headers are written as a Java object reference, so no header value appears in the line',
       'It writes the Authorization header, so a bearer token or Basic credentials reach the log',
       'Mule masks header values before a Logger writes them',
       'There is no message that says what happened, and no correlation ID',
@@ -14,7 +14,7 @@ export const MORE_MULTI = [
     ],
     answers: [1, 3, 4],
     explain:
-      'Mule does not mask anything a Logger writes, so every header value lands in the log as it is. attributes can be read in a Logger, which is why this leaks. Log the named facts you need: "Request received method=$(attributes.method) path=$(attributes.requestPath) correlationId=$(correlationId)".',
+      'Mule does not mask anything a Logger writes, so every header value lands in the log as it is. The headers map prints its keys and values, which is why this leaks. Log the named facts you need: "Request received method=$(attributes.method) path=$(attributes.requestPath) correlationId=$(correlationId)".',
   },
   {
     id: 'log-302',
@@ -22,14 +22,15 @@ export const MORE_MULTI = [
     situation: 'After the call that fetches an OAuth access token for the Salesforce System API:',
     code: '<logger level="DEBUG" message=\'#["Token fetched token=$(payload.access_token) expiresIn=$(payload.expires_in)"]\' />',
     options: [
-      'DEBUG lines never reach production, so the token is safe there',
+      'At DEBUG the line is safe as long as the production root level stays at INFO',
       'The access token is a secret and reaches the log',
-      '$() interpolation only works at INFO and above',
-      'Anyone who can read the log can call Salesforce as the app until the token expires',
+      'An access token is short-lived, so logging it is acceptable, unlike the client secret',
+      'The label expiresIn gives no unit, though the token endpoint sends expires_in in seconds',
+      'expires_in from a token endpoint is in milliseconds, so the label should be expiresInMs',
     ],
     answers: [1, 3],
     explain:
-      'Tokens never go in a log at any level, and DEBUG is often turned on in production to troubleshoot. Interpolation works at every level. Keep the useful part: "Salesforce token fetched expiresIn=$(payload.expires_in)".',
+      'Tokens never go in a log at any level, and DEBUG is often turned on in production to troubleshoot. A short life limits the damage but does not remove it: until it expires the token works for anyone. OAuth 2.0 defines expires_in in seconds, so expiresInSec names the unit and expiresInMs would mislead. Keep the useful part: "Salesforce token fetched expiresInSec=$(payload.expires_in)".',
   },
   {
     id: 'log-303',
@@ -37,15 +38,15 @@ export const MORE_MULTI = [
     situation: 'In the Customer Process API, after the CRM update:',
     code: '<logger level="INFO" message=\'#["Updated customer $(payload.firstName) $(payload.lastName) phone=$(payload.phone) email=$(payload.email)"]\' />',
     options: [
-      'Personal data is allowed at INFO as long as each value has a label',
+      'The level should be DEBUG, because a CRM update is a technical step inside the flow',
       'There is no correlation ID',
       'Name, phone and email are personal data. Log the customer ID instead',
-      'Personal data is fine in a log when the log store is inside the company network',
+      'Masking the email, such as a***@example.com, makes the line acceptable',
       'It does not say which system was updated',
     ],
     answers: [1, 2, 4],
     explain:
-      'Labels make a line searchable, but they do not make personal data safe, and logs are copied to many tools and read by many teams. Write "CRM customer updated customerId=$(vars.customerId) correlationId=$(correlationId)".',
+      'A changed customer record is a business event, so INFO fits; at DEBUG the update would leave no trace in production. Logs are copied to many tools and read by many teams, so personal data stays out. Masking the email still leaves the name and the phone. Write "CRM customer updated customerId=$(vars.customerId) correlationId=$(correlationId)".',
   },
   {
     id: 'log-304',
@@ -53,7 +54,7 @@ export const MORE_MULTI = [
     situation: 'In a Batch Step that loads 200,000 card transactions, for each record:',
     code: '<logger level="INFO" message=\'#["Record cardNumber=$(payload.cardNumber) amount=$(payload.amount)"]\' />',
     options: [
-      'Records inside a Batch Step cannot be logged',
+      'A Logger in a Batch Step runs once for each block of 100 records, not once for each record',
       'Log a summary in On Complete with the counts, and per-record lines only at DEBUG without the card number',
       'A full card number in a log breaks PCI rules',
       'Inside a Batch Step, payload is the whole input file, not one record',
@@ -61,7 +62,7 @@ export const MORE_MULTI = [
     ],
     answers: [1, 2, 4],
     explain:
-      'You can log inside a Batch Step, and there payload is the one record being processed. That is the trouble: one line per record floods INFO, and this one carries a card number. Log a transaction ID at DEBUG and the counts once in On Complete.',
+      'Records are loaded in blocks, but a Logger in a Batch Step runs for each record, and there payload is that one record. That is the trouble: one line per record floods INFO, and this one carries a card number. Log a transaction ID at DEBUG and the counts once in On Complete.',
   },
   {
     id: 'log-305',
@@ -70,14 +71,14 @@ export const MORE_MULTI = [
     code: '<logger level="INFO" message="Done" />',
     options: [
       '"Done" does not say what finished',
-      'A message without #[ ] is not allowed in a Logger',
+      'The Logger should sit before the Database Update, so a line is written even when the update fails',
       'There is no count of the rows that were updated',
-      'INFO is wrong for the end of a flow. Use DEBUG',
+      'There is no error.errorType, so a failed update cannot be told apart from one that worked',
       'There is no correlation ID',
     ],
     answers: [0, 2, 4],
     explain:
-      'Plain text is allowed in a Logger, and INFO is right for the end of a run. The line needs the facts: "Inventory sync finished rowsUpdated=$(payload.affectedRows) correlationId=$(correlationId)".',
+      'After the update is the right place, because only then is the row count known, and a failed update belongs in the error handler. This line only runs when the update worked, so error is not set here and there is no error type to log. The line needs the facts: "Inventory sync finished rowsUpdated=$(payload.affectedRows) correlationId=$(correlationId)".',
   },
   {
     id: 'log-306',
@@ -85,7 +86,7 @@ export const MORE_MULTI = [
     situation: 'In the Order Process API, three loggers left over from a debugging session:',
     code: '<logger level="INFO" message="Here" />\n<logger level="INFO" message="In flow" />\n<logger level="INFO" message="here 2" />',
     options: [
-      'Make them ERROR so they stand out when you read the log',
+      'Give each one a category, so log4j2.xml can switch them off in production',
       'They tell a reader nothing about what happened',
       'Set them to DEBUG and leave them in, since DEBUG is off in production',
       'Remove them, or replace them with one line that says what happened, with IDs',
@@ -93,7 +94,7 @@ export const MORE_MULTI = [
     ],
     answers: [1, 3, 4],
     explain:
-      'Markers like these help for an hour on your laptop and then become noise. ERROR would make it worse: alerts fire on ERROR. DEBUG only hides them until the next person turns DEBUG on to troubleshoot and finds "Here" between the lines that matter.',
+      'Markers like these help for an hour on your laptop and then become noise. A category lets you silence them, but they still tell the next reader nothing. DEBUG only hides them until the next person turns DEBUG on to troubleshoot and finds "Here" between the lines that matter.',
   },
   {
     id: 'log-307',
@@ -102,13 +103,14 @@ export const MORE_MULTI = [
     code: '<logger level="INFO" message=\'#["SAP order created $(vars.orderId) $(payload.sapDocNo) $(attributes.statusCode)"]\' />',
     options: [
       'The values have no names, so a reader cannot tell which number is which',
-      'attributes.statusCode is not available after an HTTP Request',
+      'attributes.statusCode here is the status of the incoming request, not of the SAP reply',
       'There is no correlation ID',
       'You cannot search for orderId=10045 in the log tool',
+      'The line should be DEBUG, because the SAP reply is a detail of the call',
     ],
     answers: [0, 2, 3],
     explain:
-      'After an HTTP Request, attributes.statusCode holds the status, so logging it is right. Give every value a name: "SAP order created orderId=$(vars.orderId) sapDocNo=$(payload.sapDocNo) status=$(attributes.statusCode) correlationId=$(correlationId)".',
+      'After an HTTP Request, attributes are the response attributes, so attributes.statusCode is the SAP status. An order created in SAP is a business event, so INFO is right. Give every value a name: "SAP order created orderId=$(vars.orderId) sapDocNo=$(payload.sapDocNo) status=$(attributes.statusCode) correlationId=$(correlationId)".',
   },
   {
     id: 'log-308',
@@ -118,12 +120,13 @@ export const MORE_MULTI = [
     options: [
       'The correlation ID makes a business ID unnecessary',
       'There is no business ID such as shipmentId, so support cannot find the line from a customer complaint',
-      'Status and duration should not be logged at INFO',
+      'durationMs can go, because the HTTP Request already logs how long each call took',
       'It does not name the carrier, and the app calls three of them',
+      'It has no correlation ID, so the carrier reply cannot be joined to the request that caused it',
     ],
     answers: [1, 3],
     explain:
-      'The correlation ID joins the lines of one request, but support starts from a shipment or order number. Status and duration at INFO are exactly what you want after a call. Write "Carrier replied carrier=$(vars.carrier) shipmentId=$(vars.shipmentId) status=... durationMs=... correlationId=...".',
+      'The line already carries the correlation ID, which joins the lines of one request, but support starts from a shipment or order number. The HTTP Request does not log its timing at INFO, so durationMs is where a slow carrier shows. Write "Carrier replied carrier=$(vars.carrier) shipmentId=$(vars.shipmentId) status=... durationMs=... correlationId=...".',
   },
   {
     id: 'log-309',
@@ -134,12 +137,12 @@ export const MORE_MULTI = [
     options: [
       'The message is badly worded',
       'INFO or WARN fits better',
-      'A Logger cannot be placed inside On Error Continue',
+      'ERROR fits, because the line is written inside an error handler',
       'ERROR is too strong: the app handled a normal answer, and alerts on ERROR will fire for nothing',
     ],
     answers: [1, 3],
     explain:
-      'The wording is good: what happened, the ID and the correlation ID. Only the level is wrong. A 404 for an unknown ID is an answer, not a failure of your app, so keep ERROR for work that failed.',
+      'The wording is good: what happened, the ID and the correlation ID. Only the level is wrong, and being inside an error handler does not make a line an error. A 404 for an unknown ID is an answer, not a failure of your app, so keep ERROR for work that failed.',
   },
   {
     id: 'log-310',
@@ -149,13 +152,13 @@ export const MORE_MULTI = [
     code: '<logger level="INFO" message=\'#["Payment call failed orderId=$(vars.orderId) errorType=$(error.errorType) error=$(error.description) correlationId=$(correlationId)"]\' />',
     options: [
       'The error type is missing',
-      'error.description is not available in On Error Propagate',
+      'error.description is empty when the HTTP Request raised the error, so the reason is lost',
       'INFO is wrong: the work failed and someone must act, so ERROR',
       'Alerts that watch for ERROR lines will not see this failure',
     ],
     answers: [2, 3],
     explain:
-      'The message already has the error type, the reason and the IDs, and error is available in every error handler. Only the level hides it: a failed payment at INFO looks like a normal event.',
+      'The message already has the error type, the reason and the IDs, and the HTTP Request fills error.description like any other component. Only the level hides it: a failed payment at INFO looks like a normal event.',
   },
   {
     id: 'log-311',
@@ -165,13 +168,14 @@ export const MORE_MULTI = [
     code: '<logger level="DEBUG" message=\'#["Invoice write failed"]\' />',
     options: [
       'There is no invoice ID, error type or correlation ID',
-      'error.errorType cannot be used inside On Error Continue',
+      'error is cleared once On Error Continue has handled it, so error.errorType is null here',
       'It should be ERROR (or at least WARN) and say what happens next, such as next=skipped',
       'On Error Continue hides the failure from the caller, and DEBUG is off in production, so nobody sees that an invoice was lost',
+      'DEBUG is right, because On Error Continue marks the error as expected',
     ],
     answers: [0, 2, 3],
     explain:
-      'When you continue past an error, your Logger line is often the only sign it happened, so it must be visible and complete. error is available in On Error Continue too. Write "Invoice not written to ERP invoiceId=... errorType=$(error.errorType) error=$(error.description) next=skipped correlationId=...".',
+      'When you continue past an error, your Logger line is often the only sign it happened, so it must be visible and complete. error is still set inside On Error Continue. Continuing does not make an error expected; it only means the flow goes on. Write "Invoice not written to ERP invoiceId=... errorType=$(error.errorType) error=$(error.description) next=skipped correlationId=...".',
   },
   {
     id: 'log-312',
@@ -179,15 +183,15 @@ export const MORE_MULTI = [
     situation: 'In the On Error Propagate of the Salesforce upsert:',
     code: '<logger level="ERROR" message=\'#["Salesforce upsert failed accountId=$(vars.accountId) correlationId=$(correlationId)"]\' />',
     options: [
-      'The words "upsert failed" are too vague',
+      'There is no account ID, so support cannot tell which record failed',
       'There is no error.errorType, so you cannot tell a timeout from a rejected record',
-      'ERROR is the wrong level inside On Error Propagate',
-      'There is no error.description with the reason',
+      'WARN fits better, because the error goes up to the caller, which logs it at ERROR',
+      'ERROR is the right level, because the write failed here and this is where the fault is logged',
       'It does not say what happens next to the account',
     ],
     answers: [1, 3, 4],
     explain:
-      'The start is good: what failed, which account and the correlation ID. Add errorType=$(error.errorType) error=$(error.description) and next=..., such as next=returned 502 or next=sent to DLQ. ERROR fits a failed write.',
+      'The start is good: what failed, the account ID and the correlation ID are all there. Add errorType=$(error.errorType) error=$(error.description) and next=..., such as next=returned 502 or next=sent to DLQ. ERROR fits a failed write here, where the fault happened, and the caller should log only what it got back, so WARN in this place would hide the one full record of the fault.',
   },
   {
     id: 'log-313',
@@ -195,14 +199,14 @@ export const MORE_MULTI = [
     situation: 'Support asks you to turn on DEBUG for the SFTP part of a large app only. Every Logger in the app looks like this:',
     code: '<logger level="DEBUG" message=\'#["File read fileName=$(attributes.fileName) sizeBytes=$(attributes.size)"]\' />',
     options: [
-      'A DEBUG Logger needs a category, or it is skipped',
+      'Raising org.mule.extension.sftp to DEBUG in log4j2.xml turns on these lines',
       'Add category="com.acme.files.sftp" and raise only that category in log4j2.xml',
       'attributes.fileName is not available from the SFTP connector',
       'Loggers without a category all share one default category, so raising it turns on DEBUG for every Logger in the app',
     ],
     answers: [1, 3],
     explain:
-      'A Logger without a category still runs; it writes under the Logger component\'s own category, which every uncategorised Logger shares. A category per area lets you raise one part of the app. The message itself is good.',
+      'org.mule.extension.sftp is the category of the connector\'s own classes, not of your Loggers. A Logger without a category writes under the Logger component\'s own category, which every uncategorised Logger shares. A category per area lets you raise one part of the app. The message itself is good.',
   },
   {
     id: 'log-314',
@@ -228,13 +232,13 @@ export const MORE_MULTI = [
     options: [
       'The correlation ID changes in each layer, so the three lines cannot be joined',
       'The full error, with the type and the reason, belongs where it happens: the System API',
-      'Only the Experience API should log errors, because it faces the client',
+      'The Process API line should add error.description too, so each layer tells the full story',
       'One fault shows as three ERROR lines, so alerts and error counts triple',
       'The upper layers can log the status they got back at WARN or INFO, with the correlation ID',
     ],
     answers: [1, 3, 4],
     explain:
-      'Log the error once, in full, where it happens. The HTTP Request sends the correlation ID to the next API by default, so one search finds every line of the request. Upper layers note what they got back without raising a second and third ERROR.',
+      'Log the error once, in full, where it happens. The HTTP Request sends the correlation ID to the next API by default, so one search finds every line of the request. Upper layers note what they got back without raising a second and third ERROR, and repeating the reason in each layer only copies the same story three times.',
   },
   {
     id: 'log-316',
@@ -244,12 +248,12 @@ export const MORE_MULTI = [
     options: [
       'Splunk puts the lines of an indented JSON event back together, so the indent does no harm',
       'Without indent=false the JSON is written over several lines, so one event becomes many',
-      'output cannot be used inside a Logger expression',
+      'Using write(..., "application/json") in place of output keeps the event on one line',
       'Add indent=false after output application/json',
     ],
     answers: [1, 3],
     explain:
-      'The fields are good and output works in a Logger. The JSON writer indents by default, so the object spreads over several lines, and a Splunk input that reads one event per line cannot know they belong together. Write output application/json indent=false to keep each event on one line.',
+      'The fields are good. write() uses the same JSON writer, so it indents too unless you pass indent: false. The JSON writer indents by default, so the object spreads over several lines, and a Splunk input that reads one event per line cannot know they belong together. Write output application/json indent=false to keep each event on one line.',
   },
   {
     id: 'log-317',
@@ -260,12 +264,12 @@ export const MORE_MULTI = [
       'Switching to $() interpolation fixes it, because $() accepts null',
       'The values have no labels',
       'When vars.loyaltyId is null, ++ fails, so the Logger raises an error and the flow fails',
-      '++ cannot be used in a Logger',
+      '"a" ++ null gives "a", so the line only shows an empty loyaltyId',
       'Give the value a default, such as (vars.loyaltyId default "none"), so the line never breaks the flow',
     ],
     answers: [2, 4],
     explain:
-      '++ works in a Logger, and the labels are there. But in DataWeave "a" ++ null is an error, and $() interpolation of null fails too. Guard any value that can be null: "Customer synced customerId=$(vars.customerId) loyaltyId=$(vars.loyaltyId default \'none\') correlationId=$(correlationId)".',
+      'The labels are there. But in DataWeave "a" ++ null is an error, and $() interpolation of null fails too. Guard any value that can be null: "Customer synced customerId=$(vars.customerId) loyaltyId=$(vars.loyaltyId default \'none\') correlationId=$(correlationId)".',
   },
   {
     id: 'log-318',
@@ -274,13 +278,14 @@ export const MORE_MULTI = [
     code: '<logger level="INFO" message="#[payload]" />\n<ee:transform doc:name="Map order"> ... </ee:transform>',
     options: [
       'It logs the whole request body at INFO',
-      'A Logger never reads the payload unless you call write()',
+      'A Logger reads only the start of a stream, so the Transform still gets the rest of the body',
       'Reading the payload in the Logger consumes the stream, so the Transform after it can get nothing',
       'With the default repeatable stream, the Transform could still read the body after the Logger',
+      'The Listener keeps the whole body in memory anyway, so a non-repeatable stream can be read twice',
     ],
     answers: [0, 2, 3],
     explain:
-      'A Logger that prints the payload has to read it. A non-repeatable stream can be read once, so the Transform then finds it empty. Log the IDs you need instead, and leave the body to DEBUG in a test environment.',
+      'A Logger that prints the payload has to read all of it. A non-repeatable stream is not kept in memory and can be read once, so the Transform then finds it empty. Log the IDs you need instead, and leave the body to DEBUG in a test environment.',
   },
   {
     id: 'log-319',
@@ -288,7 +293,7 @@ export const MORE_MULTI = [
     situation: 'The log4j2.xml deployed to production:',
     code: '<Loggers>\n  <AsyncRoot level="DEBUG">\n    <AppenderRef ref="file" />\n  </AsyncRoot>\n</Loggers>',
     options: [
-      'AsyncRoot ignores the level attribute',
+      'Each Logger writes at the level in its own level attribute, so the root level changes nothing for it',
       'Set the root to INFO and raise only the categories you need',
       'This level only affects Loggers that have a category',
       'Every Logger at DEBUG and above is written, including payload lines meant for test',
@@ -296,7 +301,7 @@ export const MORE_MULTI = [
     ],
     answers: [1, 3, 4],
     explain:
-      'The root level applies to every category that has no level of its own, your Loggers and Mule\'s internal classes alike. Keep the root at INFO in production and raise one category for a short time when you troubleshoot.',
+      'The root level applies to every category that has no level of its own, your Loggers and Mule\'s internal classes alike. The level attribute of a Logger is the level of its line, and the root decides whether that level is written. Keep the root at INFO in production and raise one category for a short time when you troubleshoot.',
   },
   {
     id: 'log-320',
@@ -305,14 +310,14 @@ export const MORE_MULTI = [
     code: '<AsyncLogger name="com.acme.orders" level="TRACE" />',
     options: [
       'Set it back to INFO once the support case is closed',
-      'TRACE is not a valid level in log4j2',
+      'TRACE is finer than DEBUG, so DEBUG lines under com.acme.orders stay hidden',
       'Every TRACE and DEBUG line under com.acme.orders is now written in production',
       'It turns on TRACE for every category in the app, not only com.acme.orders',
       'Lines meant for troubleshooting, such as payloads, can reach the production log',
     ],
     answers: [0, 2, 4],
     explain:
-      'TRACE is a real level, the finest one. The setting covers com.acme.orders and the categories under it, such as com.acme.orders.sap, and nothing else. Raised levels belong to the support case and should be undone when it closes.',
+      'TRACE is the finest level, so it lets DEBUG and every coarser level through as well. The setting covers com.acme.orders and the categories under it, such as com.acme.orders.sap, and nothing else. Raised levels belong to the support case and should be undone when it closes.',
   },
   {
     id: 'log-321',
@@ -339,10 +344,11 @@ export const MORE_MULTI = [
       '8,000 INFO lines per run, each one a whole order',
       'Better: one INFO line after the loop with the count, and per-order lines at DEBUG with the order ID only',
       'Each order may hold customer names and addresses',
+      'Moving the Logger to DEBUG fixes both the volume and the personal data',
     ],
     answers: [1, 2, 3],
     explain:
-      'Inside a For Each, payload is the current item, so each pass writes one full order. After the loop, write "Export finished orders=8000 correlationId=...".',
+      'Inside a For Each, payload is the current item, so each pass writes one full order. DEBUG only hides the orders until someone turns DEBUG on in production. After the loop, write "Export finished orders=8000 correlationId=...".',
   },
 
   // ---------- where loggers go, what belongs in the log ----------
@@ -350,10 +356,16 @@ export const MORE_MULTI = [
     id: 'log-323',
     kind: 'multi',
     situation: 'The payment provider declined a card. Which of these belong in the log line?',
-    options: ['The full card number', 'The payment ID', 'The CVV', 'The correlation ID', 'The decline reason code'],
+    options: [
+      'The full card number',
+      'The payment ID',
+      'A running count of declines since the app started, kept in a variable',
+      'The correlation ID',
+      'The decline reason code',
+    ],
     answers: [1, 3, 4],
     explain:
-      'The payment ID and reason let support look the case up at the provider, and the correlation ID joins the request. The card number and the CVV never go in a log; the last 4 digits are allowed if support needs them.',
+      'The payment ID and reason let support look the case up at the provider, and the correlation ID joins the request. The card number never goes in a log; the last 4 digits are allowed if support needs them. A running count lives in one replica and restarts at zero on every deploy, so it gives a different number on each replica; the log tool counts the decline lines better.',
   },
   {
     id: 'log-324',
@@ -378,13 +390,13 @@ export const MORE_MULTI = [
     options: [
       'The whole message body',
       'The order ID from the message',
-      'The username and password of the queue connection',
+      'The number of messages waiting in the queue, read from the broker for each message',
       'What happened, such as "Order event received"',
       'The correlation ID',
     ],
     answers: [1, 3, 4],
     explain:
-      'The first line says what arrived and which record it is about, with the correlation ID. The body is large and may hold personal data, and connection credentials never go in a log.',
+      'The first line says what arrived and which record it is about, with the correlation ID. The body is large and may hold personal data. The queue depth is a snapshot of the whole queue, not a fact about this order, and asking the broker for it on every message adds a call per event; queue monitoring shows the trend.',
   },
   {
     id: 'log-326',

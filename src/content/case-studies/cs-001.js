@@ -25,12 +25,12 @@ export default {
       prompt: 'Which assets should the team build first to unlock the CIO goals of speed and reuse?',
       options: [
         'System APIs for the core systems (ERP products/orders/stock, CRM customers)',
-        'An Experience API for the new loyalty app',
-        'A full canonical data model for every entity before any API is built',
-        'A one-off rewrite of all 40 integrations on Mule',
+        'An Experience API for the new loyalty app, the first visible deliverable',
+        'A Process API for the web shop order flow, the link that breaks most often',
+        'API Manager policies and client IDs in front of the existing point-to-point links',
       ],
       answer: 0,
-      explain: 'System APIs for the core systems are what every later integration (web shop, loyalty app) reuses. A complete canonical model up front is a classic analysis-paralysis trap, and rewriting everything is the big bang the CIO ruled out.',
+      explain: 'System APIs for the core systems are what every later integration (web shop, loyalty app) reuses, so they unlock both speed and reuse. An Experience API built first has no reusable layer under it, so it ends up calling ERP and CRM directly. A Process API for one painful flow fixes that flow, but without System APIs below it the next project starts from zero again. Policies on old links add control, not reuse: the point-to-point code behind them stays the same.',
     },
     {
       type: 'single',

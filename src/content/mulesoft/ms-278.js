@@ -11,7 +11,7 @@ export default {
       prompt: 'A partner allows two SFTP sessions per account. A Mule flow writes eight files in parallel and many writes fail at login. What is the fix?',
       options: [
         'Turn off pooling, so each write opens and closes its own session',
-        'Cap the pool at two active connections and parallel writes at two',
+        'Set the pool to two active connections and the concurrency to two',
         'Add a reconnection strategy that retries failed logins five times',
         'Raise the connection timeout so logins wait for a free session',
       ],
@@ -35,12 +35,12 @@ export default {
       prompt: 'A firewall drops idle connections after five minutes. Pooled connections are then dead and the next write fails. What helps?',
       options: [
         'Raise the connection timeout above five minutes',
-        'Evict idle pooled connections before five minutes, or validate them',
-        'Add more connections to the pool so fewer sit idle',
+        'Evict pooled connections once they sit idle for four minutes',
+        'Lower the maximum active connections so each one is reused more often',
         'Set the pool exhausted action to wait instead of fail',
       ],
       answer: 1,
-      explain: 'Keep idle connections shorter lived than the network allows. Check the pooling settings your connector version offers.',
+      explain: 'Keep idle connections shorter lived than the network allows; testing a connection before use also works. Check the pooling settings your connector version offers. The connection timeout covers opening a connection, not idle time. A smaller pool still goes idle in a quiet period. The exhausted action matters only when every connection is busy.',
     },
     {
       type: 'multi',
@@ -69,11 +69,11 @@ export default {
       options: [
         'Open more pooled connections early, so some are ready at 02:00',
         'Raise the connect timeout a little and move the run off the peak',
-        'Set the connect timeout to zero so the client never gives up',
-        'Retry every failed connection at once, with no delay between tries',
+        'Lower the connect timeout so failed tries give up and retry sooner',
+        'Spread the files over more parallel sessions so each waits less',
       ],
       answer: 1,
-      explain: 'A modest timeout rise avoids false failures. Shifting the run spreads the load for everyone.',
+      explain: 'A modest timeout rise avoids false failures. Shifting the run spreads the load for everyone. A shorter timeout fails more tries against a slow server, and more sessions add to the load at the peak.',
     },
   ],
   description: `

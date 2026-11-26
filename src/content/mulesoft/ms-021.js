@@ -46,11 +46,11 @@ export default {
       options: [
         'A second Anypoint user for CI only, with MFA turned off for that one account',
         'The client ID and secret of the environment, the ones autodiscovery uses at runtime',
-        "The lead developer's account, with the MFA code read from a shared authenticator",
-        'A Connected App with client credentials and only the deploy and Exchange scopes',
+        'A Connected App that acts on behalf of a user, with the deploy and Exchange scopes',
+        'A Connected App with client credentials and the deploy and Exchange scopes',
       ],
       answer: 3,
-      explain: 'A Connected App is not tied to a person, so there is no MFA prompt and no risk when someone leaves, and its scopes limit it to deploy and Exchange. A CI user without MFA weakens the org policy and is still a shared login. The environment client ID and secret pair runtimes with API Manager and cannot deploy apps. Sharing an MFA code defeats the purpose of MFA.',
+      explain: 'A Connected App that acts on its own behalf is not tied to a person, so there is no MFA prompt and no risk when someone leaves, and its scopes limit it to deploy and Exchange. A CI user without MFA weakens the org policy and is still a shared login. The environment client ID and secret pair runtimes with API Manager and cannot deploy apps. A Connected App that acts on behalf of a user needs that user to sign in through a browser, which a pipeline cannot do.',
     },
     {
       type: 'multi',

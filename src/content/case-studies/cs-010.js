@@ -12,12 +12,12 @@ export default {
       prompt: 'The first app has hard-coded passwords. What is the right fix?',
       options: [
         'Encrypt them as secure properties, with one properties file per environment',
-        'Move them to a plain config.yaml per environment, committed to Git',
-        'Keep them in the code but make the Git repository private',
-        'Set them as plain application properties in Runtime Manager',
+        'Encrypt them as secure properties in one shared file, with the key set in the parent POM so every build can decrypt',
+        'Move them to a config.yaml per environment, with read access to the repository limited to the integration team',
+        'Set them as application properties in Runtime Manager, with no value kept in the project',
       ],
       answer: 0,
-      explain: 'Secure properties (or a secrets manager) keep credentials encrypted and let each environment have its own values. A plain YAML file in Git is still a leaked secret in a different file. A private repository still hands the password to everyone with access. Plain properties in Runtime Manager are shown to anyone who can open the app; secrets there must at least be safely hidden properties.',
+      explain: 'Secure properties keep credentials encrypted in the project, each environment gets its own values, and the key is supplied at deploy time. Putting the key in the parent POM puts it in Git next to the encrypted values, so the encryption protects nothing. A config.yaml with limited access is still plain text in Git, and every clone and backup carries it. Application properties in Runtime Manager are shown to anyone who can open the app unless they are declared as hidden secure properties.',
     },
     {
       type: 'single',
@@ -25,12 +25,12 @@ export default {
       prompt: 'Would you build a System API for every SaaS application the start-up integrates?',
       options: [
         'No. Only for systems several integrations touch, such as Salesforce and billing',
-        'Yes. API-led means three layers for every integration, however small',
-        'No. System APIs are needed only for on-premises systems, not SaaS',
+        'Yes, because a System API shields the syncs when a SaaS vendor changes its API',
+        'No. A SaaS connector already acts as the System API, so none is needed',
         'Yes, so each SaaS application is wrapped before the first sync is built',
       ],
       answer: 0,
-      explain: 'API-led should be applied pragmatically. Three layers for every small sync wastes vCores and time on a small budget, while core shared systems clearly benefit from a reusable System API. A one-off SaaS-to-SaaS sync can be a single app, with a System API extracted when a second consumer appears. SaaS systems benefit from System APIs too when they are shared.',
+      explain: 'API-led should be applied pragmatically. A System API pays off for shared core systems, where many syncs reuse it. For a one-off sync, a vendor change touches one app anyway, so the extra API only costs vCores and time on a small budget; extract a System API when a second consumer appears. A connector handles the protocol, but it is not a reusable, governed API that other teams can call.',
     },
     {
       type: 'order',
@@ -51,11 +51,11 @@ export default {
         'Common dependencies and plugin versions',
         'A global error handler with a standard error body',
         'JSON logging with correlation IDs',
-        'The secure properties key, so every app decrypts its config alike',
+        'The Salesforce and billing connection configs, with each environment’s host and user',
         'The DataWeave mappings of the first app, as a starting point',
       ],
       answer: [0, 1, 2],
-      explain: 'A template standardises structure, error handling and logging so apps look alike. Secrets never belong in a template, and copying one app’s business mappings into every app is duplication, not reuse.',
+      explain: 'A template standardises structure, error handling and logging so apps look alike. Connection configs with hosts and users are per app and per environment, and most apps will not call Salesforce or billing at all, so they belong in each app’s properties. Copying one app’s business mappings into every app is duplication, not reuse.',
     },
     {
       type: 'match',
@@ -73,13 +73,13 @@ export default {
       needsScenario: true,
       prompt: 'Eight months in, the start-up runs 20 small SaaS syncs, each deployed as its own app on 1 vCore. Most use a fraction of their memory, and the vCore budget is nearly spent. Which change frees the most capacity without coupling unrelated work?',
       options: [
-        'Move all 20 syncs into one app on one worker, so they share its capacity',
-        'Turn the syncs into one scheduled batch app that runs them all each night',
-        'Group related syncs into a few apps by domain, and track vCore use per app',
-        'Keep one app per sync and ask for a bigger vCore budget for the next year',
+        'Move all 20 syncs into one app on a larger worker, so they share its capacity',
+        'Group related syncs into a few apps by domain, each on 1 vCore',
+        'Resize each sync to the smallest size its memory and load need, such as 0.1 or 0.2 vCore',
+        'Keep 1 vCore per sync, and run the quiet ones on an hourly schedule instead of all day',
       ],
       answer: 2,
-      explain: 'Grouping related syncs by domain, such as billing or support, shares capacity while a bad deploy or a memory leak stops only one domain. One app for all 20 saves the most vCores but couples unrelated integrations, so one failure stops them all. A nightly batch breaks the syncs that need near real time. A bigger budget ignores the small-budget constraint and leaves the waste in place.',
+      explain: 'Most syncs use a fraction of their memory, so the waste is the size of each app, not the number of apps. Resizing each one to 0.1 or 0.2 vCore frees most of the budget and keeps every sync on its own, so a bad deploy or a memory leak stops only that sync. One app for all 20 couples unrelated integrations, so one failure stops them all. Grouping by domain couples the syncs inside each group and, at 1 vCore per group, still pays for memory nobody uses. An hourly schedule does not free any vCore, since an app keeps its size between runs, and it delays syncs that need near real time.',
     },
   ],
   description: `
@@ -126,7 +126,7 @@ export default {
 
 **Pipeline.** Git → CI (e.g. GitHub Actions / Jenkins / Azure DevOps) → \`mvn clean test\` with MUnit coverage threshold → deploy with the mule-maven-plugin using a connected app's credentials. Production deploys need approval.
 
-**Operations.** Alerts on app down, error rate and CPU/memory; a shared log search; a simple runbook per app. Watch vCore consumption: group small, related flows into one app where it makes sense to save capacity.
+**Operations.** Alerts on app down, error rate and CPU/memory; a shared log search; a simple runbook per app. Watch vCore consumption: size each app to what it really uses, often 0.1 or 0.2 vCore, and group small, related flows into one app only where they share a release cycle.
 
 **Growing the practice.** Code reviews against a short checklist, a quarterly look at reuse and pain points, and a light C4E role (even one person) once the team is 3 or 4 developers.
 

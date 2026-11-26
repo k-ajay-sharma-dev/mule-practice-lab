@@ -38,9 +38,16 @@ export const SET_16 = [
     id: 'log-16003',
     kind: 'multi',
     situation: 'Which values from the On Complete phase belong on the batch summary line?',
-    options: ['failedRecords', 'totalRecords', 'The payload of each failed record', 'successfulRecords'],
+    options: [
+      'failedRecords',
+      'totalRecords',
+      'The payload of each failed record',
+      'successfulRecords',
+      'A counter variable that each batch step adds to',
+    ],
     answers: [0, 1, 3],
-    explain: 'In On Complete the payload is the job result with its counts. The records themselves are no longer there, and failed keys go to a reject table.',
+    explain:
+      'In On Complete the payload is the job result with its counts. The records themselves are no longer there, and failed keys go to a reject table. A variable set inside a batch step belongs to that record, so On Complete does not see the step changes; the counts come from the job result.',
   },
   {
     id: 'log-16004',
@@ -116,9 +123,10 @@ export const SET_16 = [
     id: 'log-16008',
     kind: 'multi',
     situation: 'Support must fix 880 failed shipment records. Which facts should each failure line carry?',
-    options: ['The record key', 'The step where it failed', 'The position of the record in the batch', 'The reason'],
+    options: ['The record key', 'The step where it failed', 'The position of the record in the batch', 'The reason', 'The failed count for the whole job'],
     answers: [0, 1, 3],
-    explain: 'The reject table holds what is needed. The log points to it. The position in the batch changes when the input changes.',
+    explain:
+      'The reject table holds what is needed. The log points to it. The position in the batch changes when the input changes. The job failed count belongs once on the summary line; on each failure line it repeats 880 times and helps fix none of them.',
   },
   {
     id: 'log-16009',
@@ -193,10 +201,10 @@ export const SET_16 = [
     id: 'log-16013',
     kind: 'multi',
     situation: 'Which facts show that insert groups are too large or too small?',
-    options: ['The correlation ID of each group', 'Rows per group', 'Duration per group', 'Fallbacks per run'],
+    options: ['The correlation ID of each group', 'Rows per group', 'Duration per group', 'Fallbacks per run', 'Total rows in the input file'],
     answers: [1, 2, 3],
     explain:
-      'Rows and time per group give throughput. Fallbacks show the cost of bad rows, because a large group that falls back is slow. A correlation ID helps you trace a group, not size it.',
+      'Rows and time per group give throughput. Fallbacks show the cost of bad rows, because a large group that falls back is slow. A correlation ID helps you trace a group, not size it. The file total is the same whatever group size you pick, so it does not show which size works better.',
   },
   {
     id: 'log-16014',
@@ -258,7 +266,7 @@ export const SET_16 = [
     kind: 'choice',
     situation: 'inv-batch is due at 03:00, but run b-70 has held the lock since 01:00. The new run is skipped. Which line best records it?',
     options: [
-      'Run skipped, previous still running job=inv-batch runningSince=2026-11-18T01:00:00 lockHolder=b-70 next=release lock and start',
+      'Run skipped, previous still running job=inv-batch lockHolder=b-70 next=release lock and start',
       'Run skipped, previous still running job=inv-batch lockHolder=b-70',
       'Run skipped, previous still running job=inv-batch runningSince=2026-11-18T01:00:00 lockHolder=b-70',
       'Run failed, lock not acquired job=inv-batch runningSince=2026-11-18T01:00:00 lockHolder=b-70',
@@ -271,9 +279,15 @@ export const SET_16 = [
     id: 'log-16018',
     kind: 'multi',
     situation: 'Auditors ask for proof that inv-batch never ran twice at the same time. Which lines prove it?',
-    options: ['Lock taken, with the instance', 'The start time of each run only', 'Lock released, with the instance', 'Run skipped, with the holder'],
+    options: [
+      'Lock taken, with the instance',
+      'The start time of each run',
+      'Lock released, with the instance',
+      'Run skipped, with the holder',
+      'The lock expiry time set for the job, logged at start up',
+    ],
     answers: [0, 2, 3],
-    explain: 'Taken and released lines bracket each run. Start times alone cannot show whether one run ended before the next began.',
+    explain: 'Lock taken and released, with the instance, show each run held the lock alone, and a skip line shows a second run backed off. Start times without end times cannot show whether two runs overlapped. The expiry setting is the same every run and proves nothing about what happened.',
   },
   {
     id: 'log-16019',
@@ -345,9 +359,16 @@ export const SET_16 = [
     id: 'log-16023',
     kind: 'multi',
     situation: 'After a crash and restart, which facts prove no range was skipped?',
-    options: ['The key the restart began from', 'The worker name of the restarted run', 'Counts per range', 'The last checkpoint before the crash'],
+    options: [
+      'The key the restart began from',
+      'The worker name of the restarted run',
+      'Counts per range',
+      'The last checkpoint before the crash',
+      'The total records in the source',
+    ],
     answers: [0, 2, 3],
-    explain: 'The restart key should follow the last checkpoint. The worker name says where it ran, not what it covered.',
+    explain:
+      'The restart key should follow the last checkpoint. The worker name says where it ran, not what it covered. The source total is the same before and after the crash, so it does not show which ranges were read.',
   },
   {
     id: 'log-16024',
@@ -421,9 +442,10 @@ export const SET_16 = [
     id: 'log-16028',
     kind: 'multi',
     situation: 'Which expressions are safe in a log line for a 3 GB file read as a stream?',
-    options: ['attributes.size', 'sizeOf(payload)', 'vars.jobId', 'attributes.fileName'],
+    options: ['attributes.size', 'sizeOf(payload)', 'vars.jobId', 'attributes.fileName', '(payload as String)[0 to 99]'],
     answers: [0, 2, 3],
-    explain: 'Attributes and variables are cheap. sizeOf reads every byte.',
+    explain:
+      'Attributes and variables are cheap. sizeOf reads every byte. Taking the first 100 characters looks small, but the coercion to String reads the whole stream into memory first.',
   },
   {
     id: 'log-16029',
@@ -494,9 +516,10 @@ export const SET_16 = [
     id: 'log-16033',
     kind: 'multi',
     situation: 'The receiver wants to check a 6 part set before loading it. Which facts should the control file and the log line carry?',
-    options: ['Rows in each part', 'Number of parts', 'The time each part was written', 'Total rows'],
+    options: ['Rows in each part', 'Number of parts', 'The time each part was written', 'Total rows', 'The size of the largest part'],
     answers: [0, 1, 3],
-    explain: 'They let the receiver count what arrived. Write times do not show whether anything is missing.',
+    explain:
+      'They let the receiver count what arrived. Write times do not show whether anything is missing. The largest part size helps plan memory, but a part that is short or missing does not change it.',
   },
   {
     id: 'log-16034',
@@ -561,7 +584,7 @@ export const SET_16 = [
       'Size check passed file=history.csv sizeBytes=3221225472 expectedSize=3221225472 next=load',
       'Checksum mismatch file=history.csv expected=9f2c…e1 actual=41ab…07 sizeBytes=3221225472 next=copy again',
       'Checksum mismatch file=history.csv sizeBytes=3221225472 next=copy again',
-      'Checksum mismatch file=history.csv expected=9f2c…e1 actual=41ab…07 sizeBytes=3221225472 next=load anyway, sizes match',
+      'Checksum mismatch file=history.csv expected=9f2c…e1 actual=41ab…07 next=load anyway, sizes match',
     ],
     answer: 1,
     explain:
@@ -637,21 +660,27 @@ export const SET_16 = [
     situation: 'images.zip held 48,000 entries, 6 GB uncompressed. All 48,000 were written and none skipped, in 980 seconds. Which line best records it?',
     options: [
       'Archive extracted file=images.zip compressedBytes=1900000000 written=48000 skipped=0 durationMs=980000',
-      'Archive extracted file=images.zip entries=48000 written=48000 skipped=0 entryNames=a.jpg,b.jpg,…',
+      'Archive extracted file=images.zip entries=48000 uncompressedBytes=6000000000 written=48000 skipped=0 durationMs=980000 status=PARTIAL',
       'Archive extracted file=images.zip entries=48000 uncompressedBytes=6000000000 durationMs=980000',
       'Archive extracted file=images.zip entries=48000 uncompressedBytes=6000000000 written=48000 skipped=0 durationMs=980000',
     ],
     answer: 3,
-    explain:
-      'Counts and sizes. The compressed size does not show how big the archive grows, which is what the size guard checks. 48,000 names do not belong in a line. The line without written and skipped does not show whether every entry landed.',
+    explain: 'Entries against written and skipped proves every entry came out, and the uncompressed size shows the real volume. Without entries the written count has nothing to compare with. status=PARTIAL contradicts 48,000 written and none skipped and would send someone to look for a gap. Without written and skipped the line cannot prove the extract was complete.',
   },
   {
     id: 'log-16043',
     kind: 'multi',
     situation: 'Before extracting an uploaded zip, the flow runs guards. Which failed guards deserve their own line?',
-    options: ['Too many entries', 'An entry name that contains spaces', 'Uncompressed size above the limit', 'An entry path outside the target folder'],
+    options: [
+      'Too many entries',
+      'An entry name that contains spaces',
+      'Uncompressed size above the limit',
+      'An entry path outside the target folder',
+      'An entry with a modified date in the future',
+    ],
     answers: [0, 2, 3],
-    explain: 'Each is a guard against a dangerous or broken archive. A space in a name is legal and harmless.',
+    explain:
+      'Each is a guard against a dangerous or broken archive. A space in a name is legal and harmless. A future date usually means a wrong clock on the machine that built the zip; it does not put the server at risk, so it is not a guard worth failing on.',
   },
   {
     id: 'log-16044',
@@ -716,7 +745,7 @@ export const SET_16 = [
       'Step upload-sales in the nightly-plans chain was expected by 02:00 and finished at 02:40. Stores need their plans by 08:00. Which line best records it?',
     options: [
       'Step late chain=nightly-plans step=upload-sales expectedBy=02:00 finishedAt=02:40 lateMin=40 deadline=08:00',
-      'Step finished chain=nightly-plans step=upload-sales startedAt=01:10 finishedAt=02:40 durationMin=90 rows=48210',
+      'Step finished chain=nightly-plans step=upload-sales startedAt=01:10 finishedAt=02:40 durationMin=90',
       'Step late chain=nightly-plans step=upload-sales expectedBy=02:00 finishedAt=02:40 lateMin=40',
       'Step late chain=nightly-plans step=upload-sales lateMin=40 deadline=08:00 status=DEADLINE MISSED',
     ],
@@ -728,9 +757,10 @@ export const SET_16 = [
     id: 'log-16048',
     kind: 'multi',
     situation: 'Each night someone asks where the time went in the nightly-plans chain. Which facts belong on each step line?',
-    options: ['Start and finish times', 'The chain and step name', 'The Mule runtime version', 'Rows or bytes moved'],
+    options: ['Start and finish times', 'The chain and step name', 'The Mule runtime version', 'Rows or bytes moved', 'The cron expression that starts the chain'],
     answers: [0, 1, 3],
-    explain: 'Enough to see where time goes each night. The runtime version is the same for every step.',
+    explain:
+      'Enough to see where time goes each night. The runtime version is the same for every step. The cron expression says when the chain is due, not how long each step took, and it is the same on every line.',
   },
   {
     id: 'log-16049',

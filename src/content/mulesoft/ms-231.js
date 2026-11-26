@@ -60,13 +60,13 @@ export default {
       type: 'single',
       prompt: 'Which is a fair reason for an existing team to stay on Anypoint Studio for now?',
       options: [
-        'Studio is the only IDE that can run apps locally',
-        'The team knows it and its guides are built around it',
-        'Studio projects cannot be opened in other IDEs',
-        'Code Builder has no way to debug a flow',
+        'Code Builder runs flows only in the cloud, so the team would lose local debugging',
+        'The team knows Studio and its guides are built around it',
+        'Code Builder needs a different packaging in the pom.xml, so the CI pipeline would change',
+        'Studio builds a smaller deployable archive, so CloudHub 2.0 deploys its apps faster',
       ],
       answer: 1,
-      explain: 'Skills, guides and habits are real costs. A move can be planned project by project without changing the apps themselves.',
+      explain: 'Skills, guides and habits are real costs. A move can be planned project by project without changing the apps themselves. Code Builder runs and debugs flows on the desktop too, and both IDEs build the same Maven project with the same packaging, so the archive, the CI pipeline and the deployment stay as they are.',
     },
     {
       type: 'order',

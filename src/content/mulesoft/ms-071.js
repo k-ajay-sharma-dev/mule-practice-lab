@@ -64,11 +64,11 @@ export default {
       options: [
         'One Oracle transaction writes the receipt and an OUTBOX row',
         'Publish GR.POSTED first and insert into Oracle afterwards',
-        'Publish from an Async scope once the insert has run',
+        'Insert the receipt, then send the event to an OUTBOX queue on ActiveMQ',
         'Keep the event in an Object Store and publish it later',
       ],
       answer: 0,
-      explain: 'In one Oracle LOCAL transaction insert the receipt and an OUTBOX row; a separate flow publishes OUTBOX rows to GR.POSTED and marks them sent. The receipt and the "event to publish" commit atomically in Oracle. Publishing is then at-least-once from the outbox, so consumers of GR.POSTED must be idempotent.',
+      explain: 'In one Oracle LOCAL transaction insert the receipt and an OUTBOX row; a separate flow publishes OUTBOX rows to GR.POSTED and marks them sent. The receipt and the "event to publish" commit atomically in Oracle. An outbox kept on the broker or in Object Store is a second resource again, so a crash between the two writes still loses or duplicates the event, and so does publishing before the insert. Publishing is then at-least-once from the outbox, so consumers of GR.POSTED must be idempotent.',
     },
     {
       type: 'order',

@@ -38,10 +38,10 @@ export const SET_15 = [
     id: 'log-15003',
     kind: 'multi',
     situation: 'After an Oracle MERGE, which counts should add up to prove no staged row was lost?',
-    options: ['Inserted plus updated', 'Rows in the target table after the MERGE', 'Staged', 'Rejected'],
+    options: ['Inserted plus updated', 'Rows in the target table after the MERGE', 'Staged', 'Rejected', 'Target rows that matched no staged row'],
     answers: [0, 2, 3],
     explain:
-      'Staged should equal inserted plus updated plus rejected. The target table also holds rows from earlier loads, so its total is not part of the sum.',
+      'Staged should equal inserted plus updated plus rejected. The target table also holds rows from earlier loads, so its total is not part of the sum. Target rows with no staged match were not touched by this load, so they do not count toward the staged rows either.',
   },
   {
     id: 'log-15004',
@@ -285,9 +285,10 @@ export const SET_15 = [
     id: 'log-15018',
     kind: 'multi',
     situation: 'Two Location jobs ran at the same time and wrote the same file. Which facts show how the second one started?',
-    options: ['The output file size', 'The trigger, console or scheduler', 'The job IDs', 'Who requested it'],
+    options: ['The output file size', 'The trigger, console or scheduler', 'The job IDs', 'Who requested it', 'The time each job finished'],
     answers: [1, 2, 3],
-    explain: 'They show how the second job started. The file size says nothing about who started it.',
+    explain:
+      'They show how the second job started. The file size says nothing about who started it. Finish times confirm the two runs overlapped, which is already known, but not what started the second one.',
   },
   {
     id: 'log-15019',
@@ -362,9 +363,16 @@ export const SET_15 = [
     id: 'log-15023',
     kind: 'multi',
     situation: 'A job row stayed locked for hours after a crash. Which log lines help find a transaction left open?',
-    options: ['When the transaction began', 'Each row read inside it', 'The error that ended a run', 'When it committed or rolled back'],
+    options: [
+      'When the transaction began',
+      'Each row read inside it',
+      'The error that ended a run',
+      'When it committed or rolled back',
+      'Active connections in the pool each minute',
+    ],
     answers: [0, 2, 3],
-    explain: 'A begin without an end is the clue. Lines for every row read flood the log and do not show the end.',
+    explain:
+      'A begin without an end is the clue. Lines for every row read flood the log and do not show the end. An open transaction does hold a connection, but the active count mixes it with normal work and does not say which transaction never ended.',
   },
   {
     id: 'log-15024',
@@ -437,9 +445,10 @@ export const SET_15 = [
     id: 'log-15028',
     kind: 'multi',
     situation: 'A manager says the J-5521 report never arrived. Which facts on the send line help the mail team trace delivery?',
-    options: ['The job ID', 'The template', 'The name of the Mule flow that sent it', 'The time it was sent'],
+    options: ['The job ID', 'The template', 'The name of the Mule flow that sent it', 'The time it was sent', 'The time the report job started'],
     answers: [0, 1, 3],
-    explain: 'With these, the mail team can find the message. The flow name helps a developer, not the mail team.',
+    explain:
+      'With these, the mail team can find the message. The flow name helps a developer, not the mail team. The job start time can be long before the send, and the mail server only knows when the message reached it.',
   },
   {
     id: 'log-15029',
@@ -513,9 +522,10 @@ export const SET_15 = [
     id: 'log-15033',
     kind: 'multi',
     situation: 'Which facts prove an ASN email was not processed twice?',
-    options: ['The attachment file size', 'The message ID', 'The folder it was moved to', 'The ASN number'],
+    options: ['The attachment file size', 'The message ID', 'The folder it was moved to', 'The ASN number', 'The time the email was received'],
     answers: [1, 2, 3],
-    explain: 'IDs and the move show its path. Two different ASNs can have the same attachment size.',
+    explain:
+      'IDs and the move show its path. Two different ASNs can have the same attachment size. A received time tells you when the mail arrived, but a resent copy gets its own time, so it cannot show that the same ASN was handled once.',
   },
   {
     id: 'log-15034',
@@ -591,9 +601,16 @@ export const SET_15 = [
     id: 'log-15038',
     kind: 'multi',
     situation: 'Rejects jumped from 0.2% to 4% for one job. Which facts belong on the alert?',
-    options: ['The job ID', 'The reject rate against the normal rate', 'The first 50 rejected rows', 'The top reject reason'],
+    options: [
+      'The job ID',
+      'The reject rate against the normal rate',
+      'The first 50 rejected rows',
+      'The top reject reason',
+      'The reject count since the service started',
+    ],
     answers: [0, 1, 3],
-    explain: 'A spike in rejects is a data problem worth chasing. The rows belong in the stored report, not the alert.',
+    explain:
+      'A spike in rejects is a data problem worth chasing. The rows belong in the stored report, not the alert. A running total since start up mixes this job with every earlier run, so the jump to 4% does not show in it.',
   },
   {
     id: 'log-15039',
@@ -670,9 +687,9 @@ export const SET_15 = [
     id: 'log-15043',
     kind: 'multi',
     situation: 'The daily report has shown 0 failures for a week, yet a store says its plans are missing. Which facts should the report carry?',
-    options: ['Expected jobs', 'Completed jobs', 'The failed count alone', 'Missing jobs by name'],
+    options: ['Expected jobs', 'Completed jobs', 'The failed count alone', 'Missing jobs by name', 'Jobs that needed a retry'],
     answers: [0, 1, 3],
-    explain: 'Counting only failures hides jobs that never started.',
+    explain: 'A job that never started is neither failed nor completed, so the report shows 0 failures. Expected against completed shows the gap, and the names say which jobs to chase. The average duration and the retry count describe jobs that ran; neither shows a job that never started.',
   },
   {
     id: 'log-15044',
@@ -751,9 +768,11 @@ export const SET_15 = [
       'Raise the alert threshold until fewer than 10 fire',
       'Alert on impact, not on every error line',
       'Send low urgency items in a daily summary',
+      'Mute an alert for the night once it has fired three times',
     ],
     answers: [0, 2, 3],
-    explain: 'Fewer, clearer alerts get read. Raising a threshold to hit a number hides real problems along with the noise.',
+    explain:
+      'Fewer, clearer alerts get read. Raising a threshold to hit a number hides real problems along with the noise. Muting after three fires also cuts noise, but a new failure with the same alert name stays silent until morning.',
   },
   {
     id: 'log-15049',

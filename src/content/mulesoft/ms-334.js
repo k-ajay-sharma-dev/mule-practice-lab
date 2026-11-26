@@ -71,12 +71,12 @@ export default {
       prompt: 'The streaming CSV read works, but the flow still uses lots of memory. What do you check next?',
       options: [
         'The file extension, since only .csv files are read as a stream',
-        'Later steps: a Logger of the payload, a second read, or functions that need all rows',
+        'The later steps, since one that needs all rows ends the streaming',
         'The CSV separator, since a wrong one makes the reader buffer',
         'The header setting, since a header row makes the reader load all rows',
       ],
       answer: 1,
-      explain: 'Streaming holds only if every step reads once, in order.',
+      explain: 'Streaming holds only if every step reads once, in order. A Logger of the payload, a second read, or a function such as sorting that needs all rows loads the whole file. The reader does not depend on the file extension. A wrong separator gives wrong columns, not buffering. A header row is read once and does not load the rest.',
     },
   ],
   description: `

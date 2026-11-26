@@ -13,10 +13,10 @@ export default {
         'A leak: objects are kept and never released',
         'One large payload that arrives at a fixed time',
         'A heap that is too small for normal load',
-        'A normal pattern that needs no action',
+        'Metaspace growth from classes loaded during the day',
       ],
       answer: 0,
-      explain: 'A rising floor means memory that survives every collection. A single large payload shows as a spike that falls back, and a heap that is too small fails under load, then recovers.',
+      explain: 'A rising floor means memory that survives every collection. A single large payload shows as a spike that falls back, and a heap that is too small fails under load, then recovers. Metaspace sits outside the heap, so it does not move the heap floor.',
     },
     {
       type: 'single',

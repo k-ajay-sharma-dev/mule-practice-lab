@@ -71,13 +71,13 @@ export default {
       type: 'single',
       prompt: 'Support asks what a staging table looked like 30 minutes ago, before a bad load. What can help?',
       options: [
-        'Nothing, since committed changes cannot be read back in Oracle',
-        'A flashback query with AS OF TIMESTAMP, if undo still holds the old versions',
+        'DBA_TAB_MODIFICATIONS, which keeps the old values of rows changed since the last statistics run',
+        'A flashback query on the table with AS OF TIMESTAMP',
         'The Mule log, since the Database connector logs each staged row',
-        'A ROLLBACK run now, which undoes the last committed load',
+        'A ROLLBACK TO SAVEPOINT, using a savepoint the load set before its first insert',
       ],
       answer: 1,
-      explain: 'For example SELECT ... AS OF TIMESTAMP SYSTIMESTAMP - INTERVAL \'30\' MINUTE. It depends on undo retention and needs rights. After a TRUNCATE, flashback query cannot read the old rows.',
+      explain: 'For example SELECT ... AS OF TIMESTAMP SYSTIMESTAMP - INTERVAL \'30\' MINUTE. It depends on undo retention and needs rights. After a TRUNCATE, flashback query cannot read the old rows. DBA_TAB_MODIFICATIONS holds counts of inserts, updates and deletes, not row values. The connector does not log each row. A commit ends the transaction and its savepoints, so there is nothing to roll back to.',
     },
   ],
   description: `

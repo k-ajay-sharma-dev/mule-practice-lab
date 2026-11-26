@@ -46,13 +46,13 @@ export default {
       type: 'single',
       prompt: 'How can the upload continue after that failure without sending all 800 blocks again?',
       options: [
-        'It cannot, staged blocks are dropped on failure',
+        'Restage with new ids, as old ids belong to the failed session',
         'Upload only the missing blocks, then commit',
         'Upload the missing blocks, and commit only those',
         'Call Append Block for blocks 612 to 800',
       ],
       answer: 1,
-      explain: 'Get the list of uncommitted blocks, upload only the missing ones, then commit the full list. Uncommitted blocks are kept for a while. A resume uploads what is missing and commits once.',
+      explain: 'Get the list of uncommitted blocks, upload only the missing ones, then commit the full list. Uncommitted blocks are kept for up to seven days and do not belong to a session, so the old ids still work. A resume uploads what is missing and commits once.',
     },
     {
       type: 'single',

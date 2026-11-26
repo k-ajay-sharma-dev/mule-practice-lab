@@ -48,12 +48,12 @@ export default {
       prompt: 'Where does the "consumers per API" number come from?',
       options: [
         'A survey of the developers who build the APIs',
-        'API Manager contracts and analytics, plus Exchange',
+        'The client application contracts on each API in API Manager',
         'How often each asset was downloaded from Exchange',
-        'Git commit counts per API project',
+        'The number of API instances each API has in API Manager',
       ],
       answer: 1,
-      explain: 'Client applications with contracts and the traffic they generate show who really consumes each API. A download shows interest, not use.',
+      explain: 'Client applications with contracts, and the traffic analytics shows for them, tell who really consumes each API. A download shows interest, not use. Instances count environments and deployments, not consumers. A survey of builders reports what they believe, not who calls.',
     },
     {
       type: 'single',

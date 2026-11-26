@@ -63,10 +63,10 @@ export default {
         'IMMEDIATE, which acks as soon as it is received',
         'AUTO, which acks when the flow ends, or transacted',
         'DUPS_OK, which lets the session ack lazily',
-        'MANUAL, with no ack call anywhere in the flow',
+        'MANUAL, with the ack call as the first step of the flow',
       ],
       answer: 1,
-      explain: 'Acknowledging on receipt loses the message if the app crashes during the load. AUTO acknowledges when the flow ends without error, and a transacted listener commits at the end, so the message stays on the broker until the work is done. DUPS_OK can ack before the work ends, and MANUAL with no ack never removes the message.',
+      explain: 'Acknowledging on receipt loses the message if the app crashes during the load. AUTO acknowledges when the flow ends without error, and a transacted listener commits at the end, so the message stays on the broker until the work is done. DUPS_OK can ack before the work ends, and MANUAL with the ack first is the same as acking on receipt.',
     },
     {
       type: 'order',

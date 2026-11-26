@@ -71,12 +71,12 @@ export default {
       prompt: 'How is the 80% coverage rule enforced so the build fails below it?',
       options: [
         '`munit-maven-plugin` with a required coverage of 80 and `failBuild`',
-        'Anypoint Studio shows coverage, and reviewers check it by hand',
+        'A pipeline gate that reads the coverage report once the deploy step has run',
         'A `requiredApplicationCoverage` of 80 set in `mule-artifact.json`',
         '`munit-maven-plugin` with coverage enabled, so the report shows 80%',
       ],
       answer: 0,
-      explain: 'Enable coverage in the plugin with `requiredApplicationCoverage` 80 and `failBuild` true. The Maven plugin measures executed processors and fails `mvn test`/`verify` below the threshold: so the pipeline enforces it.',
+      explain: 'Enable coverage in the plugin with `requiredApplicationCoverage` 80 and `failBuild` true. The Maven plugin measures executed processors and fails `mvn test`/`verify` below the threshold: so the pipeline enforces it. A gate after the deploy step acts too late, as the build has passed and the app is out. `mule-artifact.json` has no coverage setting. Coverage that is only reported never fails the build.',
     },
   ],
   description: `

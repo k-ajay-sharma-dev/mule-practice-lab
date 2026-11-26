@@ -26,10 +26,10 @@ export default {
         'At the cut-off, flag it for review and pay by an agreed rule, such as a recent average',
         'Leave that collection unpaid until the lab result arrives',
         'Pay that collection at the lowest quality band until proven otherwise',
-        'Pay the volume at the base price, with no flag or review on that collection',
+        'At the cut-off, pay it at the farm\'s average quality for last month and close it',
       ],
       answer: 0,
-      explain: 'A rule agreed with the farmers keeps payments on time and fair, and the flag makes sure someone looks at it.',
+      explain: 'A rule agreed with the farmers keeps payments on time and fair, and the flag makes sure someone looks at it. Paying an average and closing it means nobody asks why the result went missing. Leaving it unpaid delays the farmer for the lab\'s gap, and the lowest band penalises the farmer for it.',
     },
     {
       type: 'multi',

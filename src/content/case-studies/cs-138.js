@@ -11,13 +11,13 @@ export default {
       needsScenario: true,
       prompt: 'Counts for one flight arrive many times and sometimes out of order. How does the kitchen know which is current?',
       options: [
-        'Only a message with a newer airline version replaces the stored count',
-        'The last message to arrive at the caterer always wins',
+        'A message replaces the stored count when its airline version is newer',
+        'The last message to arrive replaces the stored count, since the queue keeps order',
         'Each message adds its counts to the running total for the flight',
         'The message with the highest passenger count wins, to be safe',
       ],
       answer: 0,
-      explain: 'Arrival order is not the order they were sent. A version or source time decides which count is the latest. Adding messages counts every update again, and the highest count wastes meals.',
+      explain: 'Arrival order is not the order they were sent, and a queue only keeps the order in which messages reached it. A version or source time decides which count is the latest. Adding messages counts every update again, and the highest count wastes meals.',
     },
     {
       type: 'single',

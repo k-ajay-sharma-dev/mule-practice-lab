@@ -29,7 +29,7 @@ export const SET_14 = [
       'FTP download finished host=ftp.supplier-b.example path=/out/costs.zip sizeBytes=4101118 mode=BINARY durationMs=5200 status=OK',
       'FTP download finished file=costs.zip sizeBytes=4101118 serverSize=4101118 mode=BINARY durationMs=5200',
       'FTP download finished host=ftp.supplier-b.example path=/out/costs.zip sizeBytes=4101118 serverSize=4101118 mode=BINARY durationMs=5200',
-      'FTP download finished host=ftp.supplier-b.example path=/out/costs.zip sizeBytes=4101118 serverSize=4101118 durationMs=5200 user=marrow-int',
+      'FTP download finished host=ftp.supplier-b.example path=/out/costs.zip sizeBytes=4101118 serverSize=4101118 user=marrow-int',
     ],
     answer: 2,
     explain:
@@ -39,9 +39,9 @@ export const SET_14 = [
     id: 'log-14003',
     kind: 'multi',
     situation: 'A costs.zip downloaded over FTP will not open. Which facts on the download line help find the cause?',
-    options: ['The number of other files in the remote folder', 'The transfer mode, ASCII or BINARY', 'The bytes read', 'The size in the server listing'],
+    options: ['The number of other files in the remote folder', 'The transfer mode, ASCII or BINARY', 'The bytes read', 'The size in the server listing', 'How long the transfer took'],
     answers: [1, 2, 3],
-    explain: 'Different sizes with ASCII mode explain a broken zip at once. How many other files sit in the folder says nothing about this one.',
+    explain: 'Different sizes with ASCII mode explain a broken zip at once. How many other files sit in the folder says nothing about this one, and a slow transfer can still deliver an exact copy.',
   },
   {
     id: 'log-14004',
@@ -119,9 +119,9 @@ export const SET_14 = [
     id: 'log-14008',
     kind: 'multi',
     situation: 'Marrow & Pine logs the FTP connector settings once at startup, to explain later transfer problems. Which belong on that line?',
-    options: ['Passive or active mode', 'The password, masked to its last 4 characters', 'Transfer type, ASCII or BINARY', 'Host and port'],
+    options: ['Passive or active mode', 'The number of files downloaded on the last run', 'Transfer type, ASCII or BINARY', 'Host and port', 'The name of the flow that holds the FTP config'],
     answers: [0, 2, 3],
-    explain: 'Settings that change behaviour belong there. Even part of a password is part of a secret, and it explains nothing about a transfer.',
+    explain: 'Settings that change behaviour belong there. The count from the last run is not a setting and is old at startup. The flow name does not change how a transfer behaves.',
   },
   {
     id: 'log-14009',
@@ -199,9 +199,10 @@ export const SET_14 = [
     kind: 'multi',
     situation:
       'An upload with an unknown result may be sent a second time. Which facts, on the log line and in the file, let the planning platform spot a repeat?',
-    options: ['The time of the upload', 'A run ID', 'A sequence number per file', 'The final file name'],
+    options: ['The time of the upload', 'A run ID', 'A sequence number per file', 'The final file name', 'The byte count of the file'],
     answers: [1, 2, 3],
-    explain: 'The same run ID, file name or sequence twice means a repeat. A retry has a new upload time, so the time cannot show it is the same data.',
+    explain:
+      'The same run ID, file name or sequence twice means a repeat. A retry has a new upload time, so the time cannot show it is the same data. A byte count matches on a repeat, but two different days can also give the same size, so it cannot prove one.',
   },
   {
     id: 'log-14014',
@@ -280,10 +281,11 @@ export const SET_14 = [
       'Every record is trimmed of trailing spaces',
       'Every record has the exact length',
       'Truncated fields are reported',
+      'Every field is right padded with spaces',
     ],
     answers: [0, 2, 3],
     explain:
-      'Catch problems before the receiver rejects the whole file. Trimming trailing spaces breaks a fixed width record, because the padding is part of its length.',
+      'Catch problems before the receiver rejects the whole file. Trimming trailing spaces breaks a fixed width record, because the padding is part of its length. Padding is set per field by the layout: numeric fields are often right aligned with leading zeros, so a rule that every field ends in spaces rejects good records.',
   },
   {
     id: 'log-14019',
@@ -347,22 +349,22 @@ export const SET_14 = [
     situation:
       'The daily check compares hub sales with finance. 260 stores were expected and all sent files: 180 by FTP, 72 by SFTP and 8 by file share. Both totals are 1,750,000.00. Which line best records it?',
     options: [
-      'Sales reconciled date=2026-11-18 stores=260 expected=260 ftp=180 sftp=72 share=8 hubTotal=1750000.00',
+      'Sales reconciled date=2026-11-18 stores=260 expected=260 ftp=180 sftp=72 share=8 hubTotal=1750000.00 financeTotal=1750000.00 difference=0.00 status=MISMATCH',
       'Sales reconciled date=2026-11-18 stores=260 hubTotal=1750000.00 financeTotal=1750000.00 difference=0.00 status=MATCHED',
       'Sales reconciled date=2026-11-18 stores=260 expected=260 ftp=180 sftp=72 share=8 hubTotal=1750000.00 financeTotal=1750000.00',
       'Sales reconciled date=2026-11-18 files=260 ftp=180 sftp=72 share=8 hubTotal=1750000.00 financeTotal=1750000.00',
     ],
     answer: 2,
-    explain:
-      'Counts by source, the expected count and both totals in one line. The line without financeTotal, so it does not show what the hub was checked against. The MATCHED line has no counts by source, so on a bad day nobody can see where a gap starts. The line with files=260 has no expected count, so a missing store does not show.',
+    explain: 'Stores against expected, counts by source and both totals show the day was complete and matched. status=MISMATCH contradicts a difference of 0.00 and would raise a false alarm. Without expected and the counts by source, a later gap cannot be traced to a source. files=260 counts files, not stores, and drops the expected count.',
   },
   {
     id: 'log-14023',
     kind: 'multi',
     situation: 'Hub sales are 12,400.00 below finance for one day. Which facts on the reconciliation lines help find where the gap starts?',
-    options: ['Counts by source', 'The total difference only', 'Stores missing', 'Totals by source'],
+    options: ['Counts by source', 'The total difference', 'Stores missing', 'Totals by source', 'The difference as a percent of the day total'],
     answers: [0, 2, 3],
-    explain: 'Narrow it to a source or a store first. The total difference says how big the gap is, not where it is.',
+    explain:
+      'Narrow it to a source or a store first. The total difference says how big the gap is, not where it is, and the same is true of the gap as a percent of the day.',
   },
   {
     id: 'log-14024',
@@ -439,10 +441,10 @@ export const SET_14 = [
     id: 'log-14028',
     kind: 'multi',
     situation: 'The orders app runs on 4 replicas against a SQL Server that allows it 100 connections. Which facts help size the pool?',
-    options: ['How long requests waited', 'The JDBC driver version', 'maxPoolSize', 'How many replicas run'],
+    options: ['How long requests waited', 'The JDBC driver version', 'maxPoolSize', 'How many replicas run', 'The heap size of each replica'],
     answers: [0, 2, 3],
     explain:
-      'Pool size times replicas must fit the server limit, and the wait shows whether the pool is too small. The driver version does not change the sizing.',
+      'Pool size times replicas must fit the server limit, and the wait shows whether the pool is too small. The driver version does not change the sizing. Heap size limits memory in the app, not how many connections the server accepts.',
   },
   {
     id: 'log-14029',
@@ -521,9 +523,10 @@ export const SET_14 = [
     id: 'log-14033',
     kind: 'multi',
     situation: 'The nightly bulk load took 21 minutes last month and 34 minutes now. Which facts, kept for each run, show why?',
-    options: ['Rows per run', 'durationMs per run', 'The target table name', 'Fallback blocks per run'],
+    options: ['Rows per run', 'durationMs per run', 'The target table name', 'Fallback blocks per run', 'The column count of the target table'],
     answers: [0, 1, 3],
-    explain: 'Rows per second and fallbacks per run show trends. The table name is the same every night.',
+    explain:
+      'Rows per second and fallbacks per run show trends. The table name is the same every night, and so is the column count unless the schema changes, which nothing here suggests.',
   },
   {
     id: 'log-14034',
@@ -601,9 +604,10 @@ export const SET_14 = [
     id: 'log-14038',
     kind: 'multi',
     situation: 'The DBA wants to match deadlock lines with the SQL Server deadlock graph. Which facts on the line help?',
-    options: ['The table', 'The new quantity being written', 'The key', 'The time, to the millisecond'],
+    options: ['The table', 'The new quantity being written', 'The key', 'The time, to the millisecond', 'The SQL Server error number, 1205'],
     answers: [0, 2, 3],
-    explain: 'The DBA matches table, key and time with the graph. The quantity is a data value and plays no part in the lock.',
+    explain:
+      'The DBA matches table, key and time with the graph. The quantity is a data value and plays no part in the lock. Error 1205 marks the line as a deadlock, but every deadlock has that number, so it cannot pick out one graph.',
   },
   {
     id: 'log-14039',
@@ -681,9 +685,10 @@ export const SET_14 = [
     id: 'log-14043',
     kind: 'multi',
     situation: 'An item change made at 23:58 never reached the hub. Which facts on the extract lines help prove why?',
-    options: ['The total rows in the item table', 'The from and to of each window', 'The overlap', 'The rows read'],
+    options: ['The total rows in the item table', 'The from and to of each window', 'The overlap', 'The rows read', 'The time each extract job started'],
     answers: [1, 2, 3],
-    explain: 'If the windows touch but the row is outside both, the watermark rule is wrong. The size of the whole table says nothing about one window.',
+    explain:
+      'If the windows touch but the row is outside both, the watermark rule is wrong. The size of the whole table says nothing about one window. The job start time is not the window: a job can start late and still read the right range, so only the window bounds show what was covered.',
   },
   {
     id: 'log-14044',
@@ -760,9 +765,10 @@ export const SET_14 = [
     id: 'log-14048',
     kind: 'multi',
     situation: 'A MERGE loads the forecast stage into the plan table. Which counts belong on the summary line?',
-    options: ['Rows updated', 'Rows inserted', 'The key of each row merged', 'Rows deleted by the MERGE'],
+    options: ['Rows updated', 'Rows inserted', 'The key of each row merged', 'Rows deleted by the MERGE', 'Rows in the plan table after the MERGE'],
     answers: [0, 1, 3],
-    explain: 'MERGE can return counts by action. They show what changed. The key of every row floods the log.',
+    explain:
+      'MERGE can return counts by action. They show what changed. The key of every row floods the log. The plan table total also holds rows from earlier loads, so it does not show what this MERGE did.',
   },
   {
     id: 'log-14049',

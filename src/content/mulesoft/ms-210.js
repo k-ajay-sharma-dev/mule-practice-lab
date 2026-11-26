@@ -22,13 +22,13 @@ export default {
       type: 'single',
       prompt: 'A bank chat flow screens every customer message for toxicity. Even so, a customer receives an offensive reply from the LLM (large language model). What is the right change?',
       options: [
-        'Run the input check twice, as one pass can miss text that the LLM reacts to',
+        'Add a system message that tells the model to keep each reply polite',
         'Lower the number of messages in the array, as less history gives safer replies',
         'Also run the toxicity check on the LLM reply, before returning it to the customer',
         'Move the input check after the LLM call, so that one check covers both sides',
       ],
       answer: 2,
-      explain: 'The operation scores harmful content from the user or the LLM. Input screening says nothing about what the model writes, so filtering responses needs a separate check on the reply.',
+      explain: 'The operation scores harmful content from the user or the LLM. Input screening says nothing about what the model writes, so filtering responses needs a separate check on the reply. A system message makes polite replies more likely, but nothing checks what comes back.',
     },
     {
       type: 'single',
@@ -57,13 +57,13 @@ export default {
       type: 'single',
       prompt: 'A shipping flow builds one long LLM prompt by joining the output format, the rules and the customer message in a single expression. A small format change broke the flow, and the expression is hard to review. What is the best redesign?',
       options: [
-        'Move the whole joined string into a variable, so that the expression is out of sight',
+        'Build each part in its own Set Variable step, and join the parts at the end',
         'Load the joined string from a properties file, so a format change needs no redeploy',
         'Switch to `[Chat] Completions`, so that the model works out the format for itself',
         'Use a prompt template, keeping format and rules apart from the customer data',
       ],
       answer: 3,
-      explain: '`[Agent] Define Prompt Template` separates the template, the instructions and the data. The fixed parts can then be reviewed and changed without touching the data that arrives on each call.',
+      explain: '`[Agent] Define Prompt Template` separates the template, the instructions and the data. The fixed parts can then be reviewed and changed without touching the data that arrives on each call. Separate variables still end in one joined string, so the format and the data stay mixed in the prompt.',
     },
     {
       type: 'single',

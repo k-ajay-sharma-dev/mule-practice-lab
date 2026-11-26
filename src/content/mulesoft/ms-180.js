@@ -25,10 +25,10 @@ export default {
         'Inside the first flow that uses it, before the other components of that flow',
         'Inside every flow that uses it, as a copy for each of those flows',
         'At the top level of a configuration file, outside every flow',
-        'Inside the `pom.xml` file, next to the dependency for the HTTP connector',
+        'Inside a sub-flow that each flow calls through a Flow Reference',
       ],
       answer: 2,
-      explain: 'Global elements sit outside flows, which is what lets any flow in the app use them. Many teams keep them together in one file such as `global.xml`.',
+      explain: 'Global elements sit outside flows, which is what lets any flow in the app use them. Many teams keep them together in one file such as `global.xml`. A flow or sub-flow holds processors, not global configurations.',
     },
     {
       type: 'single',

@@ -12,23 +12,23 @@ export default {
       options: [
         'One transactional Try with both inserts on the same db:config',
         'Two flows, each with its own db:insert, called with flow-ref',
-        'A Parallel For Each that inserts header and lines together',
+        'One transactional Try with two flow-refs, each flow on its own db:config',
         'An Until Successful scope around the line inserts only',
       ],
       answer: 0,
-      explain: 'Use a Try with transactionalAction="ALWAYS_BEGIN". Database operations inside a transactional Try join the local transaction (same connection). If the Try ends with an error that propagates, the transaction rolls back; if it completes, it commits.',
+      explain: 'Use a Try with transactionalAction="ALWAYS_BEGIN". Database operations inside a transactional Try join the local transaction (same connection). If the Try ends with an error that propagates, the transaction rolls back; if it completes, it commits. A local transaction is bound to one config, so an operation on a second db:config cannot join it. Separate flows without a shared transaction commit each insert alone, and Until Successful only retries.',
     },
     {
       type: 'single',
       prompt: 'Inside the transactional Try, the error handler uses **On Error Continue** for DB:QUERY_EXECUTION. What happens to the transaction?',
       options: [
-        'It commits, since On Error Continue ends the Try successfully',
+        'It commits, and keeps the inserts that ran before the error',
         'It rolls back, since the Try still ended with an error',
         'It stays open, and the flow commits it when it ends',
         'It retries the failed statement, then commits the rest',
       ],
       answer: 0,
-      explain: 'The inserts that worked are kept. On Error Propagate rolls the transaction back; On Error Continue treats the error as handled and commits. Using Continue here can leave a header without lines.',
+      explain: 'The inserts that worked are kept. On Error Propagate rolls the transaction back; On Error Continue treats the error as handled and commits. Using Continue here can leave a header without lines. The transaction ends with the Try, and nothing retries the failed statement.',
     },
     {
       type: 'match',

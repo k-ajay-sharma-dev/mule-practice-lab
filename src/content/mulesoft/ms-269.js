@@ -22,7 +22,7 @@ export default {
       prompt: 'Why does the CloudHub option use REST over port 443 and not SMB over port 445?',
       options: [
         'SMB cannot carry files larger than 1 GB across the internet',
-        'A CloudHub worker cannot mount a share, and port 445 is often blocked',
+        'A CloudHub worker gives the app no way to mount a network share',
         'Azure Files accepts SMB only from virtual machines inside Azure',
         'The File connector reads SMB shares only from Windows hosts',
       ],
@@ -37,11 +37,11 @@ export default {
         'Control files from the stores, so only complete files are read',
         'An archive directory per business date',
         'A check at the cut off time that lists stores whose files never arrived',
-        'Reading every file in the share on every run, and letting the target drop repeats',
-        'Deleting each file from the share as soon as it is read, before the SFTP send',
+        'A lease on each store file while the poller reads it',
+        'Event Grid FileCreated events that start each read',
       ],
       answer: [0, 1, 2, 3],
-      explain: 'A processed files table keyed by path, size and last write time stops a file being sent twice, and still notices a file that was replaced. Control files mean only complete files are read. An archive per business date keeps the history and lets support resend one day. A check at the cut off finds stores whose files never came. Reading everything on each run wastes time and transactions and risks duplicates. Deleting a file before the send succeeds loses it for good if the send then fails.',
+      explain: 'A processed files table keyed by path, size and last write time stops a file being sent twice, and still notices a file that was replaced. Control files mean only complete files are read. An archive per business date keeps the history and lets support resend one day. A check at the cut off finds stores whose files never came. A lease taken by the poller blocks the store programs that write to the share, so it makes the drop less reliable. Event Grid raises no FileCreated events for file shares, so the app has to poll.',
     },
     {
       type: 'single',
@@ -59,7 +59,7 @@ export default {
       prompt: 'A store file arrives at 06:30, after the planning load. What is a sound rule?',
       options: [
         'Skip it, since the planning load for that day has already run',
-        'Apply a rule agreed with planners, such as next cycle flagged late',
+        'Send it in the next cycle, flagged late for its business date',
         'Send it at once, because the platform will merge it into the load',
         'Hold it and append its rows to that store’s file for the next day',
       ],
@@ -72,11 +72,11 @@ export default {
       options: [
         'The storage account key, kept in a secure properties file',
         'A share SAS with only the needed rights, tied to an access policy',
-        'An account SAS with read, write and delete on every share',
-        'A user delegation SAS signed with the integration lead’s account',
+        'An account SAS for the file service, tied to an access policy',
+        'A share SAS with the needed rights and no access policy',
       ],
       answer: 1,
-      explain: 'Scope the SAS to the store share and the actions the app performs: read, list and what the archive step needs. Linking it to a stored access policy makes revocation possible, and it should be rotated. An account key or account SAS reaches every share.',
+      explain: 'Scope the SAS to the store share and the actions the app performs: read, list and what the archive step needs. Linking it to a stored access policy makes revocation possible, and it should be rotated. An account key or account SAS reaches every share, and an account SAS cannot use a stored access policy. A SAS with no policy can only be revoked by rotating the key.',
     },
   ],
   description: `

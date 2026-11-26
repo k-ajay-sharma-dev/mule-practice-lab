@@ -24,12 +24,12 @@ export default {
       prompt: 'Two people try to book the last 9:00 slot at once, one in the app and one at the desk. What should happen?',
       options: [
         'The clinic system books the first; the second gets "slot taken" and new slots',
-        'Both are booked, and the clinic moves one of them later by phone',
-        'The app booking always wins, and the desk booking is cancelled',
-        'The integration retries the refused booking until it succeeds',
+        'The app holds the slot for five minutes once an owner opens it, so the desk cannot take it',
+        'On a refusal, the integration books the nearest free slot and tells the owner',
+        'The integration checks the slot is free, then books it in a second call',
       ],
       answer: 0,
-      explain: 'The owner decides. The app must handle a "slot taken" answer as normal, not as an error.',
+      explain: 'The clinic system owns the diary, so it decides who gets the slot. The app must handle a "slot taken" answer as normal, not as an error. A hold kept in the app does not stop the desk, which books straight in the clinic system. Booking another slot without asking gives the owner a time they may not be able to make. A check followed by a separate booking lets both see the slot as free.',
     },
     {
       type: 'multi',

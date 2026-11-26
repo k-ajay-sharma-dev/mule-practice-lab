@@ -56,13 +56,13 @@ export default {
       type: 'single',
       prompt: 'An HR team\'s model wallet has a monthly budget for one model, and its route has no fallback. Usage went slightly past the limit, and then requests were blocked. Is this a fault?',
       options: [
-        'Yes, a budget is a hard limit, so a request past it means a policy has failed',
-        'No, budgets are approximate, so usage can briefly exceed a limit before blocking',
-        'Yes, the wallet should have warned the caller and allowed all requests to go on',
-        'No, a limit only ever applies to the budget of the following period, not this one',
+        'Yes, the request that crossed the limit should itself have been blocked',
+        'No, budgets are approximate, so usage can pass the limit before blocking starts',
+        'Yes, with no fallback the wallet should warn the caller and let requests go on',
+        'No, the overrun is carried into the next period and taken off that budget',
       ],
       answer: 1,
-      explain: 'Budgets are approximate, not a real time hard cutoff. When usage reaches a limit, the proxy blocks requests for that provider and model. If the route has a fallback, the proxy sends the request to the next model in the route instead.',
+      explain: 'Budgets are approximate, not a real time hard cutoff, so a small overrun is expected. Nothing is carried over to the next period, and having no fallback does not turn a block into a warning. When usage reaches a limit, the proxy blocks requests for that provider and model. If the route has a fallback, the proxy sends the request to the next model in the route instead.',
     },
     {
       type: 'single',

@@ -24,11 +24,11 @@ export default {
       options: [
         'Split the CSV across many emails that each stay under the limit',
         'Send a summary with counts by reason and examples, plus a link to the full file',
-        'Zip it with a password and put the password in the same mail',
+        'Ask the mail team to raise the relay size limit for the report sender',
         'Attach it as a zip file, since CSV compresses well and fits the limit then',
       ],
       answer: 1,
-      explain: 'The full file sits in a controlled store or report. The link can require login, so access is controlled and the file is kept once, not in many inboxes.',
+      explain: 'The full file sits in a controlled store or report. The link can require login, so access is controlled and the file is kept once, not in many inboxes. Split mails are hard to put back together. A higher relay limit does not raise the limits of the receiving mailboxes. A zip helps until a bigger run passes the limit again, and every copy still sits in inboxes.',
     },
     {
       type: 'multi',
@@ -61,12 +61,12 @@ export default {
       prompt: 'The job loaded zero rejects. Should the report email still go out?',
       options: [
         'No, since a mail with nothing to act on is only noise for the team',
-        'It depends on what the team agreed, such as a line in a daily digest',
+        'Yes, as a no rejects line in the daily digest',
         'Yes, as a separate mail for each run, so readers see every run',
         'Only if the job failed, since that is when support must act',
       ],
       answer: 1,
-      explain: 'A daily "no rejects" line in a digest proves the job ran, while a separate empty mail is often noise. Silence is ambiguous: it can mean no rejects or a job that never ran.',
+      explain: 'A daily "no rejects" line in a digest proves the job ran, while a separate empty mail for each run is noise that teaches people to ignore the report. Sending nothing, or only on failure, makes silence ambiguous: it can mean no rejects or a job that never ran.',
     },
     {
       type: 'single',

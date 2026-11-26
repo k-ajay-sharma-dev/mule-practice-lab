@@ -12,11 +12,11 @@ export default {
       options: [
         'The XML SDK, built from existing Mule components',
         'The Java SDK, with a new HTTP client in Java',
-        'Neither, copy the flow into every app',
+        'Neither; a shared Mule domain that holds the audit flow for every app',
         'A DataWeave module that makes the call',
       ],
       answer: 0,
-      explain: 'The work is a set of Mule components: a transform and an HTTP Request. The XML SDK wraps them as one operation without Java code.',
+      explain: 'The work is a set of Mule components: a transform and an HTTP Request. The XML SDK wraps them as one operation without Java code. The Java SDK works, but it rebuilds an HTTP client that the HTTP connector already gives you. A domain shares global configs, not flows, and CloudHub 2.0 does not support domains. A DataWeave module cannot make an HTTP call.',
     },
     {
       type: 'single',

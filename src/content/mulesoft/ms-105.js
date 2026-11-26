@@ -37,10 +37,10 @@ export default {
         'Grant them the Sandbox product permission through a team',
         'Add the users directly to the Sandbox environment',
         'Move the users into a child business group called Sandbox',
-        'Give them the permission for all environments and rely on process',
+        'Create a connected app scoped to Sandbox and share its credentials with QA',
       ],
       answer: 0,
-      explain: 'You cannot grant users access to an environment directly. Default product permissions are environment-specific, so they are granted per environment.',
+      explain: 'Default product permissions are environment-specific, so a team can hold them for Sandbox only. You cannot grant users access to an environment directly. A business group is not an environment, so a child group named Sandbox does not scope Runtime Manager. A connected app is for programs, and shared credentials hide who did what.',
     },
     {
       type: 'single',

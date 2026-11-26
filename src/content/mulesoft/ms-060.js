@@ -48,12 +48,12 @@ export default {
       prompt: 'Every request to the Store Inventory API opens a new Oracle session and takes 300 ms longer than expected. What should you check first?',
       options: [
         'That the config has a pooling profile',
-        'That the SQL uses upper-case keywords',
+        'That the `db:select` has a query timeout set',
         'That STORE_STOCK has an index on STORE_ID',
-        'That DataWeave converts the result to JSON',
+        'That the config uses the Oracle connection, not the generic one',
       ],
       answer: 0,
-      explain: 'A new session per request means connections are not reused. An index speeds the query but does not stop the logons. Opening an Oracle session is expensive (network, authentication, session setup). A pooling profile keeps connections open and lends them to requests.',
+      explain: 'A new session per request means connections are not reused. An index speeds the query but does not stop the logons. A query timeout only caps a slow call, and both the Oracle and the generic connection pool when given a pooling profile. Opening an Oracle session is expensive (network, authentication, session setup). A pooling profile keeps connections open and lends them to requests.',
     },
     {
       type: 'order',

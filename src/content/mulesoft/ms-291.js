@@ -70,13 +70,13 @@ export default {
       type: 'single',
       prompt: 'A code review finds the SQL Server password in plain text in config-prod.yaml, committed to Git. The app runs on CloudHub 2.0. What fix do you propose?',
       options: [
-        'Base64 encode the value in the file, so it no longer reads as clear text',
-        'Encrypt it with the Secure Properties tool and commit the key in the project too',
-        'Move it into the connection config XML as a literal, since XML is not logged',
-        'Encrypt it with the Secure Properties tool and pass the key as a protected property',
+        'Encrypt it with the Secure Properties tool, with the key in a gitignored file packaged into the app',
+        'Encrypt it with the Secure Properties tool, with the key set as a property in the pom.xml',
+        'Encode it as Base64 in the YAML, and pass the decoding key as a protected property',
+        'Encrypt it with the Secure Properties tool, and pass the key as a protected property',
       ],
       answer: 3,
-      explain: 'Secure properties keep secrets out of source control only when the key lives elsewhere, such as a protected property set in Runtime Manager. A key committed with the project lets anyone with the repository decrypt the value. Base64 is an encoding that anyone can reverse. A literal in the XML is still a secret in Git. Also rotate the password, since it is in the Git history.',
+      explain: 'Secure properties keep secrets safe only when the key lives outside the code and the build, such as a protected property set in Runtime Manager. A gitignored file that is packaged travels inside the app jar, so anyone with the artifact can decrypt. A key in the pom.xml is in Git with the value. Base64 has no key, and anyone can reverse it. Also rotate the password, since it is in the Git history.',
     },
   ],
   description: `

@@ -73,12 +73,12 @@ export default {
       prompt: 'A flow reads a headerless, pipe-separated file. One option declares the type with `outputMimeType` on File Read. The other parses it with `read(payload, "application/csv", {...})` inside DataWeave. Why is the File Read option usually preferred?',
       options: [
         'Every later component sees the correct type',
-        'Only File Read can set `header=false`',
+        '`read` takes its input as a String, so the stream is copied first',
         'It avoids having to parse the file at all',
-        '`read` cannot take a custom separator',
+        'With `read`, `header=false` rows come out as arrays, not `column_0` objects',
       ],
       answer: 0,
-      explain: 'Declaring it on the operation types the payload once for the whole flow and lets Studio show metadata. Both approaches can set the reader properties, and both parse the file.',
+      explain: 'Declaring it on the operation types the payload once for the whole flow and lets Studio show metadata. Both approaches can set the reader properties, and both parse the file. `read` accepts binary input, so no String copy is needed. Headerless rows get `column_0` style keys in both cases.',
     },
   ],
   description: `

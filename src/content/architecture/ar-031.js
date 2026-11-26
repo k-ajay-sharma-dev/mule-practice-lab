@@ -106,13 +106,13 @@ export default {
       type: 'single',
       prompt: 'The Experience API returns SAP fields such as KUNNR and partner functions as they are. What is the risk?',
       options: [
-        'The response becomes too large for the mobile app',
-        'Consumers become coupled to SAP, so replacing SAP breaks every one of them',
-        'APIkit rejects the response, since SAP names break RAML types',
-        'No risk, as long as the SAP fields are documented in Exchange',
+        'The response carries more fields than the mobile app needs on a slow network',
+        'Consumers code against SAP, so a change of backend reaches each of them',
+        'Every SAP support pack renames fields, so the API breaks a few times a year',
+        'Consumers must call SAP again to translate partner function codes into names',
       ],
       answer: 1,
-      explain: 'Pass-through leaks system details upward, and the mapping logic is duplicated in each consumer. The whole point of the layers is that a backend change stops at its System API.',
+      explain: 'Pass-through leaks system details upward, and the mapping logic is duplicated in each consumer. The whole point of the layers is that a backend change stops at its System API. Payload size is a real cost, but a lean mapping fixes it without fixing the coupling. SAP keeps its field names stable across support packs. Consumers do have to decode the codes, but they would do it through the APIs, and the deeper problem is that each one learns SAP.',
     },
     {
       type: 'match',

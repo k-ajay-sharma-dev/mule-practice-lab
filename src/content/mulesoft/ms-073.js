@@ -12,11 +12,11 @@ export default {
       options: [
         'SFTP: login and data travel encrypted over SSH on port 22',
         'FTP in passive mode, which encrypts the data channel',
-        'File connector on a network share exposed to the internet',
-        'FTP, as it is faster and the files are already zipped',
+        'File connector on a share that the partner mounts over a VPN',
+        'FTP, with each file PGP-encrypted before the upload',
       ],
       answer: 0,
-      explain: 'SFTP runs over SSH on a single port, so login and file content are encrypted. Passive mode only changes **who opens the data connection**; it does not encrypt anything. Plain FTP sends the password and the file in clear text.',
+      explain: 'SFTP runs over SSH on a single port, so login and file content are encrypted. Passive mode only changes **who opens the data connection**; it does not encrypt anything. Plain FTP sends the password and the file in clear text; PGP protects the content but not the login. A share mounted by a partner over VPN ties a bank into your network and does not fit a CloudHub runtime.',
     },
     {
       type: 'single',
@@ -35,12 +35,12 @@ export default {
       prompt: "A Mule app connects to a partner's SFTP server with a strict known-hosts check. The partner rotates its server host key, and connections start to fail. Why?",
       options: [
         'The private key of the app expired when the server key changed',
-        'The stored host key no longer matches, and the new key is not trusted yet',
+        'The new host key does not match the entry in the known hosts file',
         'The passive-mode data ports changed along with the host key',
-        'The password of the app must be reset after a host key change',
+        "The app's public key must be added again on the partner's server",
       ],
       answer: 1,
-      explain: 'Verifying the server against a known hosts entry protects against an impostor server, so a strict check fails until the new key is trusted. SFTP is a subsystem of SSH: one connection, with a username and password or a private key (identity file, optionally with a passphrase). It has no passive-mode data ports. FTP over TLS is **FTPS**, a different protocol with FTP-style control and data channels.',
+      explain: 'Verifying the server against a known hosts entry protects against an impostor server, so a strict check fails until the new key is trusted. The host key identifies the server; the app\'s own key pair and its entry on the partner side are not touched by the rotation. SFTP is a subsystem of SSH: one connection, with a username and password or a private key (identity file, optionally with a passphrase). It has no passive-mode data ports. FTP over TLS is **FTPS**, a different protocol with FTP-style control and data channels.',
     },
     {
       type: 'single',

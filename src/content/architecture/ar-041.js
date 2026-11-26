@@ -21,13 +21,13 @@ export default {
       needsScenario: true,
       prompt: 'How should the new CRM customer id be introduced?',
       options: [
-        'Change the format of `customerId` and announce it to every team',
+        'Add `customerKey` and drop `customerId` in the same minor release',
         'Add `customerKey` next to `customerId`; remove the old field in v2',
-        'Publish a separate CustomerIdChanged event for every customer',
+        'Keep the `customerId` field name and fill it with the new CRM id',
         'Change `customerId` and give consumers a lookup API for old ids',
       ],
       answer: 1,
-      explain: 'Running old and new fields side by side lets 9 consumers migrate on their own schedules; removing the old one is a major-version change.',
+      explain: 'Running old and new fields side by side lets 9 consumers migrate on their own schedules; removing the old one is a major-version change. Dropping `customerId` in a minor release breaks every consumer that reads it. Keeping the name but changing its meaning is a silent breaking change: consumers keep matching on ids that no longer mean the same thing. A lookup API still forces all consumers to change at once.',
     },
     {
       type: 'single',

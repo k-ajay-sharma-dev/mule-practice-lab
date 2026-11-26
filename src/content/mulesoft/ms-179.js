@@ -61,10 +61,10 @@ export default {
         'Read `note` from `attributes` further down, where Mule keeps the old payload',
         'Add a Logger before the Transform Message so the value is kept in the event',
         'Add a Set Variable before the Transform Message and read `vars.note` later',
-        'Move `note` into the query string of the request that started the flow',
+        'Wrap the Transform Message in a Try scope so the old payload comes back after it',
       ],
       answer: 2,
-      explain: 'Once the payload is replaced, the old content is gone. Saving the value in a variable first keeps it available, because a Transform Message that writes the payload does not touch `vars`.',
+      explain: 'Once the payload is replaced, the old content is gone. Saving the value in a variable first keeps it available, because a Transform Message that writes the payload does not touch `vars`. A Try scope does not restore the payload, a Logger keeps nothing, and `attributes` holds the source metadata, not the old payload.',
     },
     {
       type: 'match',

@@ -61,11 +61,11 @@ export default {
       options: [
         'Set the root log level to DEBUG so every step logs its payload',
         'Write a heap dump on OutOfMemoryError, and log file size per run',
-        'Move the flow to a bigger worker and watch whether it crashes again',
+        'Log sizeOf(payload) at INFO after each step, to see where memory grows',
         'Add a Try scope that catches the OutOfMemoryError and logs it',
       ],
       answer: 1,
-      explain: 'Turn on the heap dump where the platform allows it, and log heap use and file size per run. A heap dump shows which objects filled memory. Check how your deployment model supports it. An OutOfMemoryError is a JVM error, not a Mule error a Try scope can handle, and DEBUG payload logs add to the memory problem.',
+      explain: 'Turn on the heap dump where the platform allows it, and log heap use and file size per run. A heap dump shows which objects filled memory. Check how your deployment model supports it. An OutOfMemoryError is a JVM error, not a Mule error a Try scope can handle, and DEBUG payload logs add to the memory problem. sizeOf reads the whole stream, so logging it at each step adds the very load you want to find.',
     },
     {
       type: 'single',

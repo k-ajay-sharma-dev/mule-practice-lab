@@ -51,10 +51,10 @@ export default {
         'Set 28000 and 3000 seconds, so your firewall rekeys first',
         'Keep 28800 and 3600 seconds, the same as for IKEv1',
         'Set both lifetimes to 86400 seconds, to rekey less often',
-        'Disable rekeying on your firewall and let Anypoint lead',
+        'Keep the AWS values and enable DPD, so the tunnel recovers faster',
       ],
       answer: 0,
-      explain: 'Phase 1 at 28000 seconds and Phase 2 at 3000 seconds make your firewall time out first and control the rekey. For IKEv1 the recommendation is the default of 28800 and 3600 seconds. The IKEv2 values are deliberately shorter.',
+      explain: 'Phase 1 at 28000 seconds and Phase 2 at 3000 seconds make your firewall time out first and control the rekey. For IKEv1 the recommendation is the default of 28800 and 3600 seconds. The IKEv2 values are deliberately shorter. DPD detects a dead peer, but it does not decide which side rekeys first, and longer lifetimes do not either.',
     },
     {
       type: 'single',

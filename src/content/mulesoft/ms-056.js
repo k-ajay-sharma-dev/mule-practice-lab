@@ -45,12 +45,12 @@ export default {
       prompt: 'Teams cannot tell which version to use because old majors look current. Which Exchange feature helps most?',
       options: [
         'Deleting each old major once its successor is stable',
-        'Lifecycle states, such as deprecated, plus a changelog',
-        'Renaming old assets with an `-old` suffix',
+        'Setting the lifecycle state of each old major to deprecated',
+        'Adding a `legacy` tag to each old asset version',
         'Making the old versions private to their owners',
       ],
       answer: 1,
-      explain: 'Use the lifecycle states development, stable and deprecated, with clear semantic versions and a changelog. Deprecation is visible to anyone looking at that version, while consumers still have time to migrate.',
+      explain: 'Use the lifecycle states development, stable and deprecated, with clear semantic versions and a changelog. Deprecation is shown on the version itself, while consumers still have time to migrate. Deleting a major breaks consumers that still use it. A tag is free text that readers may not notice and that means nothing to the platform. Private versions hide the docs from the consumers who still need them.',
     },
     {
       type: 'single',
@@ -69,13 +69,13 @@ export default {
       needsScenario: true,
       prompt: 'Which assets should be shared to the public developer portal?',
       options: [
-        'All 60 assets, so partners can discover everything',
-        'Only partner-facing Experience API specs, one at a time',
+        'Partner-facing Experience specs, plus the System specs behind them',
+        'Partner-facing Experience API specs, shared one asset at a time',
         'System APIs only, because they are the most reusable',
         'Experience and Process specs, so partners see the flow',
       ],
       answer: 1,
-      explain: 'Share partner-facing Experience API specs deliberately, one asset at a time. System and Process APIs are internal building blocks; exposing them couples partners to internals.',
+      explain: 'Share partner-facing Experience API specs deliberately, one asset at a time. System and Process APIs are internal building blocks; exposing them couples partners to internals, even when they only want to see what sits behind an Experience API.',
     },
   ],
   description: `

@@ -52,11 +52,11 @@ export default {
       options: [
         'Hold the three, load the rest, and report what to fix before the cut off',
         'Reject the whole file and ask the client to send it again',
-        'Load the three rows with zero hours so the file completes',
+        'Load the three rows with last period\'s hours, and correct them in the next run',
         'Load the three rows as they are and fix them after pay day',
       ],
       answer: 0,
-      explain: 'Most people get paid on time, and the client knows exactly which rows to fix. Rejecting the file delays 797 people, zero hours means three are not paid, and fixing after pay day means three are paid wrongly.',
+      explain: 'Most people get paid on time, and the client knows exactly which rows to fix. Rejecting the file delays 797 people. Last period\'s hours pay three people a guess without telling the client, and fixing after pay day means three are paid wrongly.',
     },
     {
       type: 'match',

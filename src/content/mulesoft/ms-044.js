@@ -72,11 +72,11 @@ export default {
       options: [
         'Re-run the same load test after each change',
         'Compare MUnit coverage and suite run time per change',
-        'Apply every fix first, then run one final load test',
-        'Add replicas and check whether latency falls',
+        'Watch p95 in Anypoint Monitoring for a day after each release',
+        'Run a load test after each change, at a higher load each time',
       ],
       answer: 0,
-      explain: 'Change one thing at a time and repeat the same test, otherwise you cannot tell which fix helped. Coverage says nothing about latency, and scaling first would not show whether the app got more efficient. To prevent regressions, add a smaller-scale performance test stage to CI or pre-release, and alert on p95 and error rate in production.',
+      explain: 'Change one thing at a time and repeat the same test, otherwise you cannot tell which fix helped. Coverage says nothing about latency. Production traffic changes from day to day, so a day of p95 mixes the fix with the load. Raising the load each time changes two things at once. To prevent regressions, add a smaller-scale performance test stage to CI or pre-release, and alert on p95 and error rate in production.',
     },
   ],
   description: `

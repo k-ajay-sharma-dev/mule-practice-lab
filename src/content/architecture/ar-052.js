@@ -11,13 +11,13 @@ export default {
       needsScenario: true,
       prompt: 'Which data model should `sys-sap-customer-api` expose?',
       options: [
-        'The raw SAP structure with KUNNR and X flags, with no mapping',
+        'The SAP fields under their SAP names, so SAP experts can trace each one',
         'A cleaned model with business names, reusing shared canonical types',
         'A full enterprise canonical Customer agreed by every department first',
-        'The shape the first consumer asks for',
+        'The shape the first Process API needs, since it is the only consumer today',
       ],
       answer: 1,
-      explain: 'Raw SoR shapes leak SAP to every consumer; a full enterprise canonical model is expensive and tends to bloat. A cleaned, system-scoped model with standard types and shared types (address, money, error body) is the pragmatic default (use the canonical one if it already exists).',
+      explain: 'Raw SoR shapes leak SAP to every consumer; a full enterprise canonical model is expensive and tends to bloat. A shape built for the first consumer fits that consumer and has to change for the next. A cleaned, system-scoped model with standard types and shared types (address, money, error body) is the pragmatic default (use the canonical one if it already exists).',
     },
     {
       type: 'match',
@@ -36,11 +36,11 @@ export default {
       options: [
         'Fetch every customer and slice the page in DataWeave',
         'Key-based paging: sort by customer number and return a cursor',
-        'Offer no pagination and return every match',
+        'Offset paging: read offset plus limit rows with max-rows, then skip the offset',
         'Cache the whole customer table in memory and page from it',
       ],
       answer: 1,
-      explain: 'Key-based paging selects customers "greater than the last key" and exposes it as a cursor (`?after=12345`), so it stays efficient. Max-rows + slicing works but its cost grows with page depth. Bulk exports should use a batch path instead.',
+      explain: 'Key-based paging selects customers "greater than the last key" and exposes it as a cursor (`?after=12345`), so it stays efficient. Fetching all and slicing, or offset paging with max-rows, works but its cost grows with page depth, because SAP returns every earlier row again. A full in-memory cache goes stale and holds the whole table on each replica. Bulk exports should use a batch path instead.',
     },
     {
       type: 'single',
@@ -53,13 +53,13 @@ export default {
       type: 'single',
       prompt: 'A System API wraps SAP, which allows only a limited number of concurrent RFC connections. A burst of consumer traffic could overwhelm SAP. Which measure protects it?',
       options: [
-        'Apply a Spike Control or Rate Limiting policy, so callers get 429',
+        'Apply a Spike Control policy to the System API instance',
         'Wrap the RFC call in until-successful with 5 retries',
-        'Raise the connection pool above the RFC allowance to absorb peaks',
+        'Lower the requester timeout so slow RFC calls free their slot sooner',
         'Scale the System API from 2 to 4 replicas to absorb the burst',
       ],
       answer: 0,
-      explain: 'A Spike Control or Rate Limiting policy gives callers 429 instead of overloading SAP. Other protections are timeouts on the RFC call, caching code tables and short-TTL customer lookups in Object Store, and no blind retries on writes without idempotency. Filters should be pushed into the BAPI selection so SAP does the work, because pulling everything into Mule multiplies load.',
+      explain: 'A Spike Control or Rate Limiting policy gives callers 429 instead of overloading SAP. Retries add load at the worst moment. A shorter timeout frees Mule threads, but SAP may still be running the abandoned call. More replicas send more parallel calls to the same RFC allowance. Other protections are timeouts on the RFC call, caching code tables and short-TTL customer lookups in Object Store, and no blind retries on writes without idempotency. Filters should be pushed into the BAPI selection so SAP does the work, because pulling everything into Mule multiplies load.',
     },
     {
       type: 'single',

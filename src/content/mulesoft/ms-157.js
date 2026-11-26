@@ -36,11 +36,11 @@ export default {
       options: [
         'MQ can extend the timeout of buffered messages, so avoid prefetch',
         'Prefetch and `acknowledgementTimeout` cannot be set together',
-        'Prefetch halves the timeout of every buffered message',
-        'Prefetch has no effect on the timeout of any message',
+        'Buffered messages can time out before the flow gets them, so raise the timeout',
+        'The timer starts when the flow receives the message, so buffering is safe',
       ],
       answer: 0,
-      explain: 'Anypoint MQ extends the expiration if a message stays in the buffer until 80% of the timeout. Separately, the FAQ notes that prefetch settings must be global, with `prefetch-ref` on the subscriber. A local prefetch element leads to 400 bad request errors.',
+      explain: 'Anypoint MQ extends the expiration if a message stays in the buffer until 80% of the timeout, so the timeout is not applied exactly and the docs advise against prefetch here. The timer does not wait for the flow, and the two settings can be used together. Separately, the FAQ notes that prefetch settings must be global, with `prefetch-ref` on the subscriber. A local prefetch element leads to 400 bad request errors.',
     },
     {
       type: 'match',

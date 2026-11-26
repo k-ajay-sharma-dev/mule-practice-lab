@@ -25,11 +25,11 @@ export default {
       options: [
         'JWKS, with the JWKS URL, so the keys are fetched and cached',
         'Text, pasting the current public key after each rotation',
-        'Text, pasting the private key that signs the tokens',
+        'Text, pasting the current and the next public key together',
         'Text, with the JWKS URL entered as the key so it is read at startup',
       ],
       answer: 0,
-      explain: 'With JWKS the keys follow the IdP, and they are cached for the JWKS Caching Time To Live. The default time to live is 60 minutes, and when it expires the policy retrieves the set again. With Text, each rotation needs a policy change.',
+      explain: 'With JWKS the keys follow the IdP, and they are cached for the JWKS Caching Time To Live. The default time to live is 60 minutes, and when it expires the policy retrieves the set again. With Text, each rotation needs a policy change, and the Text field takes one key, so two keys pasted together do not cover the next rotation. A URL in the Text field is not a key.',
     },
     {
       type: 'single',

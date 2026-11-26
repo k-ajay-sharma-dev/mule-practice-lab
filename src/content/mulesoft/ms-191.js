@@ -12,7 +12,7 @@ export default {
       options: [
         'Yes, agents have to be rebuilt in Agent Fabric before anyone can manage them',
         'Yes, Agent Fabric is a MuleSoft AI model that takes the place of those agents',
-        'No, Agent Fabric is a control plane that manages agents across platforms',
+        'No, Agent Fabric is a control plane over agents that stay where they run',
         'No, Agent Fabric is a connector that lets one Mule app call one AI model',
       ],
       answer: 2,
@@ -71,7 +71,7 @@ export default {
         'Anypoint Exchange, which checks each request against the published asset',
         'Budget Management, which stops each request that has no token budget left',
         'The Agent Registry, which reads each request as it passes through the list',
-        'Omni Gateway, which sits in the request path as the enforcement point',
+        'Omni Gateway, which sits between the callers and the agents, tools and models',
       ],
       answer: 3,
       explain: 'Omni Gateway (formerly Flex Gateway) is the runtime enforcement point in Agent Fabric. The Agent Registry is an inventory, so it does not sit in the path of a request.',

@@ -68,15 +68,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Where do the SMTP user and password belong?',
+      prompt: 'On CloudHub 2.0, the SMTP password is set as a protected property in Runtime Manager. What does that give you?',
       options: [
-        'Typed into the SMTP configuration in the XML, with one copy per environment',
-        'In secure properties per environment, read into the SMTP configuration',
-        'In a plain properties file per environment, kept with the source code',
-        'In a variable set by a Set Variable at the start of the sending flow',
+        'The value must be entered encrypted with the secure properties key of the app',
+        'The value is hidden in Runtime Manager once saved, and the app reads it like any property',
+        'The value moves to Anypoint Secrets Manager, which rotates it on a schedule',
+        'The value is masked in the Mule log whenever a Logger prints the property',
       ],
       answer: 1,
-      explain: 'Some internal relays accept mail from known hosts without login. Cloud mail usually needs authentication.',
+      explain: 'A protected property is typed in plain text, then hidden in Runtime Manager so nobody can read it back, and the app reads it with ${...} as usual. It needs no secure properties key. It is not rotated for you. A Logger that prints it writes the real value, so keep secrets out of log lines.',
     },
   ],
   description: `

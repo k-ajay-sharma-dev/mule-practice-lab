@@ -46,13 +46,13 @@ export default {
       type: 'single',
       prompt: 'A shipping company built a Mule API first. Two weeks later the website developers found that the delivery date was in a format they could not use. How would writing the specification first have helped?',
       options: [
-        'The Mule runtime would have converted the date for the website by itself',
-        'The specification would have stopped the website from reading bad dates',
-        'The website team could have reviewed the date field before any code existed',
+        'APIkit would have rejected any response whose date did not match the spec',
+        'The mocking service would have turned the date into the format the website needs',
+        'The website team could have read and questioned the date field before the build',
         'API Manager would have refused to deploy an API with the wrong date format',
       ],
       answer: 2,
-      explain: 'With a spec first, the people who will call the API can read it and comment early. Changing a line in a spec costs far less than changing finished code.',
+      explain: 'With a spec first, the people who will call the API can read it and comment early. Changing a line in a spec costs far less than changing finished code. APIkit checks incoming requests, not the replies a flow builds. The mocking service returns the examples as written, and API Manager does not check field formats.',
     },
     {
       type: 'single',

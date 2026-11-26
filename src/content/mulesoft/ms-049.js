@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'Why bundle the Error type, `pageable` trait and security scheme into a RAML **Library** rather than separate single fragments?',
       options: [
-        'Exchange accepts only Library fragments as shared assets',
+        'A Library is resolved once at build, so specs validate faster',
         'One namespaced asset holds them all and avoids name collisions',
         'A Library makes APIkit enforce the scheme at runtime',
-        'Single fragments cannot be versioned in Exchange',
+        'A fragment is copied into each spec on publish, so fixes do not reach it',
       ],
       answer: 1,
-      explain: 'A Library holds many types, traits, resource types and security schemes under a namespace (`uses: common: ...`). A Trait fragment holds exactly one trait and is `!include`d; a Library groups related definitions, and the `common.` namespace keeps them distinct from a spec\'s own `Error` type.',
+      explain: 'A Library holds many types, traits, resource types and security schemes under a namespace (`uses: common: ...`). A Trait fragment holds exactly one trait and is `!include`d; a Library groups related definitions, and the `common.` namespace keeps them distinct from a spec\'s own `Error` type. Both kinds are versioned Exchange dependencies resolved the same way, so neither validates faster or is copied in, and neither enforces anything at runtime.',
     },
     {
       type: 'single',
@@ -46,11 +46,11 @@ export default {
       options: [
         'Share the System API type everywhere so it cannot drift',
         'Share cross-cutting parts; let Experience APIs own their types',
-        'Ban domain types from all specs and use plain objects',
+        'Copy the type again at each System API release, so it stays in step',
         'Generate the Experience type from the System type at build',
       ],
       answer: 1,
-      explain: 'Share cross-cutting definitions everywhere, but let Experience APIs define consumer-shaped types and map them. Drift is fine only if it is a deliberate consumer view. Sharing or generating from the System type couples the mobile contract to the CRM\'s shape, which is what API-led layering prevents.',
+      explain: 'Share cross-cutting definitions everywhere, but let Experience APIs define consumer-shaped types and map them. Drift is fine only if it is a deliberate consumer view. Sharing, re-copying or generating from the System type couples the mobile contract to the CRM\'s shape, which is what API-led layering prevents.',
     },
     {
       type: 'order',

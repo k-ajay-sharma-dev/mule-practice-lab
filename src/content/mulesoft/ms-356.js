@@ -71,11 +71,11 @@ export default {
       options: [
         'Alert on every ERROR line the Email connector writes to the logs',
         'Record each send with its result, and alert if none is SENT by a set time',
-        'Send the report twice, from two apps, so one copy gets through',
+        'Wrap the send in Until Successful, so a short mail outage does not drop it',
         'Make the report flow fail when the send fails, so it shows in Runtime Manager',
       ],
       answer: 1,
-      explain: 'Alert on the absence of the expected result, not only on errors. An error alert misses a flow that never ran or a send that never started. Failing the report flow mixes up the data status and the mail status.',
+      explain: 'Alert on the absence of the expected result, not only on errors. An error alert misses a flow that never ran or a send that never started. Until Successful rides out a short outage, but a send that keeps failing inside Async is still not seen. Failing the report flow mixes up the data status and the mail status.',
     },
   ],
   description: `

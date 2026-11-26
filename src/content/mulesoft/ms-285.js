@@ -47,13 +47,13 @@ export default {
       type: 'single',
       prompt: 'The receiver does not support a rename convention. What else tells it that a file is complete?',
       options: [
-        'Nothing, so the receiver must wait a fixed hour after the window',
-        'A trailer count, a control file, or a stable size check before reading',
+        'A listing that shows the file with a size above zero',
+        'A control file that the sender writes after the data file is closed',
         'A 226 reply from the server, which the receiver can see in its listing',
         'The file creation time, which shows when the upload finished',
       ],
       answer: 1,
-      explain: 'Without a rename, the receiver needs a content check or a stable size check. A trailer also catches a file cut short.',
+      explain: 'Without a rename, the receiver needs a signal written after the data, such as a control file, or a content or stable size check. A trailer count also catches a file cut short. A size above zero is already true while the file is being written. The 226 reply goes only to the sender. A file time in a listing shows when writing started or last changed, not that it ended.',
     },
     {
       type: 'order',

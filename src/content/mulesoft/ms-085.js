@@ -50,11 +50,11 @@ export default {
       options: [
         'AUTO, because the ack then follows the outcome of the flow and its rollback',
         'MANUAL, with `jms:ack` called after the last step has succeeded',
-        'IMMEDIATE, because the ack then happens only after the transaction occurs',
+        'IMMEDIATE, because the commit or rollback of the transaction then decides the outcome',
         'DUPS_OK, because a message repeated after a rollback is then accepted',
       ],
       answer: 2,
-      explain: 'This surprises many people. IMMEDIATE is required with LOCAL or MULTI transactions. The message is acknowledged only after the transaction occurs, so a rollback returns it for redelivery. AUTO and DUPS_OK tie the ack to the flow, and MANUAL leaves it to the flow, but the documentation does not allow those modes with a transaction.',
+      explain: 'This surprises many people. The connector reference says the ack mode has to be IMMEDIATE when the transaction type is LOCAL or MULTI. The transaction then decides the outcome: a commit consumes the message, and a rollback returns it for redelivery. AUTO and DUPS_OK tie the ack to the flow, and MANUAL leaves it to the flow, but the documentation does not allow those modes with a transaction.',
     },
     {
       type: 'single',
@@ -147,7 +147,7 @@ The ActiveMQ factory matters here too. \`maxRedelivery\` defaults to **0**, whic
 <jms:ack ackId="#[vars.consumedMessage.attributes.ackId]"/>
 \`\`\`
 
-**4. Transacted listeners.** With transaction type LOCAL (or XA), the source begins the transaction with the Transactional action \`ALWAYS_BEGIN\`. Other components do not join by default, so operations that must take part need \`ALWAYS_JOIN\` or \`JOIN_IF_POSSIBLE\`. The configuration docs require **IMMEDIATE** with LOCAL or MULTI transactions. That does not bring back the risk from section 1, because a transacted message is acknowledged only after the transaction occurs, and a rollback returns it to the destination for redelivery.
+**4. Transacted listeners.** With transaction type LOCAL (or XA), the source begins the transaction with the Transactional action \`ALWAYS_BEGIN\`. Other components do not join by default, so operations that must take part need \`ALWAYS_JOIN\` or \`JOIN_IF_POSSIBLE\`. The configuration docs require **IMMEDIATE** with LOCAL or MULTI transactions. That does not bring back the risk from section 1, because in a transacted session the commit or rollback decides the outcome: a commit consumes the message, and a rollback returns it to the destination for redelivery.
 `,
   followUps: [
     {

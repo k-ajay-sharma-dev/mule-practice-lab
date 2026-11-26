@@ -22,12 +22,12 @@ export default {
       prompt: 'Why is `GET /orders/deleteOrder?id=55` dangerous, and not only badly named?',
       options: [
         'GET requests cannot carry query parameters such as id',
-        'Crawlers, prefetchers and caches treat GET as safe and may trigger the delete',
+        'Software that treats GET as safe may call it with no user action',
         'Browsers block GET requests that change data on the server',
         'APIkit cannot route a GET to a flow that deletes data',
       ],
       answer: 1,
-      explain: 'GET must be safe, with no side effects. The method semantics are a contract with every intermediary, not only with your clients. Browsers and APIkit do not stop such a GET, which is why it is dangerous.',
+      explain: 'GET must be safe, with no side effects. Crawlers, link prefetchers and retrying proxies call GET freely and may trigger the delete. Query parameters on a GET are normal. The method semantics are a contract with every intermediary, not only with your clients. Browsers and APIkit do not stop such a GET, which is why it is dangerous.',
     },
     {
       type: 'single',
@@ -45,13 +45,13 @@ export default {
       type: 'single',
       prompt: 'A REST API exposes an orders collection with millions of rows. How should the API stop one call from returning all of them?',
       options: [
-        'Return all rows when the client sends no `limit` value',
-        'Let each client choose any page size it wants',
+        'Stream the rows from a database cursor, so memory stays flat for any result size',
+        'Rate limit the endpoint per client, so no client can call it too often',
         'Apply a default page size and enforce a maximum page size',
         'Add a `total` count to the paging metadata in the response',
       ],
       answer: 2,
-      explain: 'An unbounded collection is a memory, timeout and security problem, so the API sets a default `limit` (for example 20) and enforces a maximum (for example 100). The rest of the design builds on this. Offset/limit is fine for simple cases, and cursors stay consistent on deep pages of large or fast-changing data. Filters and sort are query parameters with an allow-list of fields. Paging metadata can omit `total` when counting is expensive.',
+      explain: 'An unbounded collection is a memory, timeout and security problem, so the API sets a default `limit` (for example 20) and enforces a maximum (for example 100). Streaming keeps Mule memory flat, but the call still runs for minutes and sends millions of rows to the client. A rate limit counts calls, and one call is enough here. A `total` count describes the result; it does not bound it. The rest of the design builds on this. Offset/limit is fine for simple cases, and cursors stay consistent on deep pages of large or fast-changing data. Filters and sort are query parameters with an allow-list of fields. Paging metadata can omit `total` when counting is expensive.',
     },
     {
       type: 'match',

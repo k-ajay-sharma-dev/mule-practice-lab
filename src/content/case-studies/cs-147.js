@@ -11,13 +11,13 @@ export default {
       needsScenario: true,
       prompt: 'Three providers have different APIs. How should checkout talk to them?',
       options: [
-        'Through one payment API with a common model and an adapter per provider',
-        'Checkout calls each provider’s API directly, chosen by country',
-        'The order system calls the providers and checkout reads the result',
-        'One checkout page per provider, each built for that provider’s API',
+        'A payment API with a common model and an adapter per provider',
+        'A payment API that routes by country and passes each provider’s own request and response through',
+        'A common model that keeps only what all three providers share: create a session and capture in full',
+        'Checkout calls the providers through a shared client library, picking the provider by country',
       ],
       answer: 0,
-      explain: 'Checkout stays the same for every country. Adding or removing a provider changes only an adapter, while direct calls or one page per provider spread three sets of rules across the front end.',
+      explain: 'One API with a common model and an adapter per provider keeps checkout and the order system the same for every country, and a new provider is one more adapter. Routing that passes provider formats through still leaves checkout and orders with three formats to handle, and finance gets three shapes to match. A model cut down to what all three share has no partial refund or cancellation, and partial returns are common. A client library in checkout puts provider rules there, but capture on shipping and refunds happen days later in the order system, so the rules end up in two places.',
     },
     {
       type: 'single',

@@ -71,12 +71,12 @@ export default {
       prompt: 'Consuming a Java `ObjectMessage` on ActiveMQ 5.15 fails after an upgrade. What is the right fix on the ActiveMQ factory?',
       options: [
         'List the needed packages in trustedPackages',
-        'Set trustAllPackages to true in production',
+        'Add the classes as a shared library in the mule-maven-plugin',
         'Raise maxRedelivery so the message is retried',
         'List the needed packages on the jms:listener',
       ],
       answer: 0,
-      explain: 'trustedPackages is needed for ObjectMessage on ActiveMQ 5.12.2+ and 5.13.0+. trustAllPackages is documented as unsafe, so name only the packages you need.',
+      explain: 'trustedPackages is needed for ObjectMessage on ActiveMQ 5.12.2+ and 5.13.0+, and naming only the packages you need is safer than trustAllPackages. The classes can be on the classpath and still be refused, because the broker client blocks untrusted packages. A retry fails the same way, and the listener has no package setting.',
     },
     {
       type: 'multi',

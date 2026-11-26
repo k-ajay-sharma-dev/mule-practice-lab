@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'A database config has a reconnection strategy with failsDeployment left at its default. The database is down while the app deploys. What usually happens?',
       options: [
-        'The deployment fails at once',
+        'The deployment fails, and Runtime Manager shows the connection error',
         'The app deploys, and DB calls fail until it is back',
-        'Mule waits for the database before it starts',
-        'Mule holds DB calls in memory until it is back',
+        'Mule retries the connection, and the app starts once the database answers',
+        'The app deploys, and DB calls wait in memory until it is back',
       ],
       answer: 1,
-      explain: 'By default a failed connectivity test at startup is logged and does not stop the deployment. The problem shows up when operations run.',
+      explain: 'By default `failsDeployment` is false: a failed connectivity test at startup is logged and does not stop or hold the deployment. The problem shows up when operations run, and each call fails with a connectivity error. Nothing queues the calls in memory.',
     },
     {
       type: 'single',

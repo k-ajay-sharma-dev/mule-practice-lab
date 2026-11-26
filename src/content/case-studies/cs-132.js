@@ -23,13 +23,13 @@ export default {
       type: 'single',
       prompt: 'The scooter sends its end of ride message late because it lost signal. How do you bill?',
       options: [
-        'Bill from the time and position the scooter recorded at lock, sent when it reconnects',
-        'Bill until the message arrives at the platform, even hours later',
+        'Bill from the lock time and position stored on the device, sent when it reconnects',
+        'Bill to the time the platform receives the lock message, since server clocks are trusted',
         'Bill from the time the rider closed the ride screen in the app',
         'Bill from the last position update the platform received in the ride',
       ],
       answer: 0,
-      explain: 'The scooter records when it was locked. Billing from that time is fair, whatever the delay of the message. The app screen and the last update received do not show when the scooter was really locked.',
+      explain: 'The scooter records when it was locked. Billing from that time is fair, whatever the delay of the message. The time the message arrives adds the whole delay to the bill. The app screen and the last update received do not show when the scooter was really locked.',
     },
     {
       type: 'multi',

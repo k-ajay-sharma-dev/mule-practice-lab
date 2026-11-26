@@ -60,9 +60,9 @@ export default {
       prompt: 'A team sets `mule.cluster.storeprofile=performance` to reduce grid traffic. What exactly changes?',
       options: [
         'Queues become local, and the object store has no backups',
-        'Object stores stop being shared between the nodes',
-        'Distributed locks are turned off for file polling',
-        'Hazelcast traffic between the nodes is compressed',
+        'Object stores stop being shared, and each node keeps its own copy',
+        'Distributed locks are turned off, and file polling runs on each node',
+        'Grid traffic is compressed, and backups are written less often',
       ],
       answer: 0,
       explain: 'Distributed queues are disabled in favour of local queues, and the object store runs without backups, so data associated with a failed node is lost. Memory sharing is unaffected: in cluster mode Mule always distributes and shares the object stores between nodes. The docs also warn that the profile can hurt performance with sources that do not load balance, such as HTTP without a load balancer. App-level configuration overrides the container level.',

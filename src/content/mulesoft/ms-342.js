@@ -60,11 +60,11 @@ export default {
       options: [
         'Restart the broker so every consumer connects again',
         'See which node is primary and whether its listener started',
-        'Delete and recreate the queue so a new listener attaches',
+        'Switch the listener to run on all nodes, so a healthy node picks up the work',
         'Add a node to the cluster so it takes over the listener',
       ],
       answer: 1,
-      explain: 'Restarting that node usually moves the primary role. A new node starts as a secondary, so it does not take over. Primary node only listeners are common for ordered processing. One bad node stops the whole flow.',
+      explain: 'Restarting that node usually moves the primary role. Running on all nodes breaks the order that primary node only was there to keep, and it is a change, not a check. A broker restart does not help a listener that never started. A new node starts as a secondary, so it does not take over. Primary node only listeners are common for ordered processing. One bad node stops the whole flow.',
     },
     {
       type: 'single',

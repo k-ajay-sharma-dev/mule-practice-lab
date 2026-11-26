@@ -62,10 +62,10 @@ export default {
         'Return a body built from `error.description`, which holds the validator messages',
         'Read the validator messages from `error.errorMessage.payload`, where the module puts them',
         'Set the status the listener sends to 400',
-        'Use `type="ANY"` so a database outage also returns 400 with its message',
+        'Match `type="VALIDATION:MULTIPLE"`, the error type that each validator raises',
       ],
       answer: [0, 1, 3],
-      explain: 'Validation errors are the caller\'s fault, so they get a 400 with the messages. Other errors, such as a database outage, are not the caller\'s fault and should keep their own status.',
+      explain: 'Validation errors are the caller\'s fault, so they get a 400 with the messages from `error.description`. Each validator raises its own type, such as `VALIDATION:BLANK_STRING`, and `VALIDATION:MULTIPLE` comes only from an All scope, so match on the namespace. The module does not put the messages in `error.errorMessage.payload`. Other errors, such as a database outage, are not the caller\'s fault and should keep their own status.',
     },
     {
       type: 'match',

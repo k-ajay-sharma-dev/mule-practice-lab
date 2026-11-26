@@ -11,12 +11,12 @@ export default {
       prompt: 'A Mule flow uploads PDF reports without setting a content type. Users open the link and the browser downloads an unknown file. Why?',
       options: [
         'The blob was written as an append blob',
-        'The blob has no PDF content type stored',
+        'The blob was stored as application/octet-stream',
         'The blob has Content-Disposition inline',
         'The container is set to private access',
       ],
       answer: 1,
-      explain: 'The content type stored with the blob is returned on download. Without it, the blob is served as a generic binary type.',
+      explain: 'With no content type on the upload, Azure stores application/octet-stream and returns it on download, so the browser treats the PDF as generic binary. The blob type does not change how a PDF is served. Inline disposition asks the browser to open the file, not download it. A private container refuses the link instead of serving a file.',
     },
     {
       type: 'match',
@@ -33,13 +33,13 @@ export default {
       type: 'single',
       prompt: 'A flow calls Put Blob through an HTTP Request and sends a header "source: erp" to store the source with the file. The upload works, but the blob shows no metadata. What is wrong?',
       options: [
-        'Metadata must go in the body as JSON, before the file content',
-        'Metadata can only be set by a separate call after the upload',
+        'Custom headers need the x-ms- prefix, as in x-ms-source',
+        'Metadata needs a Set Blob Metadata call after the upload',
         'Metadata headers need the x-ms-meta- prefix, as in x-ms-meta-source',
-        'The header needs a tag prefix, as metadata is stored as index tags',
+        'Metadata goes in one x-ms-tags header, as source=erp',
       ],
       answer: 2,
-      explain: 'Each metadata pair becomes a header such as x-ms-meta-source. Connectors usually take a map and build the headers. Put Blob accepts metadata headers with the upload, so no second call is needed, though Set Blob Metadata also exists. The body holds only the content. Index tags are a separate feature with their own header.',
+      explain: 'Each metadata pair becomes a header such as x-ms-meta-source. x-ms-source is not a metadata header, as the prefix must be x-ms-meta-. Connectors usually take a map and build the headers. Put Blob accepts metadata headers with the upload, so no second call is needed, though Set Blob Metadata also exists. The body holds only the content. The x-ms-tags header sets blob index tags, which are a separate feature from metadata.',
     },
     {
       type: 'multi',

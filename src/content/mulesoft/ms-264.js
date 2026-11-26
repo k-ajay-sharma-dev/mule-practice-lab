@@ -72,13 +72,13 @@ export default {
       type: 'single',
       prompt: 'The app runs on two replicas and both poll the same directory every minute. What goes wrong?',
       options: [
-        'Nothing, Azure hands each file to one reader',
+        'Each replica sees half the listing, split by name',
         'Both replicas can pick and process the same file',
         'The share locks the directory during a list',
         'The second replica gets an error and stops',
       ],
       answer: 1,
-      explain: 'Poll from one replica only, or claim each file with a lock before reading it. A list call has no idea of consumers. Use a scheduler that runs on one node, or a lock in Object Store keyed by the file path.',
+      explain: 'Poll from one replica only, or claim each file with a lock before reading it. A list call has no idea of consumers, so each replica gets the full listing. Use a scheduler that runs on one node, or a lock in Object Store keyed by the file path.',
     },
   ],
   description: `

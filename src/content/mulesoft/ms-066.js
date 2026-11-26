@@ -22,7 +22,7 @@ export default {
       type: 'single',
       prompt: 'Some shipments are never sent to the TMS. The WMS inserts rows inside transactions that can take 30 seconds, and SHIPPED_AT is set at the start of the transaction. Why are rows missed?',
       options: [
-        'A late commit can carry a SHIPPED_AT below the stored watermark',
+        'Such rows commit after the poll has already moved past their time',
         'db:listener skips rows inserted inside long transactions',
         'The listener reads only the first 100 rows of each poll',
         'Rows still locked by the WMS make the poll fail and skip them',
@@ -61,13 +61,13 @@ export default {
       type: 'single',
       prompt: 'The app runs on 2 CloudHub 2.0 replicas with **clustering enabled**. What does setting `primaryNodeOnly="true"` on the db:listener achieve?',
       options: [
-        'Only the primary node polls, so rows are not taken twice',
-        'Each replica polls, but rows are split evenly between them',
-        'Both nodes poll, sharing one watermark in the object store',
-        'It makes the watermark safe against late commits',
+        'One replica at a time runs the poll, so two replicas do not read the same rows',
+        'The primary node polls and splits the rows it finds evenly across both replicas',
+        'Both replicas poll, and the primary node keeps one shared watermark for them',
+        'The primary node waits for open transactions, so late commits are not missed',
       ],
       answer: 0,
-      explain: 'The connector docs say Primary Node Only must be enabled in a cluster to prevent duplicate record processing. Without clustering each replica is a separate app and polls on its own regardless, which is why the scheduler design also needs row claiming.',
+      explain: 'The connector docs say Primary Node Only must be enabled in a cluster to prevent duplicate record processing: the listener runs on one node, and another node takes over if it fails. The source does not split the rows it reads across replicas, and the other replica does not poll at all. It does nothing about late commits, so a watermark still misses a row committed with a value behind the mark. Without clustering each replica is a separate app and polls on its own regardless, which is why the scheduler design also needs row claiming.',
     },
   ],
   description: `

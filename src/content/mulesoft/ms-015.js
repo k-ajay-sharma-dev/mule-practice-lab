@@ -12,17 +12,17 @@ export default {
       options: [
         'Reference an `sftp:matcher` with `filenamePattern="PAY_*.csv"`',
         'Add a Choice router at the start of the flow that drops other files',
-        'Ask the SFTP server admin to create a folder for each file type',
-        'Set `autoDelete="true"` so the listener removes the other files',
+        'Set `watermarkEnabled="true"` so the listener picks up new files only',
+        'Set the listener `directory` to `/in/PAY_*.csv` so other paths are skipped',
       ],
       answer: 0,
-      explain: 'The matcher filters files **before** they become events. A Choice in the flow would still read the unwanted files.',
+      explain: 'The matcher filters files **before** they become events. A Choice in the flow would still read the unwanted files. A watermark skips files it has already seen by timestamp, but a new `.tmp` file is still read. The `directory` attribute takes a folder path, not a wildcard pattern.',
     },
     {
       type: 'single',
       prompt: 'Which option to avoid half-written files is the most reliable to agree with the partner?',
       options: [
-        'The partner uploads under a temp name and renames it when done',
+        'Upload under a temp name, then rename the file once the upload ends',
         'A `timeBetweenSizeCheck` of 10 seconds on the SFTP listener',
         'A matcher `notUpdatedInTheLast` of 60 seconds on the folder',
         'A file lock taken by the listener while it reads the file',

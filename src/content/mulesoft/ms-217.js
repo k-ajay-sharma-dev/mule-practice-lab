@@ -56,15 +56,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'The validator stores the key, then the database insert after it fails. The provider retries. What does the retry meet?',
+      prompt: 'The database insert after the validator can fail, and the provider then retries the webhook. How do you make sure the retry can still insert the payment?',
       options: [
-        'A clean run, because the key is removed when the flow fails',
-        'A clean run, because keys are kept only after success',
-        'A duplicate error, because the key was stored at the validator',
-        'A clean run, because a failed flow clears the object store',
+        'Set a short entry TTL on the store, so the key is gone before the retry arrives',
+        'Remove the key with `os:remove` in the error handler of the flow',
+        'Catch the insert error with On Error Continue, so the provider gets a 2xx',
+        'Move the validator after the insert, so the key is stored only for saved payments',
       ],
-      answer: 2,
-      explain: 'The validator records the key as the event passes it, not when the flow ends well. If later steps can fail, remove the key in the error handler with `os:remove` so a retry can run, or record the id yourself only after the work succeeds.',
+      answer: 1,
+      explain: 'The validator stores the key in its object store, and the docs do not promise that a later failure in the flow takes it out. Clear the key yourself on failure, or keep your own record of processed ids and write it only after the work succeeds. A short TTL lets real duplicates through once it runs out, and the retry may still come sooner. A 2xx after a failed insert tells the provider the payment was saved, so it stops retrying and the payment is lost. A validator after the insert lets a duplicate insert run before it is checked.',
     },
     {
       type: 'match',

@@ -48,13 +48,13 @@ export default {
       options: [
         'Job name, run ID, environment, start and end time, and status',
         'Counts: received, loaded, rejected, duplicates',
-        'Every loaded record, so readers can check the data themselves',
+        'The keys of all rejected records, so support can act without a query',
         'Where to find details, such as the job log query or a report link',
-        'The raw payload of the first failed record, as an example',
+        'The stack trace of the first error, so support sees the cause at once',
         'Nothing on a good night: send the mail only when the job fails',
       ],
       answer: [0, 1, 3],
-      explain: 'Run identity, status, counts and a pointer to the details let support decide in a minute. Payloads make emails large and can expose personal data, and that holds for one record as much as for all of them. With no mail on good nights, a missing mail could mean success or a job that never ran, so support cannot tell.',
+      explain: 'Run identity, status, counts and a pointer to the details let support decide in a minute. A list of every rejected key can run to thousands of lines on a bad night, and the reject table already holds it. A stack trace is for developers and belongs in the log. With no mail on good nights, a missing mail could mean success or a job that never ran, so support cannot tell.',
     },
     {
       type: 'single',

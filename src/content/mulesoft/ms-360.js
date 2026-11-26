@@ -22,13 +22,13 @@ export default {
       type: 'single',
       prompt: 'What is a better design for that step?',
       options: [
-        'Raise the worker size so the variable and the route copies fit in memory',
+        'Keep the Scatter Gather, but hold the variable as a repeatable file store stream',
         'Stream the output once to blob storage, then load from that copy by its path',
         'Put the variable in an Object Store and read it back inside each route',
         'Replace the Scatter Gather with two Async scopes, so each route runs alone',
       ],
       answer: 1,
-      explain: 'Store first, then load. The stored copy is also the record of what was loaded.',
+      explain: 'Store first, then load. The stored copy is also the record of what was loaded. A file store stream moves bytes to disk, but the variable keeps the copy for the whole flow and both routes still read it all. An Object Store holds the full value, and each route reads it back whole. Async scopes still each need the content, and their errors no longer reach the flow.',
     },
     {
       type: 'multi',

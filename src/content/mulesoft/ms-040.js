@@ -33,7 +33,7 @@ export default {
       prompt: 'In testing, the header check failed with a null claim. Why?',
       options: [
         'The JWT policy strips the claims before later policies run',
-        'The custom check ran before JWT validation had any claims',
+        'The custom policy was ordered ahead of JWT Validation',
         'Custom policies see the JWT claims only on the response path',
         'The client sent the `X-Tenant-Id` header in lower case',
       ],
@@ -65,15 +65,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'A Mule app is paired with an API Manager instance through autodiscovery, so its runtime enforces that instance\'s policies. An admin changes a policy in API Manager. What must happen to the app?',
+      prompt: 'A Mule app is linked to an API Manager instance through autodiscovery. An admin changes a policy in API Manager. What must happen to the app?',
       options: [
         'A redeploy, because policies are packaged inside the application jar',
-        'A rebuild, because the policy must be added to the app\'s XML',
-        'No redeploy, because the runtime downloads policies from API Manager',
+        'A restart, so autodiscovery fetches the policy set again at startup',
+        'Nothing, because the running app picks up the change on its next poll',
         'A new API instance ID, because each policy change creates one',
       ],
       answer: 2,
-      explain: 'Policies live in API Manager, not in the app, and the runtime polls for them and downloads them. To do that it needs the API instance ID and the platform client ID and secret. Many policies can also be scoped to specific methods and resource paths.',
+      explain: 'Policies live in API Manager, not in the app, and the running runtime polls for them and downloads them, so no redeploy or restart is needed and the instance ID stays the same. To do that it needs the API instance ID and the platform client ID and secret. Many policies can also be scoped to specific methods and resource paths.',
     },
   ],
   description: `

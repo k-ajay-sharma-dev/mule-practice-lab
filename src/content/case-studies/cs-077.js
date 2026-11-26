@@ -12,7 +12,7 @@ export default {
       prompt: 'Where should the passport data for each product be assembled?',
       options: [
         'In the PIM, with merchandisers typing supplier data into new fields',
-        'In a passport service that combines all sources and records each value’s source',
+        'In a dedicated service that combines all sources and records each value’s source',
         'In each sales channel, built from its own data when the QR code is scanned',
         'In SAP, as extra fields on the material master that buyers fill in',
       ],
@@ -40,11 +40,11 @@ export default {
       options: [
         'Apply the corrected origin only to passports of products launched from now on',
         'Publish the correction as an event and add a new version of each passport',
-        'The sustainability team edits the 340 passports by hand in the service',
+        'Update the origin in place on the 340 passports, with a change log entry for each',
         'Rebuild the 340 passports from scratch and replace the old records',
       ],
       answer: 1,
-      explain: 'Passport data changes over time and the regulator expects history. Event-driven versioning updates every affected product and keeps the old version for audit. Hand edits miss products and do not scale, and replacing records loses the history.',
+      explain: 'Passport data changes over time and the regulator expects history. Event-driven versioning updates every affected product and keeps the old version for audit. An in-place update with a log keeps a note of the change but not the passport as it was published, so nobody can show what a customer saw last month. Replacing records loses the history, and applying the fix only to new products leaves 340 wrong passports on sale.',
     },
     {
       type: 'match',
@@ -75,11 +75,11 @@ export default {
       options: [
         'Agree, and call each supplier’s system when a label is scanned',
         'Collect and validate data ahead of time, version it, and serve it from the service',
-        'Agree, but cache each supplier response for one second at the edge',
-        'Show supplier data only to auditors, so scans never need supplier systems',
+        'Agree, and fall back to the last stored value when a supplier system does not answer',
+        'Refresh each passport from the supplier systems every night with a full reload',
       ],
       answer: 1,
-      explain: 'Calling suppliers at scan time makes every scan depend on many systems with no SLA and skips validation, and a one second cache does not change that. Consumers must see origin and material data, so hiding it is not an option. Passports should be assembled, validated and versioned in advance.',
+      explain: 'Calling suppliers at scan time makes every scan depend on many systems with no SLA and skips validation; a fallback hides the outages but still shows unvalidated data whenever the supplier does answer. A nightly full reload avoids scan-time calls, but it overwrites without validation or versions, so a bad supplier feed reaches every passport by morning. Passports should be assembled, validated and versioned in advance.',
     },
   ],
   description: `

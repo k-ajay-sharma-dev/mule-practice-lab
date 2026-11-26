@@ -35,7 +35,7 @@ export default {
       prompt: 'What is the right fix for that duplicate check?',
       options: [
         'Use NVL on both sides to turn NULL into a dummy value',
-        'Reject messages without a doc ID before the duplicate check',
+        'Reject messages with no doc ID before the query runs',
         'Send a single space instead of "" so Oracle keeps a value',
         'Add OR sender_doc_id IS NULL to the WHERE clause',
       ],

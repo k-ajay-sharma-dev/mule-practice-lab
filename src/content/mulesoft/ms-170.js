@@ -86,13 +86,13 @@ export default {
       type: 'single',
       prompt: 'On 2 GB of heap and 256 MB of metaspace, throughput falls at 60 apps and 80 apps fail with out-of-memory errors. With the backend configuration moved into a domain, the count passes 100. What explains the gain?',
       options: [
-        'The domain runs each app in its own JVM, so each one gets a separate heap',
+        'The domain gives each app its own metaspace, so the 256 MB limit applies per app',
         'The apps share one copy of each common flow, so fewer flows are loaded',
         'The domain spreads the apps across both instances, halving the load',
         'Shared resources make class loading and metaspace use more efficient',
       ],
       answer: 3,
-      explain: 'A domain is a central point for shared resources, and the dependencies in its `pom.xml` are shared with its apps, so class loading and metaspace use become more efficient. The documented example is 2 GB heap and 256 MB metaspace: without a domain, TPS drops noticeably at 60 apps and out-of-memory exceptions appear at 80; with a domain sharing the backend configuration, the count passes 100. Apps still run in the one runtime JVM, a domain shares resources and not flows, and it does not move apps between instances. Every app still adds its own overhead, so test each one.',
+      explain: 'A domain is a central point for shared resources, and the dependencies in its `pom.xml` are shared with its apps, so class loading and metaspace use become more efficient. The documented example is 2 GB heap and 256 MB metaspace: without a domain, TPS drops noticeably at 60 apps and out-of-memory exceptions appear at 80; with a domain sharing the backend configuration, the count passes 100. Apps still run in the one runtime JVM with one metaspace, a domain shares resources and not flows, and it does not move apps between instances. Every app still adds its own overhead, so test each one.',
     },
   ],
   description: `

@@ -35,11 +35,11 @@ export const SET_5 = [
       '#["Weather API error errorType=$(error.errorType) storeId=$(vars.storeId) next=503 returned to the website correlationId=$(correlationId)"]',
       '#["Forecast left out: Weather API unavailable errorType=$(error.errorType) storeId=$(vars.storeId) next=store returned without forecast correlationId=$(correlationId)"]',
       '#["Forecast left out: Weather API unavailable storeId=$(vars.storeId) next=store returned without forecast correlationId=$(correlationId)"]',
-      '#["Forecast left out storeId=$(vars.storeId) errorType=$(error.errorType) correlationId=$(correlationId)"]',
+      '#["Forecast left out: Weather API timed out errorType=$(error.errorType) storeId=$(vars.storeId) timeoutMs=5000 next=retry in 30 seconds correlationId=$(correlationId)"]',
     ],
     answer: 1,
     explain:
-      'With On Error Continue the caller never sees the error, so the log line is the only trace. It must say what was left out, the error type, the store and what the flow did next.',
+      'With On Error Continue the caller never sees the error, so the log line is the only trace. It must say what was left out, the error type, the store and what the flow did next. HTTP:SERVICE_UNAVAILABLE is a 503 answer, not a timeout, and the handler retries nothing, so the line with timeoutMs and a retry states two things that did not happen. The website got the store page, not a 503, and the line without errorType cannot be counted by type.',
   },
   {
     id: 'log-5004',
@@ -48,7 +48,7 @@ export const SET_5 = [
       'This is the only error handler of the Store Finder flow. When the Stores System API is down, the website gets 200 and an empty store list. What is wrong here?',
     code: '<on-error-continue type="ANY">\n  <logger level="DEBUG" message="#[error.description]" />\n</on-error-continue>',
     options: [
-      'error.description cannot be read inside On Error Continue',
+      'Raising the Logger to INFO fixes it, because then the errors are seen in production',
       'type="ANY" with On Error Continue hides real failures: the caller gets 200 when the store list could not be read',
       'At DEBUG the line is off in production, so nobody sees these errors',
       'type="ANY" does not catch errors raised by an HTTP Request, so the 200 comes from somewhere else',
@@ -56,7 +56,7 @@ export const SET_5 = [
     ],
     answers: [1, 2, 4],
     explain:
-      'error.description works in every handler. On Error Continue makes the flow end as a success, which is why it should only catch errors you can live with. Use On Error Propagate for a failed store list, and log at WARN or ERROR with errorType and correlationId.',
+      'A higher level makes the line visible, but the website still gets 200 and an empty list instead of an error. On Error Continue makes the flow end as a success, which is why it should only catch errors you can live with. Use On Error Propagate for a failed store list, and log at WARN or ERROR with errorType and correlationId.',
   },
   {
     id: 'log-5005',
@@ -194,14 +194,14 @@ export const SET_5 = [
     code: '<logger level="ERROR" message="#[payload]" />',
     options: [
       'ERROR pages the on-call team for a caller mistake that the API handled. WARN fits',
-      'VALIDATION:MULTIPLE cannot be caught by an error handler',
+      'ERROR is right here, because more than one field failed',
       'The whole quote request, with names and dates of birth, goes to the log',
       `A 400 is the caller's mistake, so the line belongs at DEBUG and not WARN`,
       'It does not say which fields failed, while error.childErrors holds the individual failures',
     ],
     answers: [0, 2, 4],
     explain:
-      'VALIDATION:MULTIPLE is caught like any error, and a 400 deserves one WARN line. For this type the individual failures are in error.childErrors, so map them to a short list of field names, and add a reference and correlationId, not the payload.',
+      'How many fields failed does not change who made the mistake, so a 400 deserves one WARN line. For this type the individual failures are in error.childErrors, so map them to a short list of field names, and add a reference and correlationId, not the payload.',
   },
   {
     id: 'log-5014',
@@ -353,11 +353,11 @@ export const SET_5 = [
       'INFO hides a handled failure among normal events. WARN fits',
       'type="ANY" also swallows HTTP:UNAUTHORIZED, a setup fault that a later retry will not fix',
       '"Loyalty skipped" has no sale ID, no error type and no correlation ID',
-      'A Logger inside the error handler of a Try scope cannot read error.errorType',
+      'On Error Continue in a Try rolls back the HTTP call, so the Loyalty API added no points',
     ],
     answers: [1, 2, 3],
     explain:
-      'With On Error Continue in a Try, the flow goes on after the Try scope, which is the point here. Catch only the errors you expect, such as HTTP:TIMEOUT, and let the others propagate so they are seen.',
+      'With On Error Continue in a Try, the flow goes on after the Try scope, which is the point here. An HTTP call is not part of any transaction, so nothing is rolled back: after a timeout the Loyalty API may still have added the points. Catch only the errors you expect, such as HTTP:TIMEOUT, and let the others propagate so they are seen.',
   },
   {
     id: 'log-5024',
@@ -426,11 +426,11 @@ export const SET_5 = [
       '#["Shipment not found at carrier errorType=$(error.errorType) shipmentId=$(vars.shipmentId) status=404"]',
       '#["Shipment not found at carrier errorType=$(error.errorType) shipmentId=$(vars.shipmentId) status=404 correlationId=$(correlationId)"]',
       '#["Shipment not found at carrier shipmentId=$(vars.shipmentId) carrierResponse=" ++ write(error.errorMessage.payload)]',
-      '#["Shipment not found at carrier errorType=$(error.errorType) shipmentId=$(vars.shipmentId) caller=$(attributes.headers.authorization) correlationId=$(correlationId)"]',
+      '#["Shipment not found at carrier errorType=$(error.errorType) shipmentId=$(vars.shipmentId) status=404 next=shipment marked lost correlationId=$(correlationId)"]',
     ],
     answer: 1,
     explain:
-      'The mapped type says in your own words what went wrong. The line that ends at status=404 has no correlation ID, so it cannot be joined to the carrier call before it. error.errorMessage holds the carrier response, which can be large and full of customer data, and an authorization header never goes in a log.',
+      'The mapped type says in your own words what went wrong. The line that ends at status=404 has no correlation ID, so it cannot be joined to the carrier call before it. error.errorMessage holds the carrier response, which can be large and full of customer data. "next=shipment marked lost" claims a step the handler does not take: it returns 404, and a shipment the carrier does not know is not a lost one.',
   },
   {
     id: 'log-5028',
@@ -439,14 +439,15 @@ export const SET_5 = [
     code: `<logger level="ERROR" message="#['Error: ' ++ error.description]" />`,
     options: [
       'It does not log error.errorType, so you cannot count failures by type',
-      'A global error handler cannot read error.description',
-      `The global handler also runs after a flow's own handler, so each error is logged twice`,
+      'error.description is empty for errors that reach the global handler from a Flow Reference',
+      "The global handler also runs after a flow's own handler, so each error is logged twice",
       'It does not say which flow failed. Add flow.name',
       'It has no correlation ID',
+      'It does not log error.description, so the reader cannot see what went wrong',
     ],
     answers: [0, 3, 4],
     explain:
-      'The global handler catches errors from every flow that has no handler of its own, so the line must say which flow and which error type. Without correlationId you cannot find the rest of the request.',
+      'The global handler catches errors from every flow that has no handler of its own, so the line must say which flow and which error type. Without correlationId you cannot find the rest of the request. error.description is already in the line, and the error keeps its description as it passes through a Flow Reference.',
   },
   {
     id: 'log-5029',
@@ -604,13 +605,13 @@ export const SET_5 = [
       'All reconnection attempts to LDAP failed during a staff lookup and the operation raised LDAP:CONNECTIVITY. Which line fits best in the handler, which returns 503?',
     options: [
       '#["Staff lookup failed: LDAP not reachable after reconnection errorType=$(error.errorType) error=$(error.description) staffId=$(vars.staffId) status=503 correlationId=$(correlationId)"]',
-      `#["Staff lookup failed: LDAP bind refused for cn=svc-mule,ou=apps password=$(p('secure::ldap.password')) status=503 correlationId=$(correlationId)"]`,
+      '#["Staff lookup failed: LDAP bind refused for cn=svc-mule,ou=apps password=$(p(\'secure::ldap.password\')) status=503 correlationId=$(correlationId)"]',
       '#["Staff lookup failed: LDAP not reachable staffId=$(vars.staffId) status=503 correlationId=$(correlationId)"]',
       '#["Staff lookup failed: LDAP not reachable after reconnection errorType=$(error.errorType) staffId=$(vars.staffId) status=500 correlationId=$(correlationId)"]',
     ],
     answer: 0,
     explain:
-      'Say which work failed, the error type and description, and what the caller got. The line without errorType and error= leaves out the error type and description, so the reader cannot tell a refused bind from a network fault. The bind credential never goes in a log.',
+      'Say which work failed, the error type and description, and what the caller got. The handler returns 503, so the line with status=500 tells the reader the wrong answer went back. The line without errorType and error= leaves out the error type and description, so the reader cannot tell a refused bind from a network fault. The bind credential never goes in a log.',
   },
   {
     id: 'log-5038',
@@ -697,7 +698,7 @@ export const SET_5 = [
     ],
     answer: 3,
     explain:
-      'The last 4 digits are enough to answer "which card?". The first 12 digits plus the last 4 the receipt shows rebuild the whole number, and the CVV may never be stored, not even in a log.',
+      'The last 4 digits are enough to answer "which card?". The first 12 digits plus the last 4 the receipt shows rebuild the whole number, and the CVV may never be stored, not even in a log. The line with cardLast4 but no correlation ID cannot be joined to the request.',
   },
   {
     id: 'log-5043',
@@ -777,14 +778,14 @@ export const SET_5 = [
     kind: 'choice',
     situation: 'Which line fits best when a booking is created in the patient booking app?',
     options: [
-      '#["Booking created bookingId=$(vars.bookingId) patientRef=$(vars.patientRef) clinicId=$(vars.clinicId) correlationId=$(correlationId)"]',
+      '#["Booking created bookingId=$(vars.bookingId) patientRef=$(vars.patientRef) clinicId=$(vars.clinicId) durationMs=$(vars.durationMs) correlationId=$(correlationId)"]',
       '#["Booking created for $(payload.patient.firstName) $(payload.patient.lastName), born $(payload.patient.dateOfBirth)"]',
-      '#["Booking created patientId=$(vars.patientId) email=$(payload.patient.email)"]',
-      '#["Booking created " ++ write(payload.patient)]',
+      '#["Booking created bookingId=$(vars.bookingId) patientRef=$(vars.patientRef) clinicId=$(vars.clinicId)"]',
+      '#["Booking requested bookingId=$(vars.bookingId) patientRef=$(vars.patientRef) clinicId=$(vars.clinicId) correlationId=$(correlationId)"]',
     ],
     answer: 0,
     explain:
-      'A reference that only the clinic systems can resolve is enough to find the patient when needed. Names, birth dates and email addresses in logs spread to every tool that reads them.',
+      'A reference that only the clinic systems can resolve is enough to find the patient when needed. Names and birth dates in logs spread to every tool that reads them. The line without the correlation ID cannot be joined to the request, and "Booking requested" does not say the booking was made.',
   },
   {
     id: 'log-5048',
@@ -1023,14 +1024,14 @@ export const SET_5 = [
     kind: 'choice',
     situation: 'Which line fits best when the fare search falls back to cached exchange rates?',
     options: [
-      '#["Exchange rates taken from cache: Rates API timed out timeoutMs=2000 errorType=$(error.errorType) correlationId=$(correlationId)"]',
+      '#["Exchange rates taken from cache: Rates API timed out timeoutMs=2000 errorType=$(error.errorType) cacheKey=rates-EUR next=fares returned with cached rates correlationId=$(correlationId)"]',
       '#["Exchange rates request failed: Rates API timed out timeoutMs=2000 errorType=$(error.errorType) next=500 to caller correlationId=$(correlationId)"]',
       '#["Exchange rates taken from cache: Rates API timed out timeoutMs=2000 cacheAgeMinutes=$(vars.cacheAgeMinutes) errorType=$(error.errorType) correlationId=$(correlationId)"]',
       '#["Exchange rates taken from cache cacheAgeMinutes=$(vars.cacheAgeMinutes) correlationId=$(correlationId)"]',
     ],
     answer: 2,
     explain:
-      'Say what the flow did instead, why, and how old the fallback data is. The age tells the reader how close the search is to failing for real, and the cache line without cacheAgeMinutes leaves it out.',
+      'Say what the flow did instead, why, and how old the fallback data is. The age tells the reader how close the search is to failing for real. The line with cacheKey and next= says which entry was used, but not how old it is, so rates from last week look the same as rates from a minute ago. The line with next=500 is wrong because the flow answered from the cache.',
   },
   {
     id: 'log-5063',
@@ -1117,12 +1118,12 @@ export const SET_5 = [
     options: [
       '#["Sign-in failed user=$(payload.username) reason=$(error.errorType.identifier) clientId=$(vars.clientId) correlationId=$(correlationId)"]',
       '#["Sign-in failed accountId=$(vars.accountId) reason=$(error.errorType.identifier) clientId=$(vars.clientId) correlationId=$(correlationId)"]',
-      '#["Sign-in failed user=$(payload.username) password=$(payload.password)"]',
+      '#["Sign-in failed accountId=$(vars.accountId) reason=$(error.errorType.identifier) clientId=$(vars.clientId)"]',
       `#["Sign-in failed accountId=$(vars.accountId) reason=$(error.errorType.identifier) userAgent=$(attributes.headers.'user-agent') correlationId=$(correlationId)"]`,
     ],
     answer: 1,
     explain:
-      'Text a caller controls can carry line breaks that forge log lines, and a username is often an email. An account ID set by your own code is safe and still finds the account. When no account matches the username at all, there is no account ID, so that line logs the reason and the client ID alone.',
+      'Text a caller controls can carry line breaks that forge log lines, and a username is often an email. An account ID set by your own code is safe and still finds the account. When no account matches the username at all, there is no account ID, so that line logs the reason and the client ID alone. The line that ends at clientId has no correlation ID, and the user-agent header is caller text too.',
   },
   {
     id: 'log-5068',
@@ -1133,7 +1134,7 @@ export const SET_5 = [
       'The username can be personal data, and a caller can put line breaks in it to fake log lines',
       'Mule masks the x-api-key header in Logger output, so the key does not reach the log',
       'The API key from the x-api-key header reaches the log',
-      'WARN is too low: every refused request should page the on-call team at ERROR',
+      'ERROR fits better, because a wrong key may be an attack on the API',
       'There is no correlation ID and no error type',
     ],
     answers: [0, 2, 4],
@@ -1206,14 +1207,14 @@ export const SET_5 = [
     kind: 'choice',
     situation: 'Which start-up line fits best for the meter readings app?',
     options: [
-      `#["App started app=$(app.name) env=$(p('mule.env')) runtime=$(mule.version)"]`,
-      `#["App started app=$(app.name) env=$(p('mule.env')) dbPassword=$(p('secure::db.password'))"]`,
-      `#["App started app=$(app.name) version=$(p('app.version')) env=$(p('mule.env')) runtime=$(mule.version)"]`,
-      `#["App started app=$(app.name) version=$(p('app.version')) details=" ++ write(app)]`,
+      '#["App started app=$(app.name) env=$(p(\'mule.env\')) runtime=$(mule.version) java=$(server.javaVersion) host=$(server.host)"]',
+      '#["App started app=$(app.name) env=$(p(\'mule.env\')) dbPassword=$(p(\'secure::db.password\'))"]',
+      '#["App started app=$(app.name) version=$(p(\'app.version\')) env=$(p(\'mule.env\')) runtime=$(mule.version)"]',
+      '#["App started app=$(app.name) version=$(p(\'app.version\')) details=" ++ write(app)]',
     ],
     answer: 2,
     explain:
-      'Name, version, environment and runtime answer "what is running where" after a deployment. The line without version= leaves out the app version, so during a rollout you cannot tell the old replica from the new one. A start-up line has no triggering event, so it has no correlation ID to add. write(app) dumps far more than you need, and a secure property never belongs in a log.',
+      'Name, version, environment and runtime answer "what is running where" after a deployment. The line with java and host has more facts but no app version, so during a rollout you cannot tell the old replica from the new one. write(app) dumps far more than you need, and a secure property never belongs in a log.',
   },
   {
     id: 'log-5073',

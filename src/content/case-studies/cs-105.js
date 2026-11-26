@@ -78,10 +78,10 @@ export default {
         'Events sent while it is down are lost; the department reloads all 2.1 million addresses',
         'A durable queue per subscriber, plus an address API with a "changed since" filter',
         'The population register re-sends the last week of events to every subscriber',
-        'The department asks the citizens who moved in that period to tell it again',
+        'The integration team replays the missed events by hand from the register\'s audit log',
       ],
       answer: 1,
-      explain: 'Durable queues per subscriber and a replay window cover outages. A current-address API with a "changed since" filter lets a department reconcile without a full reload. A full reload is heavy and needless, re-sending to every subscriber gives the others duplicates, and asking citizens again breaks the once-only promise.',
+      explain: 'Durable queues per subscriber and a replay window cover outages. A current-address API with a "changed since" filter lets a department reconcile without a full reload. A full reload is heavy and needless, and re-sending to every subscriber gives the others duplicates. A manual replay from the audit log can work once, but it is a support task for every outage, and the audit log is a control record, not a feed built to be resent.',
     },
   ],
   description: `

@@ -11,13 +11,13 @@ export default {
       needsScenario: true,
       prompt: 'The hospital wants to move 180 interfaces off the old interface engine before its support ends in 18 months. Which approach carries the least clinical risk?',
       options: [
-        'Rebuild all 180 interfaces in Mule, test them together and cut over on one weekend',
+        'Move waves by sending system, so all feeds from the EHR move together, then the lab system',
         'Move waves by receiving system, low-risk feeds first, each with a parallel run and rollback',
         'Move the lab results feeds first, since they carry the most clinical value',
-        'Move one interface at a time in the order the old engine lists them',
+        'Move one interface at a time, each with a parallel run, the simplest first',
       ],
       answer: 1,
-      explain: 'Waves by receiving system let one vendor test and go live at a time. Starting with low-risk feeds builds the patterns and the team\'s confidence before results, orders and medication feeds move, and each wave can roll back. A weekend cut-over of 180 feeds has no safe rollback. Lab results first puts the riskiest feed on an untried platform. Moving one interface at a time in list order makes each receiving vendor test many times and will not finish in 18 months.',
+      explain: 'Waves by receiving system let one vendor test and go live at a time. Starting with low-risk feeds builds the patterns and the team\'s confidence before results, orders and medication feeds move, and each wave can roll back. A wave of all EHR feeds touches most receiving systems at once, so many departments test and go live together. Lab results first puts the riskiest feed on an untried platform. One interface at a time is safe for each feed, but each receiving vendor tests many times and 180 feeds will not finish in 18 months.',
     },
     {
       type: 'multi',

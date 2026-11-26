@@ -37,11 +37,11 @@ export default {
       options: [
         'Share the VM config name with them so they can reference it',
         'Make the queue PERSISTENT so that other apps can see it',
-        'Use Anypoint MQ or a JMS broker, as VM queues are app-local',
+        'Move the orders onto an Anypoint MQ queue that both apps use',
         'Deploy both apps to the same CloudHub worker so they share it',
       ],
       answer: 2,
-      explain: 'VM queues are visible only inside the same app (or apps sharing a domain on-premises). A broker gives durable, cross-app messaging with DLQ support and monitoring.',
+      explain: 'VM queues are visible only inside the same app (or apps sharing a domain on-premises). A broker such as Anypoint MQ or JMS gives durable, cross-app messaging with DLQ support and monitoring. The config name means nothing to another app. PERSISTENT changes durability, not visibility. CloudHub does not let two apps share a worker or a domain.',
     },
     {
       type: 'single',

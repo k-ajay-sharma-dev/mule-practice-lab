@@ -114,19 +114,19 @@ export default {
       prompt: 'Seven Mule apps each log in a different format, and some log whole payloads that contain national ID numbers. Which shared logging standard fixes both problems?',
       options: [
         'Structured JSON with fixed fields, and sensitive values masked in a shared component',
-        'Structured JSON with fixed fields, and full payloads logged at `INFO` in production',
-        'Free text in each app\'s own style, and sensitive values masked in a shared component',
+        'Structured JSON with fixed fields, and national IDs masked by an index-time rule in Splunk',
+        'Free text with a fixed prefix of app and correlation ID, and masking in a shared component',
         'Structured JSON with fields chosen by each app, and masking written separately in each app',
       ],
       answer: 0,
-      explain: 'Fixed fields (timestamp, app, env, correlationId, businessKey, event, durationMs, status) make every app log the same way. A shared component masks national ID numbers, credentials and tokens the same way everywhere. Full payloads in production logs leak personal data and inflate Splunk cost. The standard also logs at entry, exit, before and after each external call with duration, and on error. Per-call durations answer "which hop was slow".',
+      explain: 'Fixed fields (timestamp, app, env, correlationId, businessKey, event, durationMs, status) make every app log the same way. A shared component masks national ID numbers, credentials and tokens the same way everywhere, before the line leaves the app. A Splunk rule masks too late: the plain value has already crossed the network and sits in the runtime logs. Free text with a prefix still leaves the rest of each line in its own format, so queries cannot rely on fields. Masking written in each app drifts from app to app. The standard also logs at entry, exit, before and after each external call with duration, and on error. Per-call durations answer "which hop was slow".',
     },
     {
       type: 'single',
       prompt: 'How do Mule logs get into Splunk without risking the apps when Splunk is down?',
       options: [
         'Each flow calls the Splunk HTTP Event Collector with an HTTP Request',
-        'A Log4j2 appender or platform log forwarding, with an async appender in front',
+        'A Splunk appender in log4j2.xml, wrapped in an async appender',
         'A Splunk forwarder agent installed on each CloudHub 2.0 replica',
         'A nightly job that exports the logs from Runtime Manager to Splunk',
       ],

@@ -25,11 +25,11 @@ export default {
       options: [
         'Header names are stored in lower case, so the key does not match',
         'The HTTP Listener removes custom `X-` headers from the request',
-        'Headers are only available in `vars` after a Set Variable step',
-        'Headers must be read with `attributes.queryParams` instead',
+        'The Listener moves that header into `correlationId` and drops it from the headers',
+        "The key needs the `http.` prefix, as in `attributes.headers.'http.X-Correlation-Id'`",
       ],
       answer: 0,
-      explain: 'HTTP header names are case-insensitive; the listener normalises them to lower case, so use `attributes.headers."x-correlation-id"`.',
+      explain: 'HTTP header names are case-insensitive; the listener normalises them to lower case, so use `attributes.headers."x-correlation-id"`. The Listener does use that header for `correlationId`, but the header stays in `attributes.headers`. Header keys carry no `http.` prefix, and the Listener does not strip custom `X-` headers.',
     },
     {
       type: 'match',

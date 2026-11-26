@@ -23,13 +23,13 @@ export default {
       type: 'single',
       prompt: 'How does a new distributor get access?',
       options: [
-        'It requests access to a tier from the public portal with its own client app',
+        'It creates its own client app on the public portal and picks a tier there',
         'It emails the integration team, who create a client app and send the credentials',
-        'It uses one shared distributor client ID published in the portal docs',
+        'Its account manager creates a client app on the Premium tier during onboarding and sends the ID',
         'It signs up in the web shop, and its web shop login is used for the API',
       ],
       answer: 0,
-      explain: 'Exchange and the public portal let partners discover the API and request access with their own client application. Tiers can be set to auto approve or to need manual approval. Emailing the team is today\'s weeks-long manual setup. A shared client ID hides who calls and cannot carry per distributor limits. A web shop login is a user account, not an API client.',
+      explain: 'Exchange and the public portal let partners discover the API and request access with their own client application. Tiers can be set to auto approve or to need manual approval. Emailing the team is today\'s weeks-long manual setup. An account manager creating apps is the same manual step with a new owner, and a default tier ignores what the distributor needs. A web shop login is a user account, not an API client.',
     },
     {
       type: 'multi',

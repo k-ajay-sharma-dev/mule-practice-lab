@@ -24,13 +24,13 @@ export default {
       options: [
         'A light query such as selecting from dual on the Oracle connection',
         'Reading the properties of the inbound container, or listing it with a page size of one',
-        'Downloading every blob in the container to confirm each can be read',
+        'Opening a TCP connection to the port of the Oracle listener',
         'Checking that the JMS broker accepts a connection',
         'Calling the restart app\'s own HTTP health endpoint',
-        'Counting all rows in the Oracle staging tables',
+        'A SELECT COUNT(*) on the staging tables, to prove the data can be read',
       ],
       answer: [0, 1, 3],
-      explain: 'Health checks should be cheap and touch each dependency the load needs. A query on dual proves Oracle answers. Reading the container properties or one page of the listing proves Blob Storage answers with the hub\'s credentials. A connection to the broker proves JMS is up. Downloading every blob is a load, not a check. The restart app\'s own endpoint only shows that the restart app runs, not that Oracle, Blob Storage or the broker do. Counting every staging row is a heavy scan that adds load to the database you are checking.',
+      explain: 'Health checks should be cheap and touch each dependency the load needs. A query on dual proves Oracle answers. Reading the container properties or one page of the listing proves Blob Storage answers with the hub\'s credentials. A connection to the broker proves JMS is up. An open port shows only that something listens there; the database can still refuse sessions during maintenance. The restart app\'s own endpoint only shows that the restart app runs, not that Oracle, Blob Storage or the broker do. Counting every staging row is a heavy scan that adds load to the database you are checking.',
     },
     {
       type: 'single',
@@ -38,11 +38,11 @@ export default {
       options: [
         'Republish it again, with a longer delay',
         'Park it with its history and alert support',
-        'Move it to the DLQ and ack it, with no alert',
+        'Republish it once more after Oracle passes a health check',
         'Republish it with a new message id',
       ],
       answer: 1,
-      explain: 'Keep a republish count in a message property. Past a limit, the message is a poison message that needs a person, not another loop.',
+      explain: 'Keep a republish count in a message property. Past a limit, the message is a poison message that needs a person, not another loop. A health check that passes says nothing about a message that failed five times, a longer delay only spaces out the same failure, and a new message id hides its history.',
     },
     {
       type: 'single',
@@ -51,10 +51,10 @@ export default {
         'All at once, as the main flow has 4 consumers',
         'In batches at a controlled rate',
         'Newest first, so recent data lands sooner',
-        'All at once, after a restart of the main app',
+        'All at once, as the main flow takes them off the queue at its own pace',
       ],
       answer: 1,
-      explain: 'Send batches at a controlled rate and watch for new failures, so the main flow and Oracle are not flooded. A flood after an outage can cause a second outage. A controlled rate lets the main flow keep up and shows quickly if the fix did not work.',
+      explain: 'Send batches at a controlled rate and watch for new failures, so the main flow and Oracle are not flooded. A flood after an outage can cause a second outage. The main flow does pace itself, but live messages then wait behind the whole backlog, and a fix that did not work fails all 4,000 again. Newest first breaks the order of older changes. A controlled rate lets the main flow keep up and shows quickly if the fix did not work.',
     },
     {
       type: 'single',

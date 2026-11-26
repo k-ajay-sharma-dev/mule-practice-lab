@@ -12,12 +12,12 @@ export default {
       prompt: 'Most of the 120 apps run on more capacity than they use. What is the first step?',
       options: [
         'Measure each app’s use over a normal month and a peak before changing it',
-        'Cut every app’s capacity by a third on the same day',
-        'Turn off the 40 apps with the least traffic to save quickly',
+        'Downsize the ten largest apps first, since they make up most of the bill',
+        'Retire the 40 apps with the least traffic, after a notice to their owners',
         'Move every app to the smallest size and scale up any that fail',
       ],
       answer: 0,
-      explain: 'Data shows which apps are oversized and by how much. Cutting all apps the same way breaks the ones that need their capacity, low traffic does not mean unused, and waiting for failures hurts service.',
+      explain: 'Data shows which apps are oversized and by how much. The largest apps may be large because they need it. Low traffic does not mean unused, and an unanswered notice does not prove nobody calls an app. Waiting for failures hurts service.',
     },
     {
       type: 'single',
@@ -51,12 +51,12 @@ export default {
       prompt: 'Sandbox environments run 24 hours a day with full copies of every app. What do you change?',
       options: [
         'Stop them out of hours, and keep only the apps each team is working on',
-        'Remove the sandboxes and test new versions in production behind a feature flag',
-        'Keep them running all day, and cut production capacity instead',
+        'Share one sandbox across all teams, with each app deployed there once',
+        'Keep them running, and halve the replicas of every sandbox app',
         'Merge every sandbox app into one large app per environment',
       ],
       answer: 0,
-      explain: 'Non-production capacity is often idle at night and at weekends. Scheduling it saves money without hurting delivery, while testing in production or cutting production puts service at risk.',
+      explain: 'Non-production capacity is often idle at night and at weekends. Scheduling it saves money without hurting delivery. One shared sandbox makes teams overwrite each other\'s versions. Halving replicas still pays for every app all night, including apps nobody is working on. Merging sandbox apps means testing something different from what goes to production.',
     },
     {
       type: 'match',

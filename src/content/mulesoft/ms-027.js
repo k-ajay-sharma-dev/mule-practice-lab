@@ -23,12 +23,12 @@ export default {
       prompt: 'CI fails with "Cannot load driver class: oracle.jdbc.OracleDriver" while the laptop works. What is the proper fix?',
       options: [
         'Add the driver as a Maven dependency and as a shared library',
-        "Copy the jar into Studio's build path on the CI machine as well",
+        'Add the driver as a Maven dependency in `provided` scope, as the runtime has it',
         'Put the driver jar in `src/main/resources` so it is on the classpath',
         'Add the driver jar to `src/main/java` next to the custom classes',
       ],
       answer: 0,
-      explain: "CI only knows the POM. The shared-library declaration in the mule-maven-plugin lets the Database connector's class loader see the driver.",
+      explain: "CI only knows the POM. The shared-library declaration in the mule-maven-plugin lets the Database connector's class loader see the driver. The runtime does not ship the Oracle driver, so a `provided` dependency leaves it out of the app jar. A jar in resources or java folders is not on the connector's class path.",
     },
     {
       type: 'single',

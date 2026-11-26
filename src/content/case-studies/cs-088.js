@@ -11,13 +11,13 @@ export default {
       needsScenario: true,
       prompt: 'The supervisor asks which integration components support the claims payment function. What should the group have ready?',
       options: [
-        'The Runtime Manager list of deployed apps, with an owner for each',
+        'The Runtime Manager list of deployed apps, each tagged with the business function it serves',
         'A current map from each critical function to its apps, queues and providers',
         'The MuleSoft subscription contract with its service levels',
         'A diagram of the CloudHub 2.0 private space and its network',
       ],
       answer: 1,
-      explain: 'DORA asks firms to identify the ICT assets that support critical or important functions and how they depend on each other. A list of apps or a network diagram alone does not show which business function breaks when a component fails.',
+      explain: 'DORA asks firms to identify the ICT assets that support critical or important functions and how they depend on each other. Tagged apps show which app serves claims payments, but not the queues, providers and other apps it depends on. A network diagram does not show which business function breaks when a component fails, and the subscription contract covers one provider, not the whole chain.',
     },
     {
       type: 'multi',
@@ -38,12 +38,12 @@ export default {
       prompt: 'The Anypoint control plane is unavailable for 2 hours. What happens to the Mule applications already running on CloudHub 2.0?',
       options: [
         'They stop processing until the control plane returns',
-        'They keep processing, but no deploys, scaling or setting changes are possible',
-        'They restart in a degraded mode that runs without their API policies',
+        'They keep processing, but changes to them wait until it returns',
+        'They keep processing, but their API policies stop being applied',
         'They fail over on their own to another region until it returns',
       ],
       answer: 1,
-      explain: 'The runtime plane is separate from the control plane. Running apps keep processing; what is lost is management: deploying, changing settings, and parts of monitoring. The resilience plan should say how to run without changes for a few hours.',
+      explain: 'The runtime plane is separate from the control plane. Running apps keep processing; what is lost is management: deploying, scaling, changing settings, and parts of monitoring. Policies already applied keep running in the runtime. The resilience plan should say how to run without changes for a few hours.',
     },
     {
       type: 'match',
@@ -75,11 +75,11 @@ export default {
       options: [
         'Add more vCores and replicas to the claims payment apps in the same region',
         'Run claims payment in a second region and test the failover twice a year',
-        'Write a policy stating a 4 hour recovery time for claims payments',
+        'Spread the claims payment replicas across the availability zones of the region',
         'Back up the claims app settings every day to a second region',
       ],
       answer: 1,
-      explain: 'Supervisors expect tested recovery, not stated targets. A second region with its own messaging, plus regular recorded failover tests, produces evidence of the real recovery time. More capacity in the same region does not survive a region failure, and a settings backup still leaves the apps, queues and DNS to rebuild by hand.',
+      explain: 'Supervisors expect tested recovery, not stated targets. A second region with its own messaging, plus regular recorded failover tests, produces evidence of the real recovery time. More capacity in the same region does not survive a region failure. Availability zones protect against a data centre failure, not a whole region going down. A settings backup still leaves the apps, queues and DNS to rebuild by hand.',
     },
   ],
   description: `

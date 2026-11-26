@@ -69,13 +69,13 @@ export default {
       type: 'single',
       prompt: 'A load test of a Mule API should confirm a capacity estimate before a ticket sale. The test reports a good average response time. Why is that not enough to accept the estimate?',
       options: [
-        'Averages hide tail latency, so p95 and p99 must be checked too',
-        'Averages are valid only for a test on a single replica',
-        'Response time stops mattering once CPU stays below target',
-        'Averages include backend latency, which must be left out',
+        'A slow tail can sit behind a good average, so p95 and p99 are needed',
+        'The average includes cached answers, so the test must run again with the cache off',
+        'A good average only counts after a soak test of several hours at the same load',
+        'The average includes backend latency, which must be left out to size Mule',
       ],
       answer: 0,
-      explain: 'Averages hide tail latency. Measure CPU and heap per replica, p95/p99 latency, error rate and backend latency under load. Use a realistic mix, ramp to about 1.5× forecast and add a soak test. That gives the per-replica capacity figure you defend to finance.',
+      explain: 'Averages hide tail latency: many fast calls pull the number down while some customers wait seconds. Production has the cache too, so turning it off tests a system nobody runs. A soak test finds leaks over time, but a long run still reports the same misleading average. Backend latency holds Mule threads and connections, so it belongs in the sizing. Measure CPU and heap per replica, p95/p99 latency, error rate and backend latency under load. Use a realistic mix, ramp to about 1.5× forecast and add a soak test. That gives the per-replica capacity figure you defend to finance.',
     },
   ],
   description: `

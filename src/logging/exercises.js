@@ -138,27 +138,27 @@ const FIRST = [
     situation: 'The order was created in SAP. Which message is best?',
     options: [
       'SAP order created orderId=10045 sapDocNo=4500017 durationMs=812 correlationId=7f3c2a',
-      'SAP order created orderId=10045 sapDocNo=4500017 durationMs=812',
+      'SAP order created orderId=10045 sapDocNo=4500017 durationMs=812 attempt=1 of 3 next=retry correlationId=7f3c2a',
       'Calling SAP order create orderId=10045 endpoint=/sap/orders correlationId=7f3c2a',
       'SAP order created orderId=10045 durationMs=812 response=<whole SAP response with customer data> correlationId=7f3c2a',
     ],
     answer: 0,
     explain:
-      'It says what happened, then the facts as name=value pairs: which order, the SAP document, how long it took, and the correlation ID. The line without the correlation ID cannot be joined to the other lines of the request. "Calling SAP order create" is written before the call, so it says nothing about the result. The whole SAP response is large, may hold customer data, and leaves the SAP document number buried where no field search finds it.',
+      'It says what happened, then the facts as name=value pairs: which order, the SAP document, how long it took, and the correlation ID. "next=retry" after a created order is wrong: the call worked, and a retry would create the same order a second time. "Calling SAP order create" is written before the call, so it says nothing about the result. The whole SAP response is large, may hold customer data, and leaves the SAP document number buried where no field search finds it.',
   },
   {
     id: 'log-021',
     kind: 'choice',
     situation: 'The request failed validation. Which message is best?',
     options: [
-      'Request rejected status=400 body={"orderId":10045,"shipTo":{"street":"12 High St"}} correlationId=7f3c2a',
+      'Request rejected: shipTo.country is missing orderId=10045 status=400 next=retry in 5 minutes correlationId=7f3c2a',
       'Request rejected: shipTo.country is missing orderId=10045 status=500 errorType=MULE:EXPRESSION correlationId=7f3c2a',
       'Request rejected orderId=10045 status=400 errorType=APIKIT:BAD_REQUEST correlationId=7f3c2a',
       'Request rejected: shipTo.country is missing orderId=10045 status=400 correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'It says the result, the reason (which field), the ID, the status sent back and the correlation ID. The body dumps an address and still does not say which field was wrong. status=500 with MULE:EXPRESSION tells support the API broke, when the caller sent a bad request. The line with the error type but no reason makes the caller ask which field to fix.',
+      'It says the result, the reason (which field), the ID, the status sent back and the correlation ID. "next=retry in 5 minutes" is wrong: nothing retries a bad request, and the same body fails again until the caller fixes it. status=500 with MULE:EXPRESSION tells support the API broke, when the caller sent a bad request. The line with the error type but no reason makes the caller ask which field to fix.',
   },
   {
     id: 'log-022',
@@ -168,11 +168,11 @@ const FIRST = [
       'Retrying SAP order create attempt=2 after HTTP:TIMEOUT orderId=10045 correlationId=7f3c2a',
       'Retrying SAP order create attempt=2 of 3 after HTTP:TIMEOUT orderId=10045 correlationId=7f3c2a',
       'SAP order create failed errorType=HTTP:TIMEOUT orderId=10045 attempt=2 correlationId=7f3c2a',
-      'Retrying SAP order create, request body: {"orderId":10045,"email":"ann@example.com"}',
+      'Retrying SAP order create attempt=2 of 3 after HTTP:TIMEOUT orderId=10045 correlationId=7f3c2a, logged at ERROR',
     ],
     answer: 1,
     explain:
-      'It names the call, which attempt out of how many, why, and the IDs. Reading the lines of one request, you can see the retries and when they stopped. "attempt=2" alone does not say how many tries are left. "SAP order create failed" reads like the final failure, so support may act on an order that will still go through. The line with the request body writes an email address on every attempt.',
+      'It names the call, which attempt out of how many, why, and the IDs. Reading the lines of one request, you can see the retries and when they stopped. "attempt=2" alone does not say how many tries are left. "SAP order create failed" reads like the final failure, so support may act on an order that will still go through. At ERROR a retry fires the alerts for an order that may still go through; WARN fits a retry.',
   },
   {
     id: 'log-023',
@@ -182,11 +182,11 @@ const FIRST = [
       'Request received POST /orders orderId=10045 channel=web clientSecret=<client-secret> correlationId=7f3c2a',
       'Request received POST /orders orderId=10045 channel=web correlationId=7f3c2a',
       'Order created POST /orders orderId=10045 channel=web correlationId=7f3c2a',
-      'Request received POST /orders customer={"email":"ann@example.com","phone":"+44 7700 900123"} correlationId=7f3c2a',
+      'Request received POST /orders orderId=10045 channel=web correlationId=<new UUID made by the flow>',
     ],
     answer: 1,
     explain:
-      'It says which request, with the key facts and the correlation ID. The clientSecret in the line that logs it is a credential, and anyone who reads the log can use it. "Order created" at the moment the request arrives claims a result that has not happened yet. The line with customer={...} dumps customer details, with an email address and a phone number.',
+      'It says which request, with the key facts and the correlation ID. The clientSecret in the line that logs it is a credential, and anyone who reads the log can use it. "Order created" at the moment the request arrives claims a result that has not happened yet. A UUID made in the flow does not match the correlation ID the caller sent, so the lines of the two apps cannot be joined.',
   },
   {
     id: 'log-024',
@@ -194,13 +194,13 @@ const FIRST = [
     situation: 'The order could not be sent to SAP after every retry. Which message is best?',
     options: [
       'Order not sent to SAP after 3 attempts errorType=HTTP:TIMEOUT orderId=10045 next=retry in 5 minutes correlationId=7f3c2a',
-      'Order not sent to SAP after 3 attempts errorType=HTTP:TIMEOUT orderId=10045 next=sent to DLQ correlationId=7f3c2a',
+      'Order not sent to SAP after 3 attempts errorType=HTTP:TIMEOUT orderId=10045 next=sent to DLQ dlq=sap-orders-dlq correlationId=7f3c2a',
       'Order not sent to SAP after 3 attempts orderId=10045 next=sent to DLQ',
-      'Order not sent to SAP after 3 attempts errorType=HTTP:TIMEOUT orderId=10045 order={"customer":{"email":"ann@example.com"}} next=sent to DLQ correlationId=7f3c2a',
+      'Order not sent to SAP after 3 attempts errorType=HTTP:TIMEOUT orderId=10045 next=sent to DLQ correlationId=7f3c2a, logged at WARN',
     ],
     answer: 1,
     explain:
-      'A good error line says what failed, why (the error type), which record, and what happens next. "next=sent to DLQ" tells support where the order is now. "next=retry in 5 minutes" is wrong: every retry is used up. The line with no errorType leaves out the error type and the correlation ID, so nobody can tell a timeout from a rejection. The line with order={...} copies an email address into the log.',
+      'A good error line says what failed, why (the error type), which record, and what happens next. "next=sent to DLQ" with the queue name tells support where the order is now. "next=retry in 5 minutes" is wrong: every retry is used up. The line with no errorType leaves out the error type and the correlation ID, so nobody can tell a timeout from a rejection. WARN fits a retry that may still work; once every retry is used up the order has failed, so ERROR.',
   },
   {
     id: 'log-025',
@@ -223,11 +223,11 @@ const FIRST = [
       'Payment declined paymentId=pay_881 reason=insufficient_funds card=4111111111111111 email=ann@example.com correlationId=7f3c2a',
       'Payment failed paymentId=pay_881 errorType=HTTP:INTERNAL_SERVER_ERROR orderId=10045 correlationId=7f3c2a',
       'Payment declined paymentId=pay_881 reason=insufficient_funds orderId=10045 correlationId=7f3c2a',
-      'Payment declined paymentId=pay_881 orderId=10045 response=<whole provider response> correlationId=7f3c2a',
+      'Payment declined paymentId=pay_881 reason=insufficient_funds orderId=10045 next=retry in 5 minutes correlationId=7f3c2a',
     ],
     answer: 2,
     explain:
-      'It gives the reason and the IDs that support can look up. The card number and the email break PCI and privacy rules, even with a good reason next to them. A decline is a normal answer from the provider, so logging it as an internal server error sends support after a bug that does not exist. The whole provider response can hold card details and hides the reason inside a blob.',
+      'It gives the reason and the IDs that support can look up. The card number and the email break PCI and privacy rules, even with a good reason next to them. A decline is a normal answer from the provider, so logging it as an internal server error sends support after a bug that does not exist. A retry of an insufficient_funds decline gets the same answer until the customer acts, so "next=retry in 5 minutes" promises nothing.',
   },
   {
     id: 'log-027',
@@ -236,12 +236,12 @@ const FIRST = [
     options: [
       'CRM replied status=200 time=342 customerId=C-2231 correlationId=7f3c2a',
       'CRM call starting method=GET path=/customers/C-2231 customerId=C-2231 correlationId=7f3c2a',
-      'CRM replied status=200 durationMs=342 response=<the whole response body> correlationId=7f3c2a',
-      'CRM replied status=200 durationMs=342 customerId=C-2231 correlationId=7f3c2a',
+      'CRM replied status=200 durationMs=342 customerId=C-2231 correlationId=7f3c2a, logged at DEBUG',
+      'CRM replied method=GET status=200 durationMs=342 customerId=C-2231 correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'The status and the time taken, with its unit, are what you need when a call is slow or fails. "time=342" could be milliseconds or seconds. "CRM call starting" is written before the call, so it says nothing about how it went. Logging the whole response body is large and may hold personal data.',
+      'The status and the time taken, with its unit, are what you need when a call is slow or fails. "time=342" could be milliseconds or seconds. "CRM call starting" is written before the call, so it says nothing about how it went. At DEBUG the line is gone in production, where a slow or failing CRM call is what support needs to see.',
   },
 
   // ---------- spot the problems ----------
@@ -251,7 +251,7 @@ const FIRST = [
     situation: 'In the Order Process API, at the start of the main flow:',
     code: '<logger level="INFO" message="#[payload]" />',
     options: [
-      'A Logger must have a category, or it does not run',
+      'Without a category the line goes to the runtime log instead of the app log',
       'It logs the whole payload at INFO: large lines and personal data in production',
       'Moving it to DEBUG makes it safe, because DEBUG is off in production',
       'There is no correlation ID or order ID to search for',
@@ -259,7 +259,7 @@ const FIRST = [
     ],
     answers: [1, 3, 4],
     explain:
-      'The payload belongs at DEBUG at most, and even DEBUG gets turned on in production to troubleshoot, so the personal data in it can still leak. A good line says what happened with labelled IDs. A Logger runs without a category; the category only lets you change the level for one area.',
+      'The payload belongs at DEBUG at most, and even DEBUG gets turned on in production to troubleshoot, so the personal data in it can still leak. A good line says what happened with labelled IDs. Without a category the line still goes to the app log; the category only lets you change the level for one area.',
   },
   {
     id: 'log-041',
@@ -268,13 +268,14 @@ const FIRST = [
     code: '<logger level="INFO" message=\'#["Login for " ++ payload.username ++ " with password " ++ payload.password]\' />',
     options: [
       'It should log a user ID rather than the username, if the username is an email',
-      'Using ++ to join strings does not work in a Logger',
+      'Moving it to DEBUG makes it acceptable for a short test in production',
       'It writes the password into the log',
       'There is no correlation ID',
+      'WARN fits better than INFO, because a login is a security event',
     ],
     answers: [0, 2, 3],
     explain:
-      'A password must never reach a log. ++ works fine in DataWeave. Log a user ID, the result and the correlation ID: "Login succeeded userId=U-118 correlationId=...".',
+      'A password must never reach a log, at any level, even for a short test. A login that works is a normal event, so INFO fits. Log a user ID, the result and the correlation ID: "Login succeeded userId=U-118 correlationId=...".',
   },
   {
     id: 'log-042',
@@ -282,14 +283,15 @@ const FIRST = [
     situation: 'In the On Error Propagate of the SAP call:',
     code: '<logger level="ERROR" message="Error occurred" />',
     options: [
-      'The message does not say what failed or why',
+      'Every handler that logs "Error occurred" looks the same, so a search cannot tell the SAP failure from any other',
       'ERROR is too high here: the error handler caught the error, so WARN fits',
       'There is no order ID or correlation ID',
+      'There is no stack trace, and an error line is of little use without one',
       'There is no error.errorType or error.description',
     ],
-    answers: [0, 2, 3],
+    answers: [0, 2, 4],
     explain:
-      'At 3 a.m. this line tells support nothing. Say what failed, add error.errorType and error.description, the order ID and the correlation ID. ERROR is right when the work failed.',
+      'At 3 a.m. this line tells support nothing. Say what failed, add error.errorType and error.description, the order ID and the correlation ID. ERROR is right when the work failed. The error type and the description already say what went wrong; a stack trace adds dozens of lines that help a developer debug the runtime, not support find the order.',
   },
   {
     id: 'log-043',
@@ -297,14 +299,15 @@ const FIRST = [
     situation: 'Inside a For Each over the 10,000 lines of a price file:',
     code: '<logger level="INFO" message=\'#["Processing line $(vars.counter)"]\' />',
     options: [
-      'vars.counter does not exist in a For Each',
+      'vars.counter starts at 0, so the first line says line 0',
       '10,000 INFO lines per file flood the logs and slow the flow',
       'The line has no file name or correlation ID to tie it to the run',
       'Better: DEBUG inside the loop, and one INFO line after it with the count',
+      'Reading vars.counter is costly, because For Each counts the list again on each pass',
     ],
     answers: [1, 2, 3],
     explain:
-      'For Each does set vars.counter. The trouble is the volume and the missing context. One summary line, such as "Price file processed fileName=prices.csv lines=10000", is worth more.',
+      'For Each sets vars.counter to 1 on the first pass and adds one on each pass, which costs nothing. The trouble is the volume and the missing context. One summary line, such as "Price file processed fileName=prices.csv lines=10000", is worth more.',
   },
   {
     id: 'log-044',
@@ -316,10 +319,11 @@ const FIRST = [
       'Log a payment ID or the last 4 digits instead',
       'A card number in a log breaks PCI rules, even at DEBUG',
       'DEBUG is sometimes turned on in production to troubleshoot, so this can leak',
+      'Moving the line to TRACE keeps the card number out of production logs',
     ],
     answers: [1, 2, 3],
     explain:
-      'DEBUG is switched on in production more often than people think. Card numbers, CVV and passwords never go into a log at any level. The amount is a business fact, and on its own it does not identify anyone.',
+      'DEBUG is switched on in production more often than people think. Card numbers, CVV and passwords never go into a log at any level, and TRACE is turned on the same way as DEBUG. The amount is a business fact, and on its own it does not identify anyone.',
   },
   {
     id: 'log-045',
@@ -331,10 +335,11 @@ const FIRST = [
       'The line after the call should be WARN, so that slow calls stand out',
       'The line before the call could be DEBUG, as the line after it says the same and more',
       'The line after the call has no status or duration',
+      'The line before the call should carry the request body, so a failed call can be replayed',
     ],
     answers: [0, 2, 3],
     explain:
-      'The useful line is the one after the call: "SAP replied status=201 durationMs=812 orderId=... correlationId=...". It answers "was it slow?" and "did it fail?". A normal call is INFO; a slow one shows in durationMs.',
+      'The useful line is the one after the call: "SAP replied status=201 durationMs=812 orderId=... correlationId=...". It answers "was it slow?" and "did it fail?". A normal call is INFO; a slow one shows in durationMs. Replays come from the message or the DLQ, not from a body copied into the log.',
   },
   {
     id: 'log-046',
@@ -346,10 +351,11 @@ const FIRST = [
       'Not found may be a normal answer: INFO can fit better than WARN',
       'An email address is personal data. Log the customer ID instead',
       'There is no correlation ID',
+      'Hashing the email with SHA-256 would make it fine to keep in the line',
     ],
     answers: [1, 2, 3],
     explain:
-      'Ask what the reader needs: which lookup, which ID and which request. "Customer not found customerId=C-2231 correlationId=..." is enough. WARN lines are kept in production.',
+      'Ask what the reader needs: which lookup, which ID and which request. "Customer not found customerId=C-2231 correlationId=..." is enough. WARN lines are kept in production. A hashed email is still personal data: anyone who has the address can hash it and find the match.',
   },
   {
     id: 'log-047',
@@ -359,12 +365,12 @@ const FIRST = [
     options: [
       'The message wording is poor',
       'No category is set, so you cannot raise one area (such as the SAP calls) to DEBUG alone',
-      'Without a category nothing is logged',
+      'A category only writes once log4j2.xml defines an appender for it',
       'Set category="com.acme.orders.sap" and similar, then change levels per category in log4j2.xml',
     ],
     answers: [1, 3],
     explain:
-      'The message is good. The category is what lets operations turn on DEBUG for one area without flooding the rest. Without one, the Logger still writes its lines.',
+      'The message is good. The category is what lets operations turn on DEBUG for one area without flooding the rest. A new category writes through the appenders of the root unless log4j2.xml says otherwise.',
   },
   {
     id: 'log-048',
@@ -373,13 +379,14 @@ const FIRST = [
     code: '<logger level="INFO" message="#[write(payload, \'application/json\')]" />',
     options: [
       'It reads the whole stream into memory to write the line',
-      'write() is not a DataWeave function',
+      'write() streams the file to the log in chunks, so memory use stays low',
       'The whole 50 MB file is turned into one log line',
       'The file may hold personal data',
+      'Moving the Logger after the Transform fixes it, because the output is smaller',
     ],
     answers: [0, 2, 3],
     explain:
-      'write() is a real function, which is what makes this costly. Log the file name, size and record count instead.',
+      'write() builds the whole text in memory before the Logger writes it, which is what makes this costly. After the Transform the payload is the whole mapped file, so moving the Logger does not help. Log the file name, size and record count instead.',
   },
   {
     id: 'log-049',

@@ -33,13 +33,13 @@ export default {
       type: 'single',
       prompt: 'The logs show a host key mismatch after the partner moved servers. What should you do?',
       options: [
-        'Set host key checking off until the partner confirms the move',
+        'Accept the new key on the first connect, then pin it in known hosts',
         'Confirm the new fingerprint with the partner, then update known hosts',
-        'Delete the known hosts file so the first key seen is trusted again',
+        'Add the new key next to the old one in known hosts, in case the move is rolled back',
         'Ask the partner to copy the old host key onto the new server',
       ],
       answer: 1,
-      explain: 'Get the new fingerprint through a trusted channel, such as a call or a signed mail, and compare it before you update the known hosts entry. A changed host key is exactly what an attacker in the middle would cause, so never trust it blindly.',
+      explain: 'Get the new fingerprint through a trusted channel, such as a call or a signed mail, and compare it before you update the known hosts entry. A changed host key is exactly what an attacker in the middle would cause. Accepting the first key seen, or adding it next to the old one, trusts it without that check. Copying the old key means moving a private key between servers, which the partner should not do.',
     },
     {
       type: 'multi',
@@ -70,13 +70,13 @@ export default {
       type: 'single',
       prompt: 'How would you catch this problem earlier next time?',
       options: [
-        'Have support read the app logs every morning before the stores open',
+        'Alert on every ERROR line the SFTP connector writes to the logs',
         'Alert when no plan is processed by a set time, and on repeated errors',
         'Add a health check that fails when the app stops running',
         'Alert when CPU or memory on the worker goes above a threshold',
       ],
       answer: 1,
-      explain: 'An alert on missing work catches silent failures that error alerts miss.',
+      explain: 'An alert on missing work catches silent failures that error alerts miss. A matcher or watermark that skips the files writes no ERROR line at all. A health check passes while the app runs and idles. CPU and memory stay low when no work arrives.',
     },
   ],
   description: `

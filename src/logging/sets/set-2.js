@@ -24,11 +24,11 @@ export const SET_2 = [
       'OrderPlaced published queue=larkspur-orders orderId=LG-88120 messageId=3f9a1c07 correlationId=c41d9e',
       'OrderPlaced published queue=larkspur-orders orderId=LG-88120 correlationId=c41d9e',
       'OrderPlaced publishing queue=larkspur-orders orderId=LG-88120 messageId=3f9a1c07 correlationId=c41d9e',
-      'OrderPlaced published queue=larkspur-orders orderId=LG-88120 customerPhone=+1 555 0100 messageId=3f9a1c07',
+      'OrderPlaced published queue=larkspur-orders orderId=LG-88120 messageId=3f9a1c07 deliveryCount=1 correlationId=c41d9e',
     ],
     answer: 0,
     explain:
-      'It says what was published and where, with the order ID, the MQ message ID and the correlation ID. Without the message ID the message cannot be looked up in Anypoint MQ. "OrderPlaced publishing" reads as a line written before the publish, so it cannot tell you the publish worked. The line with the phone number puts personal data in the log and has no correlation ID.',
+      'It says what was published and where, with the order ID, the MQ message ID and the correlation ID. Without the message ID the message cannot be looked up in Anypoint MQ. "OrderPlaced publishing" reads as a line written before the publish, so it cannot tell you the publish worked. deliveryCount belongs to the consumer: the publisher cannot know how often the message will be delivered.',
   },
   {
     id: 'log-2003',
@@ -38,13 +38,14 @@ export const SET_2 = [
     options: [
       'The order is safe in this line, because the queue has encryption turned on',
       'ERROR is wrong for a publish that worked. INFO fits',
-      'The line does not name the queue',
+      'It names no queue and has no message ID or correlation ID',
       'write(payload) puts the whole order, with customer data, in the log',
-      'There is no correlation ID and no message ID',
+      'There is no deliveryCount, so a publish that was sent twice cannot be seen',
+      'WARN fits better than ERROR, because a publish line is only read when an order goes missing',
     ],
-    answers: [1, 2, 3, 4],
+    answers: [1, 2, 3],
     explain:
-      'Queue encryption protects the message inside Anypoint MQ, not the copy your Logger writes, so write(payload) still puts the whole order and its customer data in the log. ERROR would raise alerts for good news, and the line names no queue and has no message ID or correlation ID. Write "OrderPlaced published queue=larkspur-orders orderId=$(vars.orderId) messageId=$(vars.messageId) correlationId=$(correlationId)".',
+      'Queue encryption protects the message inside Anypoint MQ, not the copy your Logger writes, so write(payload) still puts the whole order and its customer data in the log. ERROR would raise alerts for good news, and WARN is still a warning about something that worked: a normal event is INFO. With no queue, message ID or correlation ID the line cannot be found in Anypoint MQ or joined to the order. deliveryCount belongs to the consumer: the publisher cannot know how often the message will be delivered. Write "OrderPlaced published queue=larkspur-orders orderId=$(vars.orderId) messageId=$(vars.messageId) correlationId=$(correlationId)".',
   },
   {
     id: 'log-2004',
@@ -120,13 +121,13 @@ export const SET_2 = [
     situation: 'Halvorsen Freight: which line is best right after the VM Publish of a booking to bookings-q?',
     options: [
       'Booking queued for pricing queue=bookings-q bookingId=HF-55021',
-      'Booking queued for pricing queue=bookings-q bookingId=HF-55021 shipper=Ida Berg correlationId=9b2e71',
+      'Booking queued for pricing queue=bookings-q bookingId=HF-55021 correlationId=<new UUID for the pricing flow>',
       'Booking queued for pricing queue=bookings-q bookingId=HF-55021 correlationId=9b2e71',
-      'Booking priced queue=bookings-q bookingId=HF-55021 correlationId=9b2e71',
+      'Booking priced queue=bookings-q bookingId=HF-55021 price=412.00 currency=EUR correlationId=9b2e71',
     ],
     answer: 2,
     explain:
-      'It says the booking was queued, on which queue, with the booking ID and the correlation ID that the pricing flow logs too. Without the correlation ID the line cannot be joined to the line the pricing flow writes. The shipper name is personal data, and "Booking priced" claims work the pricing flow has not done yet.',
+      'It says the booking was queued, on which queue, with the booking ID and the correlation ID that the pricing flow logs too. Without the correlation ID the line cannot be joined to the line the pricing flow writes. A new UUID for the pricing flow breaks the join that VM keeps on its own. The line with a price and currency is written by the API before the pricing flow has run, so it claims a result nobody has worked out yet.',
   },
   {
     id: 'log-2009',
@@ -137,12 +138,13 @@ export const SET_2 = [
       'Logging payload.bookingId dumps the whole payload',
       'There is no correlation ID, so this line cannot be joined to the API line that queued the booking',
       'The VM Listener starts a new correlation ID, so adding one would not join the lines',
-      'INFO is too high for a booking that arrives',
+      'There is no labelled booking ID, so the line cannot be searched by booking',
       'It does not name the queue the booking came from',
+      'INFO is too high for a booking that arrives',
     ],
     answers: [1, 4],
     explain:
-      'payload.bookingId is one field, not the whole payload, and INFO fits an arrival. A VM Publish and a VM Listener in the same app keep the correlation ID of the event, so adding it joins this line to the API line. The queue name helps when the app has several VM queues: "Booking received queue=bookings-q bookingId=$(payload.bookingId) correlationId=$(correlationId)".',
+      'payload.bookingId is one field, not the whole payload, and it is labelled bookingId=, so the line can be searched by booking. INFO fits an arrival. A VM Publish and a VM Listener in the same app keep the correlation ID of the event, so adding it joins this line to the API line. The queue name helps when the app has several VM queues: "Booking received queue=bookings-q bookingId=$(payload.bookingId) correlationId=$(correlationId)".',
   },
   {
     id: 'log-2010',
@@ -183,13 +185,13 @@ export const SET_2 = [
     situation: 'Northfield Rail: which line is best as the first logger after the JMS Listener on TICKETS.IN?',
     options: [
       'Ticket booking received queue=TICKETS.IN jmsMessageId=ID:nf-broker-1-1-7 ticketId=NR-7731',
-      'Ticket booking received queue=TICKETS.IN jmsMessageId=ID:nf-broker-1-1-7 ticketId=NR-7731 correlationId=5d0c8a',
-      'Ticket booking received queue=TICKETS.IN jmsMessageId=ID:nf-broker-1-1-7 ticketId=NR-7731 passenger=Mia Cole correlationId=5d0c8a',
+      'Ticket booking received queue=TICKETS.IN jmsMessageId=ID:nf-broker-1-1-7 ticketId=NR-7731 redelivered=false correlationId=5d0c8a',
+      'Ticket booking received queue=TICKETS.IN jmsCorrelationId=ID:nf-broker-1-1-7 ticketId=NR-7731 correlationId=5d0c8a',
       'Ticket booking received queue=TICKETS.IN ticketId=NR-7731 correlationId=5d0c8a',
     ],
     answer: 1,
     explain:
-      'The JMS message ID finds the message on the broker, the ticket ID finds the booking, and the correlation ID joins the lines of this booking. Without the JMS message ID the broker team cannot find a stuck or lost message, and without the correlation ID the line stands alone. The passenger name is personal data.',
+      'The JMS message ID finds the message on the broker, the ticket ID finds the booking, and the correlation ID joins the lines of this booking. redelivered from attributes.headers shows if the broker is sending the message again. Without the JMS message ID the broker team cannot find a stuck or lost message, and without the correlation ID the line stands alone. jmsCorrelationId is a header the sender may set, often empty, and the broker team cannot find a message by it.',
   },
   {
     id: 'log-2013',
@@ -202,10 +204,11 @@ export const SET_2 = [
       'attributes holds every JMS header and property, so the line is long and hard to search',
       'JMS headers and properties only hold broker data, so the line is long but safe',
       'It may carry custom properties the sender added, which nobody checked for personal data',
+      'There is no JMS message ID, so the broker team cannot find the message',
     ],
     answers: [1, 2, 4],
     explain:
-      'attributes holds the headers and properties, not the body. The properties are whatever the sender chose to add, so they can carry personal data that nobody checked. Pick the facts you need: "Ticket booking received jmsMessageId=$(attributes.headers.messageId) ticketId=$(payload.ticketId) correlationId=$(correlationId)".',
+      'attributes holds the headers and properties, not the body, and the headers include the JMS message ID, so that one is in the line. The properties are whatever the sender chose to add, so they can carry personal data that nobody checked. Pick the facts you need: "Ticket booking received jmsMessageId=$(attributes.headers.messageId) ticketId=$(payload.ticketId) correlationId=$(correlationId)".',
   },
   {
     id: 'log-2014',
@@ -271,14 +274,14 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Kestrel Energy: one meter reading is missing in the billing data. Which per-record line helps most to find out if it was read?',
     options: [
-      'Reading processed topic=meter-readings partition=3 meterId=KE-40018 correlationId=e7a2f4',
-      'Reading processed: {"meterId":"KE-40018","kWh":12.4,"household":"P. Novak"}',
-      'Reading processed topic=meter-readings offset=918274 meterId=KE-40018 correlationId=e7a2f4',
+      'Reading processed topic=meter-readings partition=3 meterId=KE-40018 groupId=kestrel-billing correlationId=e7a2f4',
+      'Readings processed topic=meter-readings partition=3 offsets=918200-918274 count=75 durationMs=410 correlationId=e7a2f4',
+      'Reading processed topic=meter-readings offset=918274 meterId=KE-40018 timestamp=2026-11-12T08:15:02.114Z correlationId=e7a2f4',
       'Reading processed topic=meter-readings partition=3 offset=918274 meterId=KE-40018 correlationId=e7a2f4',
     ],
     answer: 3,
     explain:
-      'Topic, partition and offset together point to one exact record in Kafka. An offset only has a meaning inside its partition, so an offset without the partition, or a partition without the offset, cannot find the record. With all three you can check if that record was read, and read it again if needed. The payload line adds a household name.',
+      'Topic, partition and offset together point to one exact record in Kafka, and the meter ID ties it to the missing reading. An offset only has a meaning inside its partition, so the line with offset and timestamp but no partition cannot find the record, and the line with partition and group but no offset cannot either. The batch line with an offset range is not a per record line and has no meter ID, so it cannot say if this meter was in it.',
   },
   {
     id: 'log-2018',
@@ -287,12 +290,12 @@ export const SET_2 = [
     options: [
       'Reading skipped: kWh is missing meterId=KE-40018 correlationId=e7a2f4',
       'Reading skipped meterId=KE-40018 partition=3 offset=918301 correlationId=e7a2f4',
-      'Reading skipped {"meterId":"KE-40018","kWh":null,"household":"P. Novak"}',
+      'Reading skipped: kWh is missing meterId=KE-40018 partition=3 offset=918301 next=sent to retry topic correlationId=e7a2f4',
       'Reading skipped: kWh is missing meterId=KE-40018 partition=3 offset=918301 correlationId=e7a2f4',
     ],
     answer: 3,
     explain:
-      'It says what was wrong and what the flow did, and the partition and offset let the meter team find the record. The line without a reason says a reading was skipped but not why, the line without partition and offset cannot find the record, and the payload line logs a household name.',
+      'It says what was wrong and what the flow did, and the partition and offset let the meter team find the record. The line without a reason says a reading was skipped but not why, the line without partition and offset cannot find the record, and the line with next=sent to retry topic claims a step the flow does not take: it skips the reading and goes on.',
   },
   {
     id: 'log-2019',
@@ -445,11 +448,11 @@ export const SET_2 = [
       'Refill event read from DLQ queue=refills-dlq messageId=a90d33e1 refillId=CP-20419 deliveryCount=5 correlationId=61be0c',
       'Refill event read from DLQ queue=refills-dlq refillId=CP-20419 deliveryCount=5 correlationId=61be0c',
       'Refill event read from DLQ queue=refills-dlq messageId=a90d33e1 refillId=CP-20419 patient=L. Grant deliveryCount=5 correlationId=61be0c',
-      'DLQ: {"refillId":"CP-20419","patient":"L. Grant","medication":"..."}',
+      'Support ticket raised queue=refills-dlq messageId=a90d33e1 refillId=CP-20419 deliveryCount=5 correlationId=61be0c',
     ],
     answer: 0,
     explain:
-      'The refill ID and the message ID let support find the refill and the message, and deliveryCount shows how often it was tried. Without the message ID the message cannot be found in Anypoint MQ. A patient name, or a body with a medicine in it, is health data and does not belong in a log.',
+      'The refill ID and the message ID let support find the refill and the message, and deliveryCount shows how often it was tried. Without the message ID the message cannot be found in Anypoint MQ. A patient name is health data and does not belong in a log. "Support ticket raised" on the first line claims work the flow has not done yet.',
   },
   {
     id: 'log-2028',
@@ -458,13 +461,13 @@ export const SET_2 = [
     options: [
       'A line only when a ticket cannot be raised, because the ticket itself records each success',
       'A line when a message is read from the DLQ, with its message ID and refill ID',
-      'An INFO line with the full refill payload, so support can read the prescription',
+      'A line before each ticket call with the support system URL and its timeout',
       'A line after the ticket is raised, with the ticket number',
       'A line in the error handler if the ticket cannot be raised',
     ],
     answers: [1, 3, 4],
     explain:
-      'Once a ticket is raised the message leaves the DLQ, so the log is the only trace of which message became which ticket. Lines on failure alone leave no such trace. The prescription stays out of the log: support reads it in the pharmacy system by refill ID.',
+      'Once a ticket is raised the message leaves the DLQ, so the log is the only trace of which message became which ticket. Lines on failure alone leave no such trace. The URL and timeout are settings that are the same on every call: they live in the config and say nothing about this message.',
   },
   {
     id: 'log-2029',
@@ -532,7 +535,7 @@ export const SET_2 = [
     situation: 'Pellucid Telecom: the pricing app publishes a PriceChanged message to the JMS topic PRICES.CHANGED. Which line after the publish is best?',
     options: [
       'PriceChanged published topic=PRICES.CHANGED planId=PT-UNL-40 subscribers=3 eventId=pc-55120',
-      'PriceChanged published topic=PRICES.CHANGED planId=PT-UNL-40 eventId=pc-55120 correlationId=3ac1f8',
+      'PriceChanged published topic=PRICES.CHANGED planId=PT-UNL-40 eventId=pc-55120 durationMs=12 correlationId=3ac1f8',
       'PriceChanged published queue=PRICES.CHANGED planId=PT-UNL-40 eventId=pc-55120',
       'PriceChanged published topic=PRICES.CHANGED planId=PT-UNL-40 correlationId=3ac1f8',
     ],
@@ -552,10 +555,11 @@ export const SET_2 = [
       'Each app gets its own copy of the message, so each should make its own eventId',
       'There is no correlation ID',
       'It does not show if this is a redelivery, from attributes.headers.redelivered',
+      'There is no time in the line, so the three arrivals cannot be put in order',
     ],
     answers: [1, 3, 4],
     explain:
-      'INFO is fine for an arrival. All three apps must log the eventId the publisher set, or one price change cannot be followed across them. Comparing copies is done with that ID, not by logging the body three times: "Price change received eventId=$(vars.eventId) planId=$(vars.planId) redelivered=$(attributes.headers.redelivered) correlationId=$(correlationId)".',
+      'INFO is fine for an arrival, and the log layout already stamps every line with its time. All three apps must log the eventId the publisher set, or one price change cannot be followed across them. Comparing copies is done with that ID, not by logging the body three times: "Price change received eventId=$(vars.eventId) planId=$(vars.planId) redelivered=$(attributes.headers.redelivered) correlationId=$(correlationId)".',
   },
   {
     id: 'log-2034',
@@ -565,13 +569,13 @@ export const SET_2 = [
     options: [
       'An ERROR line in the pricing app for every subscriber that is offline',
       'A web shop line for each price change received, with the same eventId',
-      'A DEBUG line in the pricing app with the whole price list',
+      'A web shop line every minute with the number of open JMS connections',
       'The pricing app line after each publish, with eventId and the time',
       'A WARN line in the web shop every time no message arrives for one second',
     ],
     answers: [1, 3],
     explain:
-      'Compare the event IDs on both sides and the missing ones stand out. A topic publisher cannot see its subscribers, so it cannot log who is offline. The fix is a durable subscription, which keeps messages while the app is down.',
+      'Compare the event IDs on both sides and the missing ones stand out. A topic publisher cannot see its subscribers, so it cannot log who is offline. A connection count is a snapshot that says nothing about which price changes were missed, and a WARN for every quiet second floods the log in normal hours. The fix is a durable subscription, which keeps messages while the app is down.',
   },
   {
     id: 'log-2035',
@@ -632,10 +636,11 @@ export const SET_2 = [
       'There is no key, so the reader cannot see which parcel the event is for',
       'The offset changes when the record is read again, so it cannot point to one record',
       'There is no correlation ID',
+      'There is no offset, so the record cannot be read again',
     ],
     answers: [0, 2, 4],
     explain:
-      'Partition and offset are good facts: they point to one record, and a record keeps its offset however often it is read. But support starts from a parcel number, not an offset, so the key is needed too. Add the business key and the words: "Parcel status received parcelId=$(attributes.key) partition=$(attributes.partition) offset=$(attributes.offset) correlationId=$(correlationId)".',
+      'Partition and offset are good facts and both are in the line: they point to one record, and a record keeps its offset however often it is read. But support starts from a parcel number, not an offset, so the key is needed too. Add the business key and the words: "Parcel status received parcelId=$(attributes.key) partition=$(attributes.partition) offset=$(attributes.offset) correlationId=$(correlationId)".',
   },
   {
     id: 'log-2039',
@@ -702,7 +707,7 @@ export const SET_2 = [
       'Product update published queue=product-updates productId=VF-2209 messageId=5e01b7c2 correlationId=8d11fa',
       'Product update published to web-products, store-products and search-products productId=VF-2209',
       'Product update published exchange=product-updates productId=VF-2209 correlationId=8d11fa',
-      'Product update published exchange=product-updates productId=VF-2209 messageId=5e01b7c2 correlationId=8d11fa',
+      'Product update published exchange=product-updates productId=VF-2209 messageId=5e01b7c2 durationMs=21 correlationId=8d11fa',
     ],
     answer: 3,
     explain:
@@ -799,7 +804,7 @@ export const SET_2 = [
       'Statement published queue=statements statementId=SU-88310 size=184220 correlationId=4b7e90',
       'Statement published JVBERi0xLjcKJeLjz9MKMSAwIG9iago8PC9UeXBlIC9DYXRhbG9n...',
       'Statement published statementId=SU-88310 sizeBytes=184220',
-      'Statement published queue=statements statementId=SU-88310 sizeBytes=184220 correlationId=4b7e90',
+      'Statement published queue=statements statementId=SU-88310 sizeBytes=184220 durationMs=48 correlationId=4b7e90',
     ],
     answer: 3,
     explain:
@@ -866,11 +871,11 @@ export const SET_2 = [
       'Duplicate payment instruction skipped paymentId=QB-PAY-661204 partition=1 offset=55021 correlationId=a3c07e',
       'Duplicate payment instruction skipped paymentId=QB-PAY-661204 correlationId=a3c07e',
       'Duplicate payment instruction failed errorType=MULE:DUPLICATE_MESSAGE paymentId=QB-PAY-661204 partition=1 offset=55021',
-      'Duplicate payment skipped paymentId=QB-PAY-661204 debtorAccount=QB0099887766 amount=250.00 correlationId=a3c07e',
+      'Duplicate payment instruction skipped paymentId=QB-PAY-661204 partition=1 offset=55021 next=sent to DLQ correlationId=a3c07e',
     ],
     answer: 0,
     explain:
-      'The payment ID is the key the validator checked, and the partition and offset show which copy was skipped. Without them you cannot tell the two copies apart. Calling it "failed" makes a skipped copy look like a lost payment, and an account number does not belong in a log.',
+      'The payment ID is the key the validator checked, and the partition and offset show which copy was skipped. Without them you cannot tell the two copies apart. Calling it "failed" makes a skipped copy look like a lost payment, and "next=sent to DLQ" parks a copy of a payment that was already processed, where someone may replay it.',
   },
   {
     id: 'log-2053',
@@ -955,11 +960,11 @@ export const SET_2 = [
       'Seat change received queue=seat-changes bookingRef=JA7Q2M receivedAt=2026-11-12T10:42:07.118Z messageId=0b77e4a1',
       'Seat change received queue=seat-changes bookingRef=JA7Q2M sequence=412 messageId=0b77e4a1 correlationId=c5f219',
       'Seat change received queue=seat-changes bookingRef=JA7Q2M messageId=0b77e4a1 correlationId=c5f219',
-      'Seat change received bookingRef=JA7Q2M sequence=412 passenger=Maria Lund seat=14C',
+      'Seat change received queue=seat-changes bookingRef=JA7Q2M sequence=412 messageId=0b77e4a1 correlationId=c5f219, written after the change is applied',
     ],
     answer: 1,
     explain:
-      'The sequence number is what proves the order the changes were made in. Line up the lines of one bookingRef and the sequence numbers should only go up. An arrival time only shows the order the messages arrived in, which is the very thing in doubt, and a line without a sequence number cannot show the order at all. The passenger name is personal data.',
+      'The sequence number is what proves the order the changes were made in. Line up the lines of one bookingRef and the sequence numbers should only go up. An arrival time only shows the order the messages arrived in, which is the very thing in doubt, and a line without a sequence number cannot show the order at all. A "received" line written after the change is applied mixes arrival and work, so a slow change can look as if it arrived late.',
   },
   {
     id: 'log-2058',
@@ -967,7 +972,7 @@ export const SET_2 = [
     situation:
       'Juniper Air: the seat changes of one booking were applied in the wrong order. Which facts in the consumer log lines help to prove it? Pick every one that applies.',
     options: [
-      'The passenger name, to be sure it is the same person',
+      'The messageId of each event, which goes up with each change',
       'The bookingRef, so all events of one booking can be put side by side',
       'The time each line was written, which alone shows the order the changes were made in',
       'The sequence number of each event',
@@ -975,7 +980,7 @@ export const SET_2 = [
     ],
     answers: [1, 3, 4],
     explain:
-      'Sequence numbers and two lines per event show both the order of arrival and the order of work. Log times show when each line was written, not the order the changes were made in. The booking reference already tells you it is the same booking, so no name is needed.',
+      'Sequence numbers and two lines per event show both the order of arrival and the order of work. Log times show when each line was written, not the order the changes were made in. A message ID is a unique ID, not a counter, so it does not go up with each change and cannot show the order.',
   },
   {
     id: 'log-2059',
@@ -1046,13 +1051,13 @@ export const SET_2 = [
       'Tessaly Hotels: inside the transaction the flow publishes a confirmation to the JMS queue HOTEL.CONFIRM. It is only delivered when the transaction commits. Which line after the publish is most honest?',
     options: [
       'Reservation confirmation published queue=HOTEL.CONFIRM reservationId=TH-90412 correlationId=2c8d55',
-      'Reservation confirmation queued, sent on commit queue=HOTEL.CONFIRM guest=Ana Ruiz room=412',
+      'Reservation confirmation sent on commit queue=HOTEL.CONFIRM reservationId=TH-90412 committed=true durationMs=38 correlationId=2c8d55',
       'Reservation confirmation delivered queue=HOTEL.CONFIRM reservationId=TH-90412 correlationId=2c8d55',
       'Reservation confirmation queued, sent on commit queue=HOTEL.CONFIRM reservationId=TH-90412 correlationId=2c8d55',
     ],
     answer: 3,
     explain:
-      'Inside the transaction the message is only sent when the transaction commits. If it rolls back, the confirmation is never sent. A line that says "delivered" would be wrong in exactly the case you are looking into, and "published" lets the reader think the message has already left. The honest line says it waits for the commit, and names the reservation, not the guest.',
+      'Inside the transaction the message is only sent when the transaction commits. If it rolls back, the confirmation is never sent. The logger runs before the commit, so committed=true states something that has not happened yet, and "delivered" would be wrong in exactly the case you are looking into. "published" lets the reader think the message has already left. The honest line says it waits for the commit.',
   },
   {
     id: 'log-2063',
@@ -1060,13 +1065,13 @@ export const SET_2 = [
     situation: 'Tessaly Hotels: which line is best in the On Error Propagate that rolls back the reservation transaction?',
     options: [
       'Reservation transaction rolled back reservationId=TH-90412 jmsMessageId=ID:th-broker-1-9-3 errorType=DB:CONNECTIVITY next=message lost correlationId=2c8d55',
-      'Reservation transaction rolled back reservationId=TH-90412 jmsMessageId=ID:th-broker-1-9-3 errorType=DB:CONNECTIVITY next=redelivery correlationId=2c8d55',
+      'Reservation transaction rolled back reservationId=TH-90412 jmsMessageId=ID:th-broker-1-9-3 redelivered=false errorType=DB:CONNECTIVITY next=redelivery correlationId=2c8d55',
       'Reservation transaction rolled back reservationId=TH-90412 errorType=DB:CONNECTIVITY correlationId=2c8d55',
       'Transaction rolled back {"reservationId":"TH-90412","guest":"Ana Ruiz","card":"****"}',
     ],
     answer: 1,
     explain:
-      'It says what was undone, why, and what happens next. A rollback hands the message back to the broker, so it is delivered again, not lost. With the JMS message ID you can follow the same message through its next delivery, and the line without it and without next leaves the reader guessing. The body line logs a guest name.',
+      'It says what was undone, why, and what happens next. A rollback hands the message back to the broker, so it is delivered again, not lost. With the JMS message ID and the redelivered flag you can follow the same message through its next delivery, and the line without them and without next leaves the reader guessing. The body line logs a guest name.',
   },
   {
     id: 'log-2064',
@@ -1129,13 +1134,13 @@ export const SET_2 = [
     situation: 'Marlow Ride: which line is best for a record that is processed late?',
     options: [
       'Consumer behind ageSeconds=540 targetSeconds=60 topic=scooter-trips partition=7 offset=4410288 correlationId=b8a0d6',
-      'Consumer behind ageSeconds=540 targetSeconds=60 topic=scooter-trips correlationId=b8a0d6',
+      'Consumer behind ageSeconds=540 targetSeconds=60 topic=scooter-trips groupId=marlow-trips correlationId=b8a0d6',
       'Late record: {"tripId":"MR-3310872","riderId":"u-55102","route":[...]}',
       'Consumer behind ageSeconds=540 topic=scooter-trips partition=7 offset=4410288 correlationId=b8a0d6',
     ],
     answer: 0,
     explain:
-      'The age next to the target says how far behind it is, and the partition shows if one partition or all of them are late. The line without a partition cannot tell one slow partition from a slow consumer, and the line without a target leaves the reader to guess if 540 seconds is bad. The record body adds a rider ID and a route.',
+      'The age next to the target says how far behind it is, and the partition shows if one partition or all of them are late. The line with the consumer group has no partition, so it cannot tell one slow partition from a slow consumer. The line without a target leaves the reader to guess if 540 seconds is bad. The record body adds a rider ID and a route.',
   },
   {
     id: 'log-2068',
@@ -1163,12 +1168,12 @@ export const SET_2 = [
       'An ERROR line from the broker every time a record is read twice',
       'A line with partition and offset when each record is received',
       'The consumer group ID in the start-up line, to confirm both workers share one group',
-      'An INFO line with the full record each time',
+      'The consumer lag at start-up, to see how far behind the workers began',
       'A line with partition and offset after each commit',
     ],
     answers: [1, 2, 4],
     explain:
-      'The same offset received twice, with no commit between, shows records read again after the restart. The broker does not flag a second read, and a group ID typo would make the two workers read everything twice.',
+      'The same offset received twice, with no commit between, shows records read again after the restart. The broker does not flag a second read, and a group ID typo would make the two workers read everything twice. The lag at start-up is one number for the whole group: it shows a backlog, not which records were read twice or why.',
   },
   {
     id: 'log-2070',
@@ -1211,14 +1216,14 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Brightmoor Stores: which line is best when a record that cannot be read is sent to loyalty-points.dlt?',
     options: [
-      'Poison record skipped topic=loyalty-points partition=5 offset=330918 key=BM-88102 error="Unexpected character at 1:42" next=commit correlationId=f60b3d',
-      'Poison record sent to dead-letter topic key=BM-88102 value=7b22637573746f6d6572223a7b226e616d65223a...',
+      'Poison record skipped topic=loyalty-points partition=5 offset=330918 key=BM-88102 error="Unexpected character at 1:42" committed=true next=commit correlationId=f60b3d',
+      'Poison record sent to dead-letter topic topic=loyalty-points partition=5 offset=330918 key=BM-88102 error="Unexpected character at 1:42" next=loyalty-points.dlt pointsAdded=120 correlationId=f60b3d',
       'Poison record sent to dead-letter topic topic=loyalty-points partition=5 offset=330918 key=BM-88102 error="Unexpected character at 1:42" next=loyalty-points.dlt correlationId=f60b3d',
-      'Poison record sent to dead-letter topic topic=loyalty-points key=BM-88102 next=loyalty-points.dlt correlationId=f60b3d',
+      'Poison record failed topic=loyalty-points partition=5 offset=330918 key=BM-88102 error="Unexpected character at 1:42" attempt=1 maxAttempts=3 next=redeliver correlationId=f60b3d',
     ],
     answer: 2,
     explain:
-      'Topic, partition and offset find the original record, the error says what is wrong with it, and next names the dead-letter topic where a copy now is. The line that says skipped and next=commit hides that the record went to loyalty-points.dlt. The raw bytes may hold personal data and help nobody. The line with no partition, offset or error cannot find the original record or the fault.',
+      'Topic, partition and offset find the original record, the error says what is wrong with it, and next names the dead-letter topic where a copy now is. The line that says skipped and next=commit is true about the commit but hides that a copy went to loyalty-points.dlt. The line with pointsAdded=120 claims points were added, yet that customer gets none until someone fixes the record. The line with next=redeliver and maxAttempts=3 describes retries the flow does not do, and a record that is not valid JSON fails the same way on every attempt.',
   },
   {
     id: 'log-2073',

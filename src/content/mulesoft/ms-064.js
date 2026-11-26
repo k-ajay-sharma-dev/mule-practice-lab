@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'The current flow does `db:select` for the item, then `db:insert` if not found, else `db:update`. Two catalogue files for the same supplier sometimes run at the same time and fail with ORA-00001. Why?',
       options: [
-        'Both read "not found" before either inserts, so both insert',
-        'Oracle rejects an insert and an update in the same flow',
+        'Both selects run before either insert commits',
+        'The select and insert run on different pooled connections',
         'db:select locks the row, so the second insert collides',
         'The sequence returned the same value to both loads',
       ],
       answer: 0,
-      explain: 'This is a check-then-act race. Read-then-write is not atomic. A unique constraint protects the data but surfaces as ORA-00001; the fix is a single atomic statement plus handling of the constraint error.',
+      explain: 'This is a check-then-act race. Read-then-write is not atomic, so both loads see no row and both insert. Which connection runs each step does not matter, a plain select takes no lock in Oracle, and a sequence never hands out one value twice. A unique constraint protects the data but surfaces as ORA-00001; the fix is a single atomic statement plus handling of the constraint error.',
     },
     {
       type: 'single',
@@ -37,11 +37,11 @@ export default {
       options: [
         'Catch the constraint error and retry the MERGE once',
         'Replace MERGE with a DELETE followed by an INSERT',
-        'Drop the unique constraint so both inserts succeed',
+        'Lock the item first with SELECT ... FOR UPDATE, then MERGE',
         'Add a COMMIT before the MERGE so both see the row',
       ],
       answer: 0,
-      explain: 'Catch DB:QUERY_EXECUTION caused by ORA-00001; the second attempt finds the row and updates it. Both sessions can see "not matched" before either commits. A retry turns the second one into an update. Removing the constraint would create duplicate catalogue rows.',
+      explain: 'Catch DB:QUERY_EXECUTION caused by ORA-00001; the second attempt finds the row and updates it. Both sessions can see "not matched" before either commits. A retry turns the second one into an update. FOR UPDATE locks only rows that exist, and a new item has no row yet, so both sessions pass it. DELETE then INSERT has the same race, and a COMMIT before the MERGE changes nothing.',
     },
     {
       type: 'multi',

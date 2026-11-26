@@ -12,11 +12,11 @@ export default {
       options: [
         'Count consuming applications per API from contracts and traffic',
         'Survey project teams on which Exchange assets they have reused',
-        'Archive every asset with fewer than ten downloads to clean up',
+        'Rank assets by downloads and promote the top twenty to project teams',
         'Set a target for downloads per asset and track it monthly',
       ],
       answer: 0,
-      explain: 'Downloads count clicks, not use. API Manager contracts and analytics show which APIs really have more than one consumer, which is the base for every later decision. A survey gives opinions, not facts. Archiving or targeting by downloads acts on a number that does not measure reuse.',
+      explain: 'Downloads count clicks, not use. API Manager contracts and analytics show which APIs really have more than one consumer, which is the base for every later decision. A survey gives opinions, not facts. Ranking or targeting by downloads acts on a number that does not measure reuse.',
     },
     {
       type: 'multi',
@@ -62,12 +62,12 @@ export default {
       prompt: 'Project teams say building a reusable API costs them 30% more and their budget only covers their own project. What do you propose?',
       options: [
         'Fund a small set of core domain APIs centrally, outside project budgets',
-        'Require every project to build reusable APIs within its current budget',
+        'Let the first project that needs an API build it, and bill later consumers for a share',
         'Let each project build only what it needs and refactor for reuse later',
         'Charge every project a fixed share of the C4E cost, whatever it uses',
       ],
       answer: 0,
-      explain: 'Reuse fails when the first project pays for everyone. Central funding for the APIs most projects need moves the cost to where the benefit is, and projects that reuse them save that cost. A mandate without money is what teams already push back on. "Refactor later" rarely happens and is how seven customer APIs appeared. A flat fee does not pay for any reusable API.',
+      explain: 'Reuse fails when the first project pays for everyone. Central funding for the APIs most projects need moves the cost to where the benefit is, and projects that reuse them save that cost. Billing later consumers still leaves the first project paying up front, for a refund that may never come. "Refactor later" rarely happens and is how seven customer APIs appeared. A flat fee does not pay for any reusable API.',
     },
     {
       type: 'single',

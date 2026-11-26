@@ -23,7 +23,7 @@ export default {
       prompt: 'The PASV reply contains 10.20.0.15, but Mule connects to the server through a public address. Listings time out. Why?',
       options: [
         'The server is in active mode and is trying to connect back to Mule',
-        'The server announces a private address, so the data connection fails',
+        'Mule tries the data connection to 10.20.0.15, which it cannot reach',
         'The control connection is going through NAT, so the login is dropped',
         'Mule is sending EPSV, which this server does not answer',
       ],

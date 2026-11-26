@@ -13,10 +13,10 @@ export default {
         'Add a Choice router to each flow that counts the calls from that partner',
         'Move the Mule app to a bigger server so that it can accept all the calls',
         'Apply a Rate Limiting policy to the API in API Manager',
-        'Add a note about the limit to the API docs in Exchange',
+        'Lower the max concurrency of the flow so that fewer calls run at once',
       ],
       answer: 2,
-      explain: 'A policy is a ready-made rule that you switch on for an API. Rate Limiting caps how many requests get through. The Choice router needs new code, a bigger server does not cap anything, and a note enforces nothing.',
+      explain: 'A policy is a ready-made rule that you switch on for an API. Rate Limiting caps how many requests get through. The Choice router needs new code, a bigger server does not cap anything, and max concurrency is a change to the app that slows every caller instead of capping the partner.',
     },
     {
       type: 'single',

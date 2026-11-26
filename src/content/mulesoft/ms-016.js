@@ -11,12 +11,12 @@ export default {
       prompt: 'How do you make one JAR load the right property file in dev, qa and prod?',
       options: [
         'Load `config/config-${env}.yaml` and set `env` at deployment',
-        'Swap `prod-config.yaml` into the XML before the production build',
+        'Load all three files in turn, so the last one loaded wins for shared keys',
         'Build a separate JAR for each environment with Maven profiles',
         'Keep all three environments in one YAML and pick with a Choice',
       ],
       answer: 0,
-      explain: 'A placeholder in the file name plus a deployment property selects the file at runtime: no rebuild, no XML edits.',
+      explain: 'A placeholder in the file name plus a deployment property selects the file at runtime: no rebuild, no XML edits. Loading every file gives each environment the same winner, so dev, qa and prod get one set of values. Maven profiles mean one JAR per environment. A Choice router picks between flow paths, not property files.',
     },
     {
       type: 'order',
@@ -47,12 +47,12 @@ export default {
       prompt: 'Where should the Secure Properties decryption key come from?',
       options: [
         'Supplied at deployment per environment, from a vault or pipeline secret',
-        'Hardcoded in the `key` attribute of the `secure-properties:config`',
-        'Stored in `config-prod.yaml` next to the encrypted values',
-        'Committed to Git inside an encrypted ZIP the pipeline unpacks',
+        'Set once in the `key` attribute, with one key for every environment file',
+        'In a key file under `src/main/resources` that `.gitignore` keeps out of Git',
+        'In a Mule domain that every app of the environment shares on CloudHub 2.0',
       ],
       answer: 0,
-      explain: 'The key is passed at deployment (e.g. `-Dsecure.key` or a protected property) and must never be in the project. Different keys per environment limit the blast radius if one leaks.',
+      explain: 'The key is passed at deployment (e.g. `-Dsecure.key` or a protected property) and is kept out of the project. Different keys per environment limit the blast radius if one leaks, which one shared key in the XML does not. A file in `src/main/resources` is packed into the JAR at build time, even when Git ignores it. CloudHub 2.0 does not support Mule domains.',
     },
     {
       type: 'single',

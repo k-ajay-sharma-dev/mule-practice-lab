@@ -69,7 +69,7 @@ export default {
       prompt: 'An AI agent at a bank has all the right policies in place, yet customers say replies have become slow. Which part of Agent Fabric is the natural place to check request latency and error rates?',
       options: [
         'Governance Strategies, as their conformance report flags slow services',
-        'Monitor, as a policy being in place says nothing about healthy traffic',
+        'Monitor, which tracks the live signals of each service whatever its policies',
         'Budget Management, as slow replies show up there as higher token spend',
         'Scanners, as each scan reports the response time of the agents it finds',
       ],

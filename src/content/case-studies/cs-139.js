@@ -11,7 +11,7 @@ export default {
       needsScenario: true,
       prompt: 'Repairs come in by phone, web form and app. Where should they meet?',
       options: [
-        'One Repairs API, called by every channel, that creates the job',
+        'One intake API, called by every channel, that creates the job',
         'Each channel sends jobs straight to the matching contractor',
         'Web and app requests go to a shared mailbox for the call centre',
         'Each channel keeps its own job list, merged in a nightly report',
@@ -38,12 +38,12 @@ export default {
         'An API for contractors with their own job system',
         'A simple contractor portal for small firms with no system',
         'A file exchange for a few large firms that send batches',
-        'One shared login to the housing system for all small contractors',
+        'Read-only access to the housing system for small firms, each with its own login',
         'Email each job to small firms and ask them to reply when it is done',
         'Ask every contractor to build to the Repairs API before the contract renews',
       ],
       answer: [0, 1, 2],
-      explain: 'Meet each contractor where they are, with their own access to their own jobs. The five large firms already have APIs, a portal serves firms with no system, and a file exchange suits firms that work in batches. A shared login shows every job to every firm and leaves no record of who did what. Email is low tech but gives no status, so tenants still cannot be told when someone is coming. Asking small firms to build an API ignores that they cannot build anything.',
+      explain: 'Meet each contractor where they are, with their own access to their own jobs. The five large firms already have APIs, a portal serves firms with no system, and a file exchange suits firms that work in batches. Read-only access lets a firm see its jobs but not accept them or mark them done, and opens the housing system to outside firms. Email is low tech but gives no status, so tenants still cannot be told when someone is coming. Asking small firms to build an API ignores that they cannot build anything.',
     },
     {
       type: 'single',

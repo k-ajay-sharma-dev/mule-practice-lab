@@ -46,13 +46,13 @@ export default {
       type: 'single',
       prompt: 'An architecture board reviews every API in a long weekly meeting, and teams now try to skip it. Automated rules already check the mechanical parts of each spec. Which change keeps human review fast?',
       options: [
-        'Require CTO sign-off on every API before the board meets',
+        'Keep the weekly meeting, but review only external APIs there and skip internal ones',
         'Review asynchronously in pull requests or Exchange comments, with a fixed SLA',
-        'Add a second weekly meeting so the board can see every API',
+        'Split the board into two smaller boards that meet on different days of the week',
         'Skip human review for any spec that passes every automated rule',
       ],
       answer: 1,
-      explain: 'Asynchronous review removes the weekly bottleneck that teams were trying to skip. A 2-day SLA and a short checklist keep it moving. A trained API champion in each team can review first, and a synchronous meeting stays only for new domains or exceptions. More sign-offs and more meetings make the bottleneck worse.',
+      explain: 'Asynchronous review removes the weekly bottleneck that teams were trying to skip. A 2-day SLA and a short checklist keep it moving. A trained API champion in each team can review first, and a synchronous meeting stays only for new domains or exceptions. Internal APIs are most of the reuse, so skipping them drops the review where it pays most. Two boards still make each team wait for a meeting slot. Rules pass a spec with a poor resource model or a duplicate API, which is what people are there to catch.',
     },
     {
       type: 'single',

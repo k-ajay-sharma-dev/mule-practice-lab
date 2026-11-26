@@ -34,7 +34,7 @@ export default {
       detail: true,
       prompt: 'The `collection` resource type declares `get?:` and `post?:`. The resource `/audit-logs` applies it and declares only `get:`. A client sends `POST /audit-logs` to the APIkit app. What comes back?',
       options: [
-        '405, as an optional method exists only where the resource declares it',
+        '405, as the optional POST is not applied to `/audit-logs`',
         '501, as POST comes from the type but no flow was scaffolded for it',
         '201, as the type gives a POST to every resource that applies it',
         '400, as POST is allowed but its body type was never declared',
@@ -49,7 +49,7 @@ export default {
         'APIkit returns them as the real responses in production',
         'APIkit validates requests against them instead of the types',
         'The backend loads them as seed data for the real database',
-        'The mocking service returns them, so a mock gives realistic responses',
+        'The mocking service in Exchange and API Designer returns them',
       ],
       answer: 3,
       explain: 'The mocking service returns the examples, so Process API developers get realistic responses early. Examples do more: API Designer validates them against the declared types, which catches contract mistakes, and they become test data ideas for MUnit and functional monitors. The implementation, not the example, produces production responses.',
@@ -72,13 +72,13 @@ export default {
       type: 'single',
       prompt: 'Every future System API must page the same way. Where should the `pageable` trait live?',
       options: [
-        'Copied into each System API spec',
+        'In the first System API spec, which the others include by URL',
         'In a shared RAML library published to Exchange',
         'In each Mule app\'s `config.yaml`',
         'In an API Manager policy on every instance',
       ],
       answer: 1,
-      explain: 'A shared library in Exchange gives one versioned definition every spec can reference.',
+      explain: 'A shared library in Exchange gives one versioned definition every spec can reference. Pointing at another API\'s spec ties every API to that one spec\'s releases. `config.yaml` and policies act at runtime and do not shape the contract.',
     },
     {
       type: 'single',

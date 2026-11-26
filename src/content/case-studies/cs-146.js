@@ -23,13 +23,13 @@ export default {
       type: 'single',
       prompt: 'The fraud service is down for an hour. What happens to new claims?',
       options: [
-        'They are registered and wait on the queue until the service returns',
-        'The handler is told to ask customers to call back in an hour',
+        'They are registered and held for scoring until it is back',
+        'Registration waits while the score call is retried a few times, then saves the claim',
         'They are routed to normal handling without a score',
         'They are sent to the fraud team for a manual review',
       ],
       answer: 0,
-      explain: 'No claim is lost and none skips the check. The queue holds them until the service is back. Calling back makes customers wait, routing without a score skips the check, and an hour of claims would swamp the fraud team.',
+      explain: 'No claim is lost and none skips the check. The queue holds them until the service is back. Retrying during registration keeps the handler and customer waiting on a service that is down, routing without a score skips the check, and an hour of claims would swamp the fraud team.',
     },
     {
       type: 'multi',

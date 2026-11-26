@@ -25,7 +25,7 @@ export const SET_17 = [
       '380 stock messages on stock-updates expired after 24 hours and moved to stock-updates.expired. The recovery is a full stock snapshot. Which line best records it?',
     options: [
       'Messages expired queue=stock-updates count=380 ttlHours=24 next=send full snapshot',
-      'Messages expired queue=stock-updates expiryQueue=stock-updates.expired count=380 ttlHours=24 next=replay expired messages',
+      'Messages expired queue=stock-updates expiryQueue=stock-updates.expired count=380 ttlHours=24 next=replay expired',
       'Messages expired queue=stock-updates expiryQueue=stock-updates.expired count=380 ttlHours=24 next=send full snapshot',
       'Messages expired queue=stock-updates count=380 messageIds=m-0001,m-0002,… next=send full snapshot',
     ],
@@ -37,9 +37,10 @@ export const SET_17 = [
     id: 'log-17003',
     kind: 'multi',
     situation: 'Which facts help pick the right TTL for stock-updates later?',
-    options: ['How many messages expired', 'The TTL in use', 'The average message size', 'How long the consumer was down'],
+    options: ['How many messages expired', 'The TTL in use', 'The average message size', 'How long the consumer was down', 'How many messages the queue holds now'],
     answers: [0, 1, 3],
-    explain: 'Compare the TTL with real outage lengths. Message size does not change how long a message stays useful.',
+    explain:
+      'Compare the TTL with real outage lengths. Message size does not change how long a message stays useful. The depth right now is one snapshot; it does not say how long outages last or how many messages expired in them.',
   },
   {
     id: 'log-17004',
@@ -98,7 +99,7 @@ export const SET_17 = [
     situation:
       'A cleanup should delete blobs under processed/ older than 30 days in container inbound. It deleted 1,840 blobs. Which line lets a reader spot a wrong rule at once?',
     options: [
-      'Blob cleanup finished container=inbound prefix=processed/ olderThanDays=30 deleted=1840 names=a.json,b.json,…',
+      'Blob cleanup finished container=inbound prefix=processed/ olderThanDays=30 deleted=1840 names=a.json,…',
       'Blob cleanup finished container=inbound prefix=processed/ olderThanDays=30 deleted=1840 durationMs=9200',
       'Blob cleanup finished container=inbound deleted=1840 durationMs=9200',
       'Blob cleanup finished container=inbound prefix=processed/ deleted=1840 bytesFreed=3200000000',
@@ -111,9 +112,10 @@ export const SET_17 = [
     id: 'log-17008',
     kind: 'multi',
     situation: 'Which facts belong on every blob cleanup line?',
-    options: ['How many were deleted', 'The total size of the container afterwards', 'Container and prefix', 'The age rule'],
+    options: ['How many were deleted', 'The total size of the container afterwards', 'Container and prefix', 'The age rule', 'The name of each blob deleted'],
     answers: [0, 2, 3],
-    explain: 'Enough to spot a wrong rule. The size left in the container does not show what was taken.',
+    explain:
+      'Enough to spot a wrong rule. The size left in the container does not show what was taken. Every blob name makes one line huge on a big run; a list of names belongs in a stored report, and the count with the rule is enough on the line.',
   },
   {
     id: 'log-17009',
@@ -179,20 +181,20 @@ export const SET_17 = [
       'Plan write refused, row count too low file=current_plan.csv rows=0 yesterdayRows=48210 minPct=80 next=keep previous plan',
       'Plan written file=current_plan.csv rows=0 yesterdayRows=48210 minPct=80 next=notify planning',
       'Plan write refused, row count too low file=current_plan.csv rows=0 minRows=1 next=keep previous plan',
-      'Plan write refused file=current_plan.csv rows=0 next=keep previous plan',
+      'Plan write refused, row count too low file=current_plan.csv rows=0 yesterdayRows=48210 minPct=80 next=write empty plan',
     ],
     answer: 0,
-    explain:
-      'Both counts and the rule show why it was refused. "Plan written" is false, the plan was kept. minRows=1 states the wrong rule, so a reader thinks one row would pass. The line without yesterdayRows has no previous count or rule.',
+    explain: 'Rows, yesterday and the rule show why the guard fired, and the next step says the previous plan stays. Plan written says the bad file went out, which did not happen. minRows=1 is not the rule; the rule is 80% of yesterday. next=write empty plan contradicts the refusal: the previous plan stays in place.',
   },
   {
     id: 'log-17013',
     kind: 'multi',
     situation:
       'The current plan on the file share was overwritten by a bad file and is restored from a share snapshot. Which facts belong on the restore line?',
-    options: ['The snapshot time used', 'The access tier of the share', 'The row count restored', 'The file path'],
+    options: ['The snapshot time used', 'The access tier of the share', 'The row count restored', 'The file path', 'The quota of the share'],
     answers: [0, 2, 3],
-    explain: 'Path, snapshot and count show what came back. The access tier does not change what was restored.',
+    explain:
+      'Path, snapshot and count show what came back. The access tier does not change what was restored, and the quota limits how much the share can hold, not which version of the file it now has.',
   },
   {
     id: 'log-17014',
@@ -255,19 +257,19 @@ export const SET_17 = [
       'Upload failed, access denied path=/to-planning/locations.txt account=marrow-int mode=600 next=check upload credentials',
       'Reader access check failed path=/to-planning/locations.txt readerAccount=planning-reader mode=600 next=ask server owner to fix permissions',
       'Reader access check failed path=/to-planning/locations.txt readerAccount=planning-reader mode=600 next=retry upload in 5 minutes',
-      'Reader access check failed path=/to-planning/locations.txt readerAccount=planning-reader next=ask server owner to fix permissions',
+      'Reader access check failed path=/to-planning/locations.txt readerAccount=planning-reader mode=644 owner=marrow-int next=ask server owner to fix permissions',
     ],
     answer: 1,
-    explain:
-      'The path, the reader, the file mode and the next step. The upload worked, so upload credentials are not the problem. A retry writes the same mode again. The line without mode=600 has no file mode, so the admin must log in to find what is wrong.',
+    explain: 'The path, the reader account, the mode and the owner as next step say exactly what to fix. The upload worked, so access denied on the upload and new credentials are the wrong story. A retry uploads the file with the same mode and fails again. mode=644 is not what the file has; with 644 the reader could read it, so the line contradicts its own failure.',
   },
   {
     id: 'log-17018',
     kind: 'multi',
     situation: 'The server owner must fix read access on the outbound file. Which facts should the line give?',
-    options: ['The reader account', 'The last login time of the upload account', 'The file mode', 'The path'],
+    options: ['The reader account', 'The last login time of the upload account', 'The file mode', 'The path', 'The file size in bytes'],
     answers: [0, 2, 3],
-    explain: 'Account, mode and path are enough to fix it. The login time of the writer does not touch read access.',
+    explain:
+      'Account, mode and path are enough to fix it. The login time of the writer does not touch read access, and neither does the size of the file.',
   },
   {
     id: 'log-17019',
@@ -410,20 +412,20 @@ export const SET_17 = [
     options: [
       'Long open transaction db=sales sessionId=112 program=report-app openMinutes=480 sql=SELECT * FROM sales WHERE customer = …',
       'Long running query db=sales sessionId=112 program=report-app durationMin=480 cpuMs=2100',
-      'Long open transaction db=sales sessionId=112 openMinutes=480 versionStoreGB=120',
+      'Long open transaction db=sales sessionId=112 program=report-app openMinutes=480 versionStoreGB=120 next=session killed',
       'Long open transaction db=sales sessionId=112 program=report-app openMinutes=480 versionStoreGB=120',
     ],
     answer: 3,
-    explain:
-      'Who, how long and the effect on tempdb. The SQL text can hold personal data and loses the version store size. A long running query is a different problem, and the session may be idle with its transaction open. The line without program does not tell the DBA whose app to call.',
+    explain: 'Session, program, open time and version store size show the cause and its effect on tempdb. The SQL text can hold customer values and does not show the growth. A long running query is a different problem from an open transaction that holds the version store. next=session killed records an action nobody took; the DBA still has to decide whether to end it.',
   },
   {
     id: 'log-17028',
     kind: 'multi',
     situation: 'The DBA must decide whether to end session 112. Which facts help?',
-    options: ['The session ID', 'How long it has been open', 'The query parameter values', 'The program name'],
+    options: ['The session ID', 'How long it has been open', 'The query parameter values', 'The program name', 'The total sessions open on the server'],
     answers: [0, 1, 3],
-    explain: 'Parameters can hold personal data, and the DBA does not need them to act.',
+    explain:
+      'The ID, its age and the program that owns it tell the DBA what ending it will break. Parameters can hold personal data, and the DBA does not need them to act. The server total describes load in general, not whether session 112 is safe to end.',
   },
   {
     id: 'log-17029',
@@ -498,9 +500,16 @@ export const SET_17 = [
     id: 'log-17033',
     kind: 'multi',
     situation: 'Which facts help size the hub DB pool?',
-    options: ['The average row size', 'Active connections per replica', 'Idle connections per replica', 'The database session limit'],
+    options: [
+      'The average row size',
+      'Active connections per replica',
+      'Idle connections per replica',
+      'The database session limit',
+      'The size of the database files',
+    ],
     answers: [1, 2, 3],
-    explain: 'Measure use against the limit. Row size changes query time, not how many connections you need.',
+    explain:
+      'Measure use against the limit. Row size changes query time, not how many connections you need. The size of the database files grows with data, not with how many sessions are open.',
   },
   {
     id: 'log-17034',
@@ -570,9 +579,16 @@ export const SET_17 = [
     id: 'log-17038',
     kind: 'multi',
     situation: 'Which facts help fix bad contacts without exposing addresses?',
-    options: ['The bounce code', 'The store ID of each bad contact', 'The email address, masked as a***@store041.example', 'The count per template'],
+    options: [
+      'The bounce code',
+      'The store ID of each bad contact',
+      'The email address, masked as a***@store041.example',
+      'The count per template',
+      'The contact name, with the surname cut to one letter',
+    ],
     answers: [0, 1, 3],
-    explain: 'Use store IDs. A masked address still shows part of personal data and the domain names the store.',
+    explain:
+      'Use store IDs. A masked address still shows part of personal data and the domain names the store. A first name with an initial is still personal data, and with the store it can point to one person.',
   },
   {
     id: 'log-17039',
@@ -636,7 +652,7 @@ export const SET_17 = [
       'Reject replay finished jobId=J-8001 replayed=640 resolved=640 stillOpen=0 requestedBy=support-07',
       'Reject replay finished jobId=J-8001 replayed=640 status=SUCCESS requestedBy=support-07',
       'Reject replay finished jobId=J-8001 replayed=640 resolved=640 stillOpen=0',
-      'Reject replay finished jobId=J-8001 replayed=640 resolved=640 requestedBy=support-07 rows=<640 replayed rows>',
+      'Reject replay finished jobId=J-8001 replayed=640 resolved=640 stillOpen=0 rows=<640 rows>',
     ],
     answer: 0,
     explain:
@@ -646,9 +662,10 @@ export const SET_17 = [
     id: 'log-17043',
     kind: 'multi',
     situation: 'Which counts show a reject replay was safe and complete?',
-    options: ['How many are still open', 'How many were replayed', 'How long the replay took', 'How many resolved'],
+    options: ['How many are still open', 'How many were replayed', 'How long the replay took', 'How many resolved', 'The batch size the replay used'],
     answers: [0, 1, 3],
-    explain: 'Counts prove it. The time taken says nothing about whether each row was fixed.',
+    explain:
+      'Replayed against resolved and still open proves it. The time taken says nothing about whether each row was fixed. The batch size is a setting of the replay, not an outcome, so it shows nothing about which rows went through.',
   },
   {
     id: 'log-17044',
@@ -722,9 +739,10 @@ export const SET_17 = [
     id: 'log-17048',
     kind: 'multi',
     situation: 'Which facts belong on the load summary of history.csv?',
-    options: ['Rows rejected', 'Every rejected line number', 'Rows read', 'Rows loaded'],
+    options: ['Rows rejected', 'Every rejected line number', 'Rows read', 'Rows loaded', 'The file size in bytes'],
     answers: [0, 2, 3],
-    explain: 'Line numbers go to the reject file. The summary carries counts.',
+    explain:
+      'Read should equal loaded plus rejected, so those counts prove the load. Line numbers go to the reject file. The byte size says the file arrived, but it does not show how many rows were loaded or rejected.',
   },
   {
     id: 'log-17049',

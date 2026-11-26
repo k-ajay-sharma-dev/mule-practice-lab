@@ -59,12 +59,12 @@ export default {
       prompt: 'Where is it acceptable to keep the passphrase of our private key?',
       options: [
         'An encrypted secure property, with the encryption key given at deploy time',
-        'A plain value in config-prod.yaml, as the Git repository is private to the team',
+        'The keyring file next to the private key, so the two move together',
         'A secret store that the runtime reads, such as a vault service',
-        'A Base64 encoded value in the PGP config, so nobody can read it in the XML',
+        'A DataWeave module in the app, so the value is compiled and not kept as plain text',
       ],
       answer: [0, 2],
-      explain: 'The passphrase is the last guard on the private key. Keep it encrypted or in a secret store, and never in plain text in the code or the repository.',
+      explain: 'The passphrase is the last guard on the private key. Keep it encrypted or in a secret store. Next to the key, anyone who copies the keyring gets both. A DataWeave module ships inside the app as readable source, so the value is still plain text in the code and the repository.',
     },
     {
       type: 'order',

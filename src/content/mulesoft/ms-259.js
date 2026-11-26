@@ -9,7 +9,7 @@ export default {
     {
       type: 'single',
       prompt: 'A partner uploads a 3 GB file with Put Block calls and then Put Block List. The hub subscribes to Microsoft.Storage.BlobCreated. When does the event fire?',
-      options: ['Once for each Put Block, so the hub must wait for the last one', 'When the first block is staged, so the hub may read a partial file', 'Once, after Put Block List commits, so the file is complete', 'Never, as only a single Put Blob call raises the event'],
+      options: ['Once for each Put Block, so the hub must wait for the last one', 'When the first block is staged, so the hub may read a partial file', 'Once, after Put Block List commits, so the file is complete', 'Twice, once for the first block and once at commit'],
       answer: 2,
       explain: 'Blob Storage publishes BlobCreated and BlobDeleted events, among others, through an Event Grid system topic for the account. BlobCreated fires when a blob is created or replaced, which for a block upload is the Put Block List commit. Staged blocks are not part of the blob yet, so they raise no event. That is why the event cannot point to a half written file, unlike a notification sent too early.',
     },
@@ -42,13 +42,13 @@ export default {
       type: 'single',
       prompt: 'How can an Event Grid subscription receive only events for JSON files in the inbound container?',
       options: [
-        'Filter in Mule only, after delivery',
+        'Filter in the Mule flow after each event arrives',
         'Use subject filters on the path and .json',
         'Create the system topic on the inbound container',
         'Pick BlobCreated as the only event type for inbound',
       ],
       answer: 1,
-      explain: 'Use subject begins with the inbound container path and subject ends with .json. The event subject holds the container and blob path, so begins with and ends with filters narrow the stream at the source.',
+      explain: 'Use subject begins with the inbound container path and subject ends with .json. The event subject holds the container and blob path, so begins with and ends with filters narrow the stream at the source. Filtering in the flow works, but every event is still delivered to it.',
     },
     {
       type: 'match',
@@ -65,13 +65,13 @@ export default {
       type: 'single',
       prompt: 'The hub keeps partner JMS notifications as the main trigger. What is the best use of storage side signals?',
       options: [
-        'None, the notifications are enough',
+        'A second trigger that loads each blob when its event arrives',
         'A safety net for blobs with no notification',
         'Replace the notifications with events at once',
-        'Delete blobs that have no notification at once',
+        'A check that waits for both signals before each load',
       ],
       answer: 1,
-      explain: 'A sweep or BlobCreated events find files with no matching notification after a while, and raise an alert or a recovery. The notification carries agreed ids and the message type. Storage signals cover the case where the notification never comes.',
+      explain: 'A sweep or BlobCreated events find files with no matching notification after a while, and raise an alert or a recovery. The notification carries agreed ids and the message type. Storage signals cover the case where the notification never comes. Loading on both signals runs each file twice, and waiting for both makes every load depend on an event that may come late.',
     },
   ],
   description: `

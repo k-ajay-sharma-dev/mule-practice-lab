@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'Some integrations handle call detail records that the regulator says must stay in-country, and some sit next to the mainframe with tight latency. Most others call SaaS systems. Where do they run?',
       options: [
-        'Both: Runtime Fabric on premises for residency and mainframe, CloudHub 2.0 for the rest',
+        'Runtime Fabric on premises for the call record and mainframe flows, CloudHub 2.0 for the rest',
         'All on CloudHub 2.0 private spaces, with a VPN to the in-country data centres',
         'All on Runtime Fabric, so the team learns and runs one platform only',
-        'Each project team chooses the platform per integration as it migrates',
+        'Runtime Fabric on premises for the mainframe flows, CloudHub 2.0 for the rest',
       ],
       answer: 0,
-      explain: 'Residency and latency force some workloads on premises, while SaaS-facing ones gain from a managed platform. A written placement rule keeps the split deliberate. A VPN does not keep the records in the country, since the workers run in the cloud region, one platform for everything pays the on-premises cost where it brings nothing, and team-by-team choice produces an unmanaged mix.',
+      explain: 'Residency and latency force some workloads on premises, while SaaS-facing ones gain from a managed platform. A written placement rule keeps the split deliberate. A VPN does not keep the records in the country, since the workers run in the cloud region, and one platform for everything pays the on-premises cost where it brings nothing. Placing only the mainframe flows on premises fixes the latency but sends the call records to a cloud region.',
     },
     {
       type: 'match',
@@ -75,12 +75,12 @@ export default {
       prompt: 'The pilot shows that only 300 of the 400 integrations can be migrated before the extended support contract ends. What do you recommend?',
       options: [
         'Order by risk, retire unused ones, and buy a short, dated support extension',
-        'Run the last 100 on unsupported Mule 3 until the team has time for them',
-        'Pause all new business projects for a year to free developers for the migration',
-        'Cut regression testing to smoke tests so all 400 finish before the deadline',
+        'Order by risk, retire unused ones, and keep the lowest risk ones on Mule 3 past the end date',
+        'Move developers from business projects onto the migration until all 400 are done',
+        'Bring in a partner team for the last 100, starting once the first 300 are live',
       ],
       answer: 0,
-      explain: 'Risk-based order protects the critical processes, retirement shrinks scope, and a bounded extension covers the gap with a plan the business can check. Unsupported running, a full freeze or skipping tests all trade a schedule problem for an outage or a business problem.',
+      explain: 'Risk-based order protects the critical processes, retirement shrinks scope, and a bounded extension covers the gap with a plan the business can check. Keeping even low risk apps on Mule 3 past the end date leaves them without patches, and the security team already lists Mule 3 as a top risk. Pulling developers off business projects trades a schedule problem for a business problem. A partner team that starts after the first 300 starts too late to finish before support ends.',
     },
   ],
   description: `

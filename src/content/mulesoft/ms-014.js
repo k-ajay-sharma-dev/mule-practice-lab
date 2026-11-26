@@ -43,12 +43,12 @@ export default {
       prompt: 'How do you make a 404 from the rates API a normal response for this call only?',
       options: [
         'Add a success status code validator with `200..299,404` to that request',
-        'Set `followRedirects="true"` on the HTTP Request configuration',
-        'Add an error mapping from `HTTP:NOT_FOUND` to `ANY` on that request',
-        'Add `HTTP:NOT_FOUND` to the reconnection strategy of that config',
+        'Add an On Error Continue for `HTTP:NOT_FOUND` to the flow error handler',
+        'Add an error mapping from `HTTP:NOT_FOUND` to `APP:RATE_NOT_FOUND` on that request',
+        'Wrap that request in an Until Successful that stops once a 404 comes back',
       ],
       answer: 0,
-      explain: 'A response validator on that one request makes 404 non-failing and keeps the body available as `payload`. The flow then branches on `attributes.statusCode`. By default anything outside 200..399 raises a typed error such as `HTTP:NOT_FOUND`.',
+      explain: 'A response validator on that one request makes 404 non-failing and keeps the body available as `payload`. The flow then branches on `attributes.statusCode`. By default anything outside 200..399 raises a typed error such as `HTTP:NOT_FOUND`. A flow-level On Error Continue ends the flow instead of carrying on after the call, and it catches 404s from every request in the flow. An error mapping only renames the error, which is still raised. Until Successful retries on errors, so a 404 is retried, not accepted.',
     },
     {
       type: 'single',

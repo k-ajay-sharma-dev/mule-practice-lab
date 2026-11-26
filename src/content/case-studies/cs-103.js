@@ -25,7 +25,7 @@ export default {
       prompt: 'Final grades must reach the SIS, the record of transcripts, after an instructor approves them in the LMS. Which design fits best?',
       options: [
         'Each tool posts its own scores to the SIS through a shared System API',
-        'A Process API posts released LMS grades to the SIS, keyed by section and student',
+        'A Process API sends each grade to the SIS when the instructor releases it',
         'Registrar staff import an LMS grade export into the SIS at the end of each term',
         'A job copies every change in the LMS gradebook to the SIS every 15 minutes',
       ],
@@ -76,11 +76,11 @@ export default {
       options: [
         'Re-running the grade posting for every section of the term',
         'A posting log per section and posting keyed by section and student',
-        'Asking the instructor to key the 40 grades into the SIS by hand',
+        'A nightly job that compares LMS and SIS grade counts per section',
         'Restoring the SIS grade table from the backup taken before posting',
       ],
       answer: 1,
-      explain: 'A per-section log shows which grades failed and why. Idempotent posting means the section can be sent again without creating duplicate or conflicting grades. Re-running the whole term touches thousands of correct grades, keying by hand is the re-keying the goals remove, and a restore would undo two weeks of other changes.',
+      explain: 'A per-section log shows which grades failed and why. Idempotent posting means the section can be sent again without creating duplicate or conflicting grades. Re-running the whole term touches thousands of correct grades. A count comparison would have spotted the gap sooner, but it does not say which 40 grades failed or make a resend safe. A restore would undo two weeks of other changes.',
     },
   ],
   description: `

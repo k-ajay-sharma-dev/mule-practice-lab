@@ -35,12 +35,12 @@ export default {
       prompt: 'A Mule flow gets error 1205 in the middle of a transaction with three statements. What should it retry?',
       options: [
         'Only the statement that failed, since the earlier ones are still held open',
-        'The whole transaction, after a short random delay, a few times at most',
+        'The whole transaction, since all of its work was rolled back',
         'Nothing, because the other session has already done the work',
         'The failed statement, then the commit, without any delay',
       ],
       answer: 1,
-      explain: 'Retry from the start of the transaction, with a limit on attempts. The victim\'s transaction was rolled back completely, so all its statements must run again. A random delay stops the two sessions from colliding again.',
+      explain: 'Retry from the start of the transaction, with a limit on attempts. The victim\'s transaction was rolled back completely, so all its statements must run again. A short random delay stops the two sessions from colliding again. The other session did its own work, not the victim\'s.',
     },
     {
       type: 'multi',

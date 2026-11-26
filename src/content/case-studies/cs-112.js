@@ -74,12 +74,12 @@ export default {
       prompt: 'The platform team is worried that one busy app could starve the others on a shared node. What do you agree with them?',
       options: [
         'Measured CPU and memory reservations per app, with a CPU limit for bursts',
-        'The largest vCore size for every app, so none can be short of CPU',
+        'Equal CPU and memory reservations for every app, sized for the busiest one',
         'A CPU limit per app but no reservation, so idle capacity is shared',
         'One node per app, so no app can affect another',
       ],
       answer: 0,
-      explain: 'Reservations guarantee each app its share, limits cap bursts, and load tests show how many apps fit on a node before each wave. The largest size for every app wastes capacity. Limits without reservations still let busy apps squeeze the others. A node per app throws away the sharing that Runtime Fabric is for.',
+      explain: 'Reservations guarantee each app its share, limits cap bursts, and load tests show how many apps fit on a node before each wave. Equal reservations sized for the busiest app protect everyone but reserve far more than most apps use, so few apps fit on a node. Limits without reservations still let busy apps squeeze the others. A node per app throws away the sharing that Runtime Fabric is for.',
     },
   ],
   description: `

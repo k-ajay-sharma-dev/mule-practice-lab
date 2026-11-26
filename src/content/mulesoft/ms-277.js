@@ -61,12 +61,12 @@ export default {
       prompt: 'The snapshot is 1.8 GB of text. What often cuts the transfer time most?',
       options: [
         'Splitting it into ten files written over one session in turn',
-        'Compressing it as gzip or zip, if the platform accepts that',
-        'Raising the SFTP connector buffer size to 1 GB',
-        'Converting the CSV to JSON before sending it',
+        'Compressing it with gzip before the upload',
+        'Reading it as a repeatable file store stream, not in memory',
+        'Raising the connection timeout so the upload is not cut off',
       ],
       answer: 1,
-      explain: 'Text files with repeated codes often compress to a fraction of their size. Agree the format with the receiver first.',
+      explain: 'Text files with repeated codes often compress to a fraction of their size, and fewer bytes is what shortens the transfer. Agree the format with the receiver first. Ten files over one session still send the same bytes one after another. A file store stream saves memory, not network time. A longer timeout avoids a failure but does not speed up the upload.',
     },
     {
       type: 'single',

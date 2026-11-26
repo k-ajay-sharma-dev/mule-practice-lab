@@ -37,7 +37,7 @@ export default {
       prompt: 'Clients sending `Content-Type: text/plain` to `POST /products` get a generic 500. What is the likely cause and fix?',
       options: [
         'APIkit does not check Content-Type, so a later step fails',
-        'A generic ANY handler catches the APIkit error before its 415 entry',
+        'An ANY handler is listed above the APIKIT:UNSUPPORTED_MEDIA_TYPE entry',
         'The listener rejects unknown types, and Mule turns that into 500',
         'The RAML lacks a `text/plain` example, so validation crashes',
       ],
@@ -73,13 +73,13 @@ export default {
       type: 'single',
       prompt: 'The API console is reachable in production. What should you do?',
       options: [
-        'Leave it, because it only shows documentation',
+        'Keep it, but serve it on a path that is not in the spec',
         'Remove or disable the console flow outside development',
         'Remove the console link from the Exchange page',
         'Move the console listener to the HTTPS port 8082',
       ],
       answer: 1,
-      explain: 'The console exposes the spec and a "try it" UI. Remove the flow, or disable it with property-driven configuration outside dev. Documentation belongs in Exchange.',
+      explain: 'The console exposes the spec and a "try it" UI. Remove the flow, or disable it with property-driven configuration outside dev. Documentation belongs in Exchange. A hidden path is still reachable, a link in Exchange does not control the app, and a different port leaves the console running.',
     },
   ],
   description: `

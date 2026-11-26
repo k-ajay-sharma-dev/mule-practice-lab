@@ -11,13 +11,13 @@ export default {
       detail: true,
       prompt: 'A customer still runs Runtime Fabric appliance on VMs and has no Kubernetes team. What does the migration page recommend considering first if they want the lowest operational overhead?',
       options: [
-        'CloudHub 2.0, which has the lowest operational overhead',
-        'Staying on the appliance, which has the lowest overhead on VMs',
-        'Standalone Mule, which has the lowest management overhead',
-        'Runtime Fabric on a managed Kubernetes service, for the lowest overhead',
+        'CloudHub 2.0',
+        'Runtime Fabric on Red Hat OpenShift',
+        'Hybrid standalone Mule on the existing VMs, managed from Runtime Manager',
+        'Runtime Fabric on a managed Kubernetes service such as EKS or AKS',
       ],
       answer: 0,
-      explain: 'MuleSoft will stop investing in the appliance. Existing Core capacity can move to other customer-hosted options, and customers with Flexible Hybrid Deployment rights can convert Cores to vCores for CloudHub 2.0. Standalone is described as having reduced runtime resiliency and heavy management overhead.',
+      explain: 'CloudHub 2.0 is the option with the least to run. Runtime Fabric on EKS, AKS or OpenShift still leaves the customer running a Kubernetes cluster, which this team cannot staff. MuleSoft will stop investing in the appliance. Existing Core capacity can move to other customer-hosted options, and customers with Flexible Hybrid Deployment rights can convert Cores to vCores for CloudHub 2.0. Standalone is described as having reduced runtime resiliency and heavy management overhead.',
     },
     {
       type: 'single',
@@ -25,7 +25,7 @@ export default {
       prompt: 'A cluster was installed with `rtfctl`. The team wants to use `helm upgrade` for the next agent version. What must happen first?',
       options: [
         'Migrate the installation to Helm with `rtfctl migrate`',
-        'Nothing; `helm upgrade` adopts the `rtfctl` install on first run',
+        'Run `helm install` with the same fabric ID, so Helm takes over the `rtfctl` release',
         'Reinstall the fabric and redeploy every app',
         'Run `helm upgrade` with the `--reuse-values` flag',
       ],
@@ -52,8 +52,8 @@ export default {
       prompt: 'An engineer changed the proxy values after installing with Helm. What is the risk during an upgrade with the command Runtime Manager supplies?',
       options: [
         'It reuses the original install values, so later changes are lost',
-        'None; Helm reads the live values from the cluster',
-        'It applies the chart defaults, so all custom values are lost',
+        'It merges the live values from the cluster, so the proxy change is kept',
+        'It applies the chart defaults, so the custom values set at install are lost',
         'The upgrade refuses to run while a proxy is set',
       ],
       answer: 0,
@@ -88,12 +88,12 @@ export default {
       prompt: 'After a component upgrade with `rtfctl`, the fabric reports "degraded" in Runtime Manager. What should the on-call engineer expect?',
       options: [
         'It is normal while it syncs, and clears in about five minutes',
-        'The upgrade failed, so restore a backup at once',
+        'One component did not finish, so run the same upgrade command again',
         'A node must be added before the status clears',
         'The apps must be redeployed to resync with the control plane',
       ],
       answer: 0,
-      explain: 'The fabric synchronizes with the control plane after the upgrade. The upgrade usually takes fewer than 10 minutes, a disconnect during it is restored afterwards, and component upgrades do not require adding a node.',
+      explain: 'The fabric synchronizes with the control plane after the upgrade. The upgrade usually takes fewer than 10 minutes, a disconnect during it is restored afterwards, and component upgrades do not require adding a node. Running the upgrade again or redeploying apps does not speed up the sync.',
     },
     {
       type: 'single',

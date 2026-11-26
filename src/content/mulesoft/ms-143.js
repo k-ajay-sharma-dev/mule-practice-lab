@@ -47,12 +47,12 @@ export default {
       prompt: 'A payments app uses its log as an audit trail. The default configuration uses `AsyncLogger` and `AsyncRoot`. What should change?',
       options: [
         'Use synchronous `Logger` and `Root` for the audit entries',
-        'Keep asynchronous logging and raise the level to TRACE',
+        'Keep `AsyncLogger` and set `includeLocation="true"` for the audit entries',
         'Raise `AsyncLoggerConfig.RingBufferSize` so no entry is lost',
         'Add a second file appender as a backup copy of the log',
       ],
       answer: 0,
-      explain: 'Asynchronous logging might lose entries in a system crash, and a bigger ring buffer or a second appender does not change that. Asynchronous logging gives substantially better throughput and latency, so MuleSoft recommends it in most cases, but not for audit trails. The two can be mixed, so only the audit category needs to be synchronous.',
+      explain: 'Asynchronous logging might lose entries in a system crash, and a bigger ring buffer or a second appender does not change that. `includeLocation` adds the caller location to each entry but does not make the write synchronous. Asynchronous logging gives substantially better throughput and latency, so MuleSoft recommends it in most cases, but not for audit trails. The two can be mixed, so only the audit category needs to be synchronous.',
     },
     {
       type: 'single',

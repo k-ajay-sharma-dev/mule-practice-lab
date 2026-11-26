@@ -59,12 +59,12 @@ export default {
       prompt: 'Which guarantee is fine for a stream of store footfall counts sent every minute?',
       options: [
         'Exactly once, since every reading must be counted',
-        'At most once can be acceptable, since the next reading replaces a lost one',
-        'At least once is required, since a lost reading cannot be rebuilt',
+        'At most once, since the next reading replaces a lost one',
+        'At least once is usually safer, since a lost reading leaves a gap in the hour',
         'Exactly once through XA, since counts feed the store reports',
       ],
       answer: 1,
-      explain: 'Pick the guarantee by what a loss or a duplicate costs the business.',
+      explain: 'Pick the guarantee by what a loss or a duplicate costs the business. A reading every minute is soon replaced, so a lost one costs little. At least once adds redelivery and duplicate checks for a gap the next reading fills. Exactly once and XA cost far more than a lost minute is worth.',
     },
     {
       type: 'single',

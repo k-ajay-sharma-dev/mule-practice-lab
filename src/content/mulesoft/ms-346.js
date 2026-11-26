@@ -35,11 +35,11 @@ export default {
       options: [
         'Force close the reader’s handle each night before the rename',
         'Retry a few times with a short wait, then alert',
-        'Write the new rows into the open file in place',
-        'Skip that night and publish two plans the next night',
+        'Write the new plan straight into the old file, so no rename is needed',
+        'Delete the old file first, then rename the new one into place',
       ],
       answer: 1,
-      explain: 'Forcing handles closed is a last resort agreed with the store team. Azure Files lets admins list and force close handles, but closing a reader mid read can break the store system.',
+      explain: 'A few retries ride out a short read, and the alert catches a store that keeps the file open. Forcing handles closed is a last resort agreed with the store team. Azure Files lets admins list and force close handles, but closing a reader mid read can break the store system. Writing into the old file lets a reader see a half written plan. A delete fails too: Azure Files answers 409 SharingViolation while an SMB client has the file open.',
     },
     {
       type: 'multi',

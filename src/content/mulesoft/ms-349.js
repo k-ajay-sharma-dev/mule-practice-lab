@@ -47,11 +47,11 @@ export default {
       options: [
         'Resume the upload from the byte where the last attempt stopped',
         'Retry to a temporary name, and rename it only once it is complete',
-        'Mark the file as sent, since the server already holds part of it',
+        'Delete the partial file, then retry the upload under the final name',
         'Retry the upload at once, using the final file name as before',
       ],
       answer: 1,
-      explain: '426 means the transfer was aborted. The partial file on the server must not look finished, so upload under a temporary name and rename it after a complete transfer. Resume is not supported by every server and still exposes the partial file.',
+      explain: '426 means the transfer was aborted. The partial file on the server must not look finished, so upload under a temporary name and rename it after a complete transfer. Resume is not supported by every server and still exposes the partial file. Deleting first, or retrying at once under the final name, still shows a growing file under the name the reader waits for.',
     },
     {
       type: 'single',

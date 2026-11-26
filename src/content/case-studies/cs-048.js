@@ -75,13 +75,13 @@ export default {
       type: 'single',
       prompt: 'Two business units still buy point-to-point integrations from an outsourcing vendor. Best response?',
       options: [
-        'Leave them alone, because those units are outside the programme',
-        'Ban the outsourcing vendor from all integration work immediately',
+        'Ask the CIO to make the platform mandatory for every unit from next quarter',
+        'Fund the two units’ integrations from the central budget, so the platform costs them nothing',
         'Add an architecture intake, show the cost gap, and give the vendor the standards',
-        'Rebuild their integrations on the platform without involving the units',
+        'Ask the vendor to publish its integrations’ specs in Exchange so other teams can reuse them',
       ],
       answer: 2,
-      explain: 'An intake gives visibility, a cost comparison with similar platform projects persuades with evidence, and bringing the vendor onto the standards turns a bypass into extra capacity.',
+      explain: 'An intake gives visibility, a cost comparison with similar platform projects persuades with evidence, and bringing the vendor onto the standards turns a bypass into extra capacity. A mandate from the CIO forces compliance without showing the units why, and they find ways around it. Central funding removes the price argument but not the capacity the vendor gives them, and it grows the central budget with no control over what is built. Specs in Exchange describe the point-to-point links, but the links stay point-to-point and nothing reuses the platform’s APIs.',
     },
     {
       type: 'match',

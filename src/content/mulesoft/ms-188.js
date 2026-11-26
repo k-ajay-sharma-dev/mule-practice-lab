@@ -46,13 +46,13 @@ export default {
       type: 'single',
       prompt: 'A developer finds an Orders API in Anypoint Exchange and wants to know how to call it. What can the developer learn from its Exchange page?',
       options: [
-        'Which customers placed orders today and what they bought',
-        'The password that the API uses for its order database',
+        'The live call count and response time of each path',
+        'The client ID and secret that callers send to it',
         'Its paths, its request and response data, and its docs',
-        'How many servers the API runs on at this moment',
+        'The flows and DataWeave scripts behind each path',
       ],
       answer: 2,
-      explain: 'The page for a REST API shows documentation built from its spec, so a caller can see what to send and what comes back. Live data, secrets and server details are not published there.',
+      explain: 'The page for a REST API shows documentation built from its spec, so a caller can see what to send and what comes back. Live metrics are in Anypoint Monitoring, credentials come from the client application that requests access, and the implementation stays in the Mule project.',
     },
     {
       type: 'single',

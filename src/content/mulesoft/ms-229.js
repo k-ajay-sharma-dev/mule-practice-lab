@@ -22,13 +22,13 @@ export default {
       type: 'single',
       prompt: 'The flow calls the token URL before every partner call. Traffic is 50 calls per second. What is the problem?',
       options: [
-        'None, a fresh token per call is safer',
-        'The token server gets 50 extra calls per second',
+        'Little, as a token call is small and fast next to the partner call',
+        'The token server gets as many calls as the partner API',
         'An access token is too short lived to reuse',
         'The partner API rejects a token used twice',
       ],
       answer: 1,
-      explain: 'A token is valid until it expires. Reuse it for many calls and get a new one only when needed. 50 extra calls per second can make the token server rate limit the app.',
+      explain: 'A token is valid until it expires, usually for minutes or hours, and a bearer token can be sent on many calls. Reuse it and get a new one only when needed. A token call per partner call doubles the round trips, and that load can make the token server rate limit the app.',
     },
     {
       type: 'single',
@@ -60,11 +60,11 @@ export default {
       options: [
         'An encrypted secure property, with the key given at deploy time',
         'A secret store that the runtime reads',
-        'A plain property in config-prod.yaml, kept out of the flow XML',
-        'A query parameter on the token URL, read from a property',
+        'A property in config-prod.yaml, with the file kept out of Git and added by the pipeline',
+        'A property in the pom.xml, passed to the app at build time',
       ],
       answer: [0, 1],
-      explain: 'The secret proves the app\'s identity. Keep it encrypted or in a secret store. A query parameter can end up in access logs.',
+      explain: 'The secret proves the app\'s identity. Keep it encrypted or in a secret store. A file added by the pipeline still sits in plain text inside the app archive, and a pom.xml lives in Git and ships with the build.',
     },
     {
       type: 'single',

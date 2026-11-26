@@ -137,12 +137,12 @@ export default {
       prompt: 'A company puts a WAF (web application firewall) in front of its internet APIs. Its internal APIs are reachable only through private ingress. Security wants to know who calls what, and internal calls must not pay for an extra hop. How should internal east-west traffic be controlled?',
       options: [
         'Callers prove their identity with a client ID or JWT, and the traffic skips the WAF hop',
-        'Callers send no identity because the network is trusted, and the traffic skips the WAF hop',
+        'An IP allowlist of internal subnets admits callers, and the traffic skips the WAF hop',
         'Callers prove their identity with a client ID or JWT, and the traffic passes the WAF first',
-        'Callers send no identity because the network is trusted, and the traffic passes the WAF first',
+        'An IP allowlist of internal subnets admits callers, and the traffic passes the WAF first',
       ],
       answer: 0,
-      explain: 'Internal traffic gets lighter controls, not none. Without identity you cannot answer the "who calls what" question security asked for. Internal traffic skips the WAF hop to save latency. Internal endpoints stay unreachable from the internet, with private ingress and no public DNS.',
+      explain: 'Internal traffic gets lighter controls, not none. An IP allowlist keeps outsiders out, but many apps share a subnet and IPs change, so it cannot tell security which app called what. A client ID or JWT names the caller. Internal traffic skips the WAF hop to save latency. Internal endpoints stay unreachable from the internet, with private ingress and no public DNS.',
     },
     {
       type: 'single',

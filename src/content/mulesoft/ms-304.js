@@ -60,10 +60,10 @@ export default {
       options: [
         'A resent item updates the existing row instead of failing',
         'A block no longer fails because of a key that was already loaded',
-        'MERGE cannot fail on a row, so no reject table is needed',
+        'Rows that would fail are updated instead, so the reject table can go',
         'The reject table gets fewer false rejects for resends',
-        'MERGE removes duplicate keys inside the same source batch',
-        'MERGE makes any replay safe, so the duplicate message check can be dropped',
+        'Two rows with one key in the same block are merged into one row',
+        'A replay of an older message now updates in place, so the duplicate message check can go',
       ],
       answer: [0, 1, 3],
       explain: 'With MERGE a resent item updates its row, so the block does not fail on a known key and resends stop showing up as rejects. MERGE can still fail, for example on NOT NULL or length. Two rows with the same key in one source batch give ORA-30926, not a silent dedupe. A replay of an older message can overwrite newer data, so the duplicate message check still has a job.',

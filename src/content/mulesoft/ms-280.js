@@ -22,13 +22,13 @@ export default {
       type: 'single',
       prompt: 'A distribution center sends a zero byte receipts file. What should the hub do?',
       options: [
-        'Treat it as a day with no receipts and send nothing on',
+        'Treat it as a day with no receipts, since it arrived on time',
         'Move it to error and alert, unless empty was agreed to mean no data',
         'Send it on, so the planning platform decides what to do with it',
-        'Leave it in place and pick it up again on the next poll',
+        'Leave it for the next poll, in case it was still being written',
       ],
       answer: 1,
-      explain: 'An empty file is often a failed export. A better convention for "no data" is a file with a header and a trailer count of zero.',
+      explain: 'An empty file is often a failed export. A file still being written is the job of a size or age check, not a reason to leave an empty file waiting. A better convention for "no data" is a file with a header and a trailer count of zero.',
     },
     {
       type: 'single',
@@ -73,11 +73,11 @@ export default {
       options: [
         'File name, received time and status, with the rest in app logs',
         'Partner, name, size, hash, time, records, status and correlation id',
-        'The full file content, so any file can be replayed from the log',
-        'Nothing extra, since the SFTP server log already lists each upload',
+        'Name, size, hash and status, with the partner read from the file name',
+        'Partner, name, size, time and status, with a hash only for failed files',
       ],
       answer: 1,
-      explain: 'The correlation id links the record to the run. This answers "did you get our file and what happened to it" in one query, without opening logs or files.',
+      explain: 'The correlation id links the record to the run. The partner should come from the account or folder, since a file name can be wrong. A hash on every file is what spots a resent duplicate. This answers "did you get our file and what happened to it" in one query, without opening logs or files.',
     },
   ],
   description: `
