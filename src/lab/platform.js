@@ -107,7 +107,9 @@ export const endpointOf = (app) => `https://${app.name}-lab1a2.${app.env === 'Sa
 // Each application also has an address that only other applications of the network reach
 export const internalOf = (app) => `https://${app.name}-lab1a2.internal-${app.env === 'Sandbox' ? 'sbx' : 'prd'}.usa-e2.cloudhub.example/api`
 export const propsOf = (app) => ({ ...app.props, ...app.secrets })
-const ctxOf = (s, app, extra = {}) => ({ app, props: propsOf(app), ...extra })
+// `store` is what the application keeps between runs, such as a watermark. A package says with volatileStore() when
+// that store lives in memory, so a restart or redeploy empties it.
+const ctxOf = (s, app, extra = {}) => ({ app, props: propsOf(app), now: s.clock, store: app.store ?? {}, ...extra })
 
 function schedulesOf(pkg, now) {
   return (packageOf(pkg)?.schedules ?? []).map((x) => ({ ...x, at: now + (x.type === 'fixed' ? everyMs(x) : 0), busyUntil: 0, last: null }))
@@ -179,6 +181,7 @@ function runJob(s, app, schedule, manual = false) {
   schedule.last = { t: now, ok: result.ok, manual, error: result.errorType ?? null }
   event(s, { k: 'job', app: app.name, env: app.env, fl: schedule.flow, s: result.ok ? 'ok' : 'failed', ms: result.ms, e: result.errorType, n: result.errors ?? (result.ok ? 0 : 1), hp: result.heap })
   if (result.batch) app.batch = { ...result.batch, t: now }
+  if (result.store) app.store = { ...app.store, ...result.store }
   if (result.send) for (const body of result.send.bodies) put(s, result.send.queue, body)
   if (result.move) {
     const from = s.queues.find((q) => q.name === result.move.from)
@@ -368,6 +371,7 @@ export function deployErrors(state, form, existing) {
 }
 
 function boot(s, app) {
+  if (packageOf(app.pkg).volatileStore?.(ctxOf(s, app))) app.store = {}
   const gone = packageOf(app.pkg).boot?.(ctxOf(s, app)) ?? null
   log(s, app, [info(`Starting replica ${replicaName(app)}`, 'com.mulesoft.cloudhub.runtime'), info(`Initializing app '${app.name}'`, 'org.mule.runtime.deployment')])
   if (gone) {

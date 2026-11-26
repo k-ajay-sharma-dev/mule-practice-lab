@@ -2,6 +2,7 @@
 // boot() says why it cannot start, jobs run a scheduled flow, handle() answers an HTTP request, consume() takes a message.
 import { parseRaml } from '../raml/parse.js'
 import { LED_PACKAGES } from './platform-led.js'
+import { FAILURE_PACKAGES } from './platform-failure-packages.js'
 import { info, line, muleError, needs, warn } from './platform-log.js'
 
 const fail = (error, ms, extra = {}) => ({ ok: false, ms, errorType: error.type, log: [info(`Starting ${error.flow}`), muleError(error)], ...extra })
@@ -222,4 +223,4 @@ export const PACKAGES = {
   },
 }
 
-export const packageOf = (id) => PACKAGES[id] ?? LED_PACKAGES[id]
+export const packageOf = (id) => PACKAGES[id] ?? LED_PACKAGES[id] ?? FAILURE_PACKAGES[id]

@@ -7,6 +7,7 @@ import {
 } from './platform.js'
 import { app, ask, asset, call, called, change, CLIENTS, creds, OPS, policy, propsValue, recent, sawLogs, until, withProp, withSecret } from './platform-kit.js'
 import { LED_LABS } from './platform-led-labs.js'
+import { FAILURE_LABS } from './platform-failure-labs.js'
 
 export { openConsole } from './platform-project.js'
 
@@ -14,7 +15,7 @@ const CH2 = 'https://docs.mulesoft.com/cloudhub-2/'
 const MON = 'https://docs.mulesoft.com/monitoring/'
 const APIM = 'https://docs.mulesoft.com/api-manager/latest/'
 
-export const GROUPS = ['Full life cycle', 'API-led project', 'Failed jobs', 'API operations']
+export const GROUPS = ['Full life cycle', 'API-led project', 'Failed jobs', 'API operations', 'More production failures']
 
 // ---------- helpers ----------
 
@@ -630,7 +631,7 @@ const badDeploy = {
   answers: { 3: 1 },
 }
 
-export const PLATFORM_LABS = [fullLifeCycle, promote, ...LED_LABS, nightly, disabled, overlap, batch, sftp, silent, dlq, memory, zone, badDeploy, unregistered, wrongCreds, quota, errors500, slow, attack]
+export const PLATFORM_LABS = [fullLifeCycle, promote, ...LED_LABS, nightly, disabled, overlap, batch, sftp, silent, dlq, memory, zone, badDeploy, unregistered, wrongCreds, quota, errors500, slow, attack, ...FAILURE_LABS]
 
 export const stepDone = (step, index, state, answers) => (step.ask ? answers[index] === step.right : Boolean(step.done(state)))
 export const labDone = (lab, state, answers) => lab.steps.every((step, i) => stepDone(step, i, state, answers))
