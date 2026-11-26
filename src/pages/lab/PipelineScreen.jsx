@@ -54,14 +54,27 @@ function save(lab, config) {
   }
 }
 
+// The release pipeline, laid out like a GitHub Actions page: a repository header, a sidebar, the workflow's runs and
+// one run with its job graph and logs. The lab is the same as before; only the way it is shown changed.
+const SIDE = [
+  ['runs', 'Release pipeline', 'workflow'],
+  ['options', 'Workflow options', 'gear'],
+  ['environments', 'Environments', 'rocket'],
+  ['exchange', 'Exchange versions', 'package'],
+  ['promote', 'Promote API instance', 'arrow'],
+]
+
 export default function PipelineScreen() {
   const [saved] = useState(loadSaved)
   const [state, setState] = useState(saved.lab)
   const [config, setConfig] = useState(saved.config)
   const [scenarioId, setScenarioId] = useState('')
   const [outcome, setOutcome] = useState(null)
+  const [view, setView] = useState('runs')
+  const [openRun, setOpenRun] = useState(null)
   const active = Boolean(running(state))
   const scenario = SCENARIOS.find((s) => s.id === scenarioId)
+  const run = openRun === null ? null : state.runs.find((r) => r.id === openRun)
 
   useEffect(() => save(state, config), [state, config])
 
@@ -77,9 +90,13 @@ export default function PipelineScreen() {
     setConfig({ ...newConfig(), ...chosen?.patch })
   }
 
-  function launch() {
+  // a new run opens on its own page, as it does after "Run workflow"
+  function begin(next) {
+    if (next === state) return
     setOutcome(null)
-    setState(startRun(state, config))
+    setState(next)
+    setOpenRun(next.runs[0].id)
+    setView('runs')
   }
 
   function apply(result) {
@@ -92,124 +109,356 @@ export default function PipelineScreen() {
     setConfig(newConfig())
     setScenarioId('')
     setOutcome(null)
+    setOpenRun(null)
+    setView('runs')
+  }
+
+  function go(key) {
+    setView(key)
+    setOpenRun(null)
+    setOutcome(null)
   }
 
   return (
-    <>
-      <section className="lab-panel lx-pipeline" aria-label="Release pipeline">
-        <div className="lab-panel-head">
-          <h2>Release pipeline</h2>
-          <button className="btn btn-sm btn-ghost" onClick={reset}>
+    <div className="gh lab-skin-light" aria-label="Release pipeline">
+      <header className="gh-repo">
+        <div className="gh-repo-title">
+          <Icon name="repo" />
+          <span className="gh-owner">harbor-foods</span>
+          <span className="gh-slash">/</span>
+          <b>orders-papi</b>
+          <span className="gh-pill">Private</span>
+          <button className="gh-btn gh-btn-sm gh-reset" onClick={reset}>
             Reset lab
           </button>
         </div>
-        <div className="lx-launch">
-          <label className="lab-field lab-grow">
-            <span className="small muted">Exercise</span>
-            <select className="input" value={scenarioId} onChange={(e) => chooseScenario(e.target.value)}>
-              <option value="">Default options, or your own</option>
-              {SCENARIOS.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.title}
-                  {s.incident ? ` (${s.incident})` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button className="btn btn-primary" onClick={launch} disabled={active}>
-            Run pipeline
-          </button>
-          {scenario && (
-            <button className="btn" onClick={() => setConfig({ ...config, ...scenario.fix })} disabled={active}>
-              Apply the fix
-            </button>
-          )}
-          {active && (
-            <button className="btn" onClick={() => setState(settle(state))}>
-              Skip to result
-            </button>
-          )}
-        </div>
-        <RunView key={state.runs[0]?.id ?? 'none'} run={state.runs[0]} config={config} />
-      </section>
+        <nav className="gh-tabs" aria-label="Repository">
+          <span className="gh-tab">
+            <Icon name="code" /> Code
+          </span>
+          <span className="gh-tab">
+            <Icon name="pr" /> Pull requests
+          </span>
+          <span className="gh-tab gh-tab-on">
+            <Icon name="play" /> Actions
+          </span>
+          <span className="gh-tab">
+            <Icon name="gear" /> Settings
+          </span>
+        </nav>
+      </header>
 
-      {outcome && <LabOutcome outcome={outcome} />}
-
-      <div className="lab-grid">
-        <section className="lab-panel" aria-label="Pipeline options">
-          <div className="lab-panel-head">
-            <h2>Options</h2>
-          </div>
-          <Options config={config} onChange={setConfig} />
-        </section>
-
-        <div className="lx-stack">
-          {ENVIRONMENTS.map((name) => (
-            <Environment
-              key={name}
-              name={name}
-              state={state}
-              busy={active}
-              onRedeploy={(version) => setState(startRedeploy(state, config, name, version))}
-              onRollback={(id) => apply(rollback(state, name, id))}
-              onUndeploy={() => setState(undeploy(state, name))}
-              onOverwrite={() => setState(overwriteSnapshot(state, state.envs[name].version))}
-              onBind={() => setState(updateBinding(state, name))}
-            />
+      <div className="gh-body">
+        <aside className="gh-side" aria-label="Actions">
+          <div className="gh-side-title">Actions</div>
+          {SIDE.slice(0, 1).map(([key, label, icon]) => (
+            <SideItem key={key} on={view === key} icon={icon} label={label} onClick={() => go(key)} />
           ))}
-          <ExchangeVersions state={state} onFree={(version) => apply(freeReserved(state, version))} />
-          <Promotion state={state} onPromote={(input) => apply(promoteInstance(state, input))} />
-        </div>
+          <div className="gh-side-title">Management</div>
+          {SIDE.slice(1).map(([key, label, icon]) => (
+            <SideItem key={key} on={view === key} icon={icon} label={label} onClick={() => go(key)} />
+          ))}
+        </aside>
+
+        <main className="gh-main">
+          {outcome && <LabOutcome outcome={outcome} />}
+
+          {view === 'runs' && run && (
+            <RunPage
+              key={run.id}
+              run={run}
+              active={active && run === state.runs[0]}
+              onBack={() => setOpenRun(null)}
+              onSkip={() => setState(settle(state))}
+            />
+          )}
+
+          {view === 'runs' && !run && (
+            <>
+              <div className="gh-wf-head">
+                <div>
+                  <h2>Release pipeline</h2>
+                  <span className="gh-dim mono">.github/workflows/release.yml</span>
+                </div>
+              </div>
+              <div className="gh-dispatch">
+                <span className="gh-dim">
+                  This workflow has a <code>workflow_dispatch</code> event trigger.
+                </span>
+                <div className="gh-dispatch-row">
+                  <label className="gh-field">
+                    <span>Exercise</span>
+                    <select className="gh-input" value={scenarioId} onChange={(e) => chooseScenario(e.target.value)}>
+                      <option value="">Default options, or your own</option>
+                      {SCENARIOS.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.title}
+                          {s.incident ? ` (${s.incident})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {scenario && (
+                    <button className="gh-btn" onClick={() => setConfig({ ...config, ...scenario.fix })} disabled={active}>
+                      Apply the fix
+                    </button>
+                  )}
+                  <button className="gh-btn gh-btn-green" onClick={() => begin(startRun(state, config))} disabled={active}>
+                    <Icon name="play" /> Run workflow
+                  </button>
+                </div>
+              </div>
+              <RunList runs={state.runs} onOpen={setOpenRun} />
+            </>
+          )}
+
+          {view === 'options' && (
+            <section className="gh-box gh-pad" aria-label="Pipeline options">
+              <h2 className="gh-h">Workflow options</h2>
+              <p className="gh-dim small">What the next run of release.yml uses. Pick an exercise on the runs page to load its options.</p>
+              <Options config={config} onChange={setConfig} />
+            </section>
+          )}
+
+          {view === 'environments' && (
+            <div className="gh-envs">
+              {ENVIRONMENTS.map((name) => (
+                <Environment
+                  key={name}
+                  name={name}
+                  state={state}
+                  busy={active}
+                  onRedeploy={(version) => begin(startRedeploy(state, config, name, version))}
+                  onRollback={(id) => apply(rollback(state, name, id))}
+                  onUndeploy={() => setState(undeploy(state, name))}
+                  onOverwrite={() => setState(overwriteSnapshot(state, state.envs[name].version))}
+                  onBind={() => setState(updateBinding(state, name))}
+                />
+              ))}
+            </div>
+          )}
+
+          {view === 'exchange' && <ExchangeVersions state={state} onFree={(version) => apply(freeReserved(state, version))} />}
+
+          {view === 'promote' && <Promotion state={state} onPromote={(input) => apply(promoteInstance(state, input))} />}
+        </main>
       </div>
+    </div>
+  )
+}
+
+function SideItem({ on, icon, label, onClick }) {
+  return (
+    <button className={`gh-side-item${on ? ' on' : ''}`} onClick={onClick} aria-current={on ? 'page' : undefined}>
+      <Icon name={icon} /> {label}
+    </button>
+  )
+}
+
+const runTitle = (run) => (run.stages.length === 1 && run.stages[0].name.startsWith('Redeploy') ? run.stages[0].name : `Release ${run.version}`)
+const runStatus = (run) =>
+  !run.done ? 'running' : run.result === 'Failed' ? 'failed' : run.result === 'Passed' ? 'passed' : 'warned'
+
+function RunList({ runs, onOpen }) {
+  return (
+    <div className="gh-box">
+      <div className="gh-box-head">
+        {runs.length} workflow {runs.length === 1 ? 'run' : 'runs'}
+      </div>
+      {runs.length === 0 && (
+        <div className="gh-empty">
+          <Icon name="workflow" />
+          <b>There are no workflow runs yet.</b>
+          <span className="gh-dim">Pick an exercise or set the options, then press Run workflow.</span>
+        </div>
+      )}
+      {runs.map((r) => (
+        <button key={r.id} className="gh-run-row" onClick={() => onOpen(r.id)}>
+          <StatusIcon status={runStatus(r)} />
+          <span className="gh-run-main">
+            <b>{runTitle(r)}</b>
+            <span className="gh-dim small">
+              Release pipeline #{r.id}: Manually run · version <span className="mono">{r.version}</span>
+            </span>
+          </span>
+          <span className="gh-branch mono">main</span>
+          <span className="gh-dim small gh-run-result">{r.result ?? 'In progress'}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function RunPage({ run, active, onBack, onSkip }) {
+  const [picked, setPicked] = useState(null)
+  const stages = run.stages
+  const notable = [...stages].reverse().find((s) => s.status === 'failed' || s.status === 'warned')
+  const latest = [...stages].reverse().find((s) => s.status !== 'pending' && s.status !== 'skipped')
+  const shown = stages.find((s) => s.id === picked) ?? notable ?? latest ?? stages[0]
+  const status = runStatus(run)
+
+  return (
+    <>
+      <button className="gh-back" onClick={onBack}>
+        ← Release pipeline
+      </button>
+      <h2 className="gh-run-title">
+        <StatusIcon status={status} big />
+        {runTitle(run)} <span className="gh-dim">#{run.id}</span>
+      </h2>
+
+      <div className="gh-box gh-summary">
+        <div>
+          <span className="gh-dim small">Triggered via workflow_dispatch</span>
+          <b>main</b>
+        </div>
+        <div>
+          <span className="gh-dim small">Status</span>
+          <b aria-live="polite">{run.result ?? 'In progress'}</b>
+        </div>
+        <div>
+          <span className="gh-dim small">Version</span>
+          <b className="mono">{run.version}</b>
+        </div>
+        <div>
+          <span className="gh-dim small">Jobs</span>
+          <b>
+            {stages.filter((s) => s.status !== 'pending').length} of {stages.length}
+          </b>
+        </div>
+        {active && (
+          <button className="gh-btn gh-btn-sm" onClick={onSkip}>
+            Skip to result
+          </button>
+        )}
+      </div>
+
+      <div className="gh-box gh-graph-box">
+        <div className="gh-graph-head">
+          <b>release.yml</b>
+          <span className="gh-dim small">on: workflow_dispatch</span>
+        </div>
+        <ol className="gh-graph">
+          {stages.map((s) => (
+            <li key={s.id}>
+              <button className={`gh-job gh-job-${s.status}${s === shown ? ' on' : ''}`} onClick={() => setPicked(s.id)}>
+                <StatusIcon status={active && s === stages.find((x) => x.status === 'pending') ? 'running' : s.status} />
+                <span className="gh-job-name">{s.name}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      {shown?.issues.length > 0 && (
+        <section className="gh-box gh-annotations" aria-label="Annotations">
+          <div className="gh-box-head">
+            Annotations <span className="gh-dim">· {shown.name}</span>
+          </div>
+          {shown.issues.map((issue) => (
+            <LabOutcome key={issue.title} outcome={issue} />
+          ))}
+        </section>
+      )}
+
+      {shown && (
+        <section className="gh-logs" aria-label={`${shown.name} log`}>
+          <div className="gh-logs-head">
+            <div>
+              <b>{shown.name}</b>
+              <span>{STATUS_TEXT[shown.status]}</span>
+            </div>
+          </div>
+          <div className="gh-step">
+            <div className="gh-step-head">
+              <StatusIcon status={shown.status} />
+              <span className="mono">Run {shown.command}</span>
+            </div>
+            {shown.status === 'pending' && <p className="gh-log-note mono">Waiting for the job to start…</p>}
+            {shown.status === 'skipped' && <p className="gh-log-note mono">This job was skipped because an earlier job failed.</p>}
+            {shown.status === 'passed' && shown.logs.length === 0 && <p className="gh-log-note mono">This step produced no output.</p>}
+            {shown.logs.length > 0 && (
+              <ol className="gh-log mono">
+                {shown.logs.map((l, i) => (
+                  <li key={i} className={`gh-log-${l.level.toLowerCase()}`}>
+                    {l.level === 'ERROR' ? 'Error: ' : l.level === 'WARN' ? 'Warning: ' : ''}
+                    {l.text}
+                    <Assumed basis={l.basis} />
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </section>
+      )}
     </>
   )
 }
 
-function RunView({ run, config }) {
-  const [picked, setPicked] = useState(null)
-  const stages = run?.stages ?? stagesFor(config).map((s) => ({ ...s, status: 'pending', logs: [], issues: [] }))
-  const notable = [...stages].reverse().find((s) => s.status === 'failed' || s.status === 'warned')
-  const latest = [...stages].reverse().find((s) => s.status !== 'pending' && s.status !== 'skipped')
-  const shown = stages.find((s) => s.id === picked) ?? notable ?? latest
-
+// small status marks drawn to look like the ones on an Actions page
+function StatusIcon({ status, big }) {
+  const size = big ? 22 : 16
+  const common = { width: size, height: size, viewBox: '0 0 16 16', className: `gh-status gh-status-${status}`, 'aria-label': STATUS_TEXT[status] ?? 'In progress', role: 'img' }
+  if (status === 'running')
+    return (
+      <svg {...common}>
+        <circle cx="8" cy="8" r="6" fill="none" strokeWidth="2" className="gh-spin-track" />
+        <path d="M8 2a6 6 0 0 1 6 6" fill="none" strokeWidth="2" strokeLinecap="round" className="gh-spin" />
+      </svg>
+    )
+  if (status === 'passed')
+    return (
+      <svg {...common}>
+        <circle cx="8" cy="8" r="7" />
+        <path d="M4.8 8.2 7 10.4l4.2-4.6" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
+  if (status === 'failed')
+    return (
+      <svg {...common}>
+        <circle cx="8" cy="8" r="7" />
+        <path d="m5.5 5.5 5 5m0-5-5 5" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    )
+  if (status === 'warned')
+    return (
+      <svg {...common}>
+        <circle cx="8" cy="8" r="7" />
+        <path d="M8 4.5v4.2" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" />
+        <circle cx="8" cy="11.3" r="1" fill="#fff" />
+      </svg>
+    )
+  if (status === 'skipped')
+    return (
+      <svg {...common}>
+        <circle cx="8" cy="8" r="6.2" fill="none" strokeWidth="1.5" />
+        <path d="m4 12 8-8" strokeWidth="1.5" />
+      </svg>
+    )
   return (
-    <>
-      <ol className="lx-rail">
-        {stages.map((s) => (
-          <li key={s.id}>
-            <button className={`lx-stage lx-stage-${s.status}${s === shown ? ' lx-stage-open' : ''}`} onClick={() => setPicked(s.id)}>
-              <b>{s.name}</b>
-              <span className="mono lx-command">{s.command}</span>
-              <span className="small lx-stage-status">{STATUS_TEXT[s.status]}</span>
-            </button>
-          </li>
-        ))}
-      </ol>
-      {run && (
-        <p className="small lx-result" aria-live="polite">
-          Run {run.id}, version <span className="mono">{run.version}</span>: <b>{run.result ?? 'In progress'}</b>
-        </p>
-      )}
-      {!run && <div className="empty-row muted">Choose an exercise or set the options, then run the pipeline.</div>}
-      {shown && shown.status !== 'pending' && (
-        <div>
-          {shown.issues.map((issue) => (
-            <LabOutcome key={issue.title} outcome={issue} />
-          ))}
-          {shown.logs.length > 0 && (
-            <ol className="lab-log mono small">
-              {shown.logs.map((l, i) => (
-                <li key={i} className={`lab-log-${l.level.toLowerCase()}`}>
-                  <b>{l.level}</b> {l.text}
-                  <Assumed basis={l.basis} />
-                </li>
-              ))}
-            </ol>
-          )}
-          {shown.status === 'passed' && shown.logs.length === 0 && <p className="muted small">This stage produced no output.</p>}
-        </div>
-      )}
-    </>
+    <svg {...common}>
+      <circle cx="8" cy="8" r="6.2" fill="none" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+const ICONS = {
+  repo: 'M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5v-1.5h1.75v-2h-8a1 1 0 0 0-.71 1.71.75.75 0 0 1-1.06 1.06A2.5 2.5 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.71A2.5 2.5 0 0 1 4.5 9h8ZM5 12.25V16l1.5-1.5L8 16v-3.75Z',
+  code: 'm4.72 3.22-4.25 4.25a.75.75 0 0 0 0 1.06l4.25 4.25 1.06-1.06L2.06 8l3.72-3.72Zm6.56 0-1.06 1.06L13.94 8l-3.72 3.72 1.06 1.06 4.25-4.25a.75.75 0 0 0 0-1.06Z',
+  pr: 'M5 3.25a1.75 1.75 0 1 1-2.5 1.58v6.34a1.75 1.75 0 1 1-1.5 0V4.83A1.75 1.75 0 0 1 5 3.25Zm6.5 8a1.75 1.75 0 1 1-1.5 0V6.5A1 1 0 0 0 9 5.5H7.56l1.22 1.22-1.06 1.06L4.69 4.75 7.72 1.72l1.06 1.06L7.56 4H9a2.5 2.5 0 0 1 2.5 2.5Z',
+  play: 'M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm4.88-3.04 4.6 2.6a.5.5 0 0 1 0 .88l-4.6 2.6A.5.5 0 0 1 5.6 10.6V5.4a.5.5 0 0 1 .78-.44Z',
+  gear: 'M8 0a8.2 8.2 0 0 1 .7.03l.5 2.03a5.9 5.9 0 0 1 1.5.62l1.8-1.07a8 8 0 0 1 1 1l-1.08 1.8c.27.47.48.97.62 1.5l2.03.5a8.2 8.2 0 0 1 0 1.4l-2.03.5a5.9 5.9 0 0 1-.62 1.5l1.07 1.8a8 8 0 0 1-1 1l-1.8-1.08a5.9 5.9 0 0 1-1.5.62l-.5 2.03a8.2 8.2 0 0 1-1.4 0l-.5-2.03a5.9 5.9 0 0 1-1.5-.62l-1.8 1.07a8 8 0 0 1-1-1l1.08-1.8a5.9 5.9 0 0 1-.62-1.5L.03 8.7a8.2 8.2 0 0 1 0-1.4l2.03-.5c.14-.53.35-1.03.62-1.5L1.6 3.5a8 8 0 0 1 1-1l1.8 1.08c.47-.27.97-.48 1.5-.62L6.4.03A8.2 8.2 0 0 1 8 0Zm0 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z',
+  workflow: 'M0 1.75C0 .78.78 0 1.75 0h3.5C6.22 0 7 .78 7 1.75v3.5C7 6.22 6.22 7 5.25 7H4v4a1 1 0 0 0 1 1h4v-1.25C9 9.78 9.78 9 10.75 9h3.5c.97 0 1.75.78 1.75 1.75v3.5c0 .97-.78 1.75-1.75 1.75h-3.5C9.78 16 9 15.22 9 14.25v-.75H5A2.5 2.5 0 0 1 2.5 11V7h-.75C.78 7 0 6.22 0 5.25Zm1.75-.25a.25.25 0 0 0-.25.25v3.5c0 .14.11.25.25.25h3.5a.25.25 0 0 0 .25-.25v-3.5a.25.25 0 0 0-.25-.25Zm9 9a.25.25 0 0 0-.25.25v3.5c0 .14.11.25.25.25h3.5a.25.25 0 0 0 .25-.25v-3.5a.25.25 0 0 0-.25-.25Z',
+  rocket: 'M14.06.94c.3.3.44.7.44 1.06 0 3.1-1.4 6-3.6 7.9l-.4 2.6a1.5 1.5 0 0 1-.8 1.1l-2.4 1.2a.75.75 0 0 1-1.05-.66l-.08-1.9-1.4-1.4-1.9-.08a.75.75 0 0 1-.66-1.05l1.2-2.4a1.5 1.5 0 0 1 1.1-.8l2.6-.4C9 2.4 11.9 1 15 1c.37 0 .76.14 1.06.44ZM11 4a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM2.5 11.5c.6 0 1.5.9 1.5 1.5S2 15 1 15c0-1 .9-3.5 1.5-3.5Z',
+  package: 'm8.88.22 6.25 3.6A1.75 1.75 0 0 1 16 5.33v5.34c0 .63-.34 1.2-.88 1.51l-6.25 3.6a1.75 1.75 0 0 1-1.74 0l-6.25-3.6A1.75 1.75 0 0 1 0 10.67V5.33c0-.63.34-1.2.88-1.51L7.13.22a1.75 1.75 0 0 1 1.74 0ZM1.5 5.6v5.07c0 .09.05.17.13.22l5.62 3.24V8.97Zm7.25 3.37v5.16l5.62-3.24a.25.25 0 0 0 .13-.22V5.6ZM2.3 4.3 8 7.6l5.7-3.3L8.12 1.52a.25.25 0 0 0-.24 0Z',
+  arrow: 'M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06l2.97-2.97H1.75a.75.75 0 0 1 0-1.5h9.44L8.22 4.03a.75.75 0 0 1 0-1.06Z',
+}
+
+function Icon({ name }) {
+  return (
+    <svg className="gh-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <path d={ICONS[name]} />
+    </svg>
   )
 }
 
