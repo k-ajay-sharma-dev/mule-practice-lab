@@ -225,12 +225,11 @@ function Setup({ history, onStart, onHistory }) {
       <h1>Mock Interview</h1>
       <p className="muted">
         A timed, mixed round like a real technical interview: DataWeave, flow design, API design, architecture, a
-        production incident and a quiz, top to bottom. Choose how the time works: shared out, where each problem gets
-        its share and a short round picks quicker problems, or one clock for the whole round. Then you get a score and
-        your weak areas. Anything unsolved goes on your review schedule.
+        production incident and a quiz, top to bottom. Then you get a score and your weak areas. Anything unsolved goes
+        on your review schedule.
       </p>
 
-      <div className="mock-setup">
+      <div className={`mock-setup${kind === 'design' ? ' four-up' : ''}`}>
         <label className="field">
           Round
           <select className="input" value={kind} onChange={(e) => setKind(e.target.value)}>
@@ -248,18 +247,29 @@ function Setup({ history, onStart, onHistory }) {
             </select>
           </label>
         )}
-        <TimePicker value={minutes} onChange={setMinutes} suggested={suggested} />
-        {kind === 'mixed' && (
-          <label className="field">
-            Time
-            <select className="input" value={pace} onChange={(e) => setPace(e.target.value)}>
-              <option value="split">Shared out: each problem gets its share</option>
-              <option value="full">One clock: use the time as you like</option>
-            </select>
-          </label>
-        )}
         <MultiPick label="Difficulty" options={LEVEL_OPTIONS} value={levels} onChange={setLevels} allLabel="Any level" />
         <MultiPick label="Focus" options={TRACK_OPTIONS} value={tracks} onChange={setTracks} />
+        <TimePicker value={minutes} onChange={setMinutes} suggested={suggested} />
+        {kind === 'mixed' && (
+          <div className="field pace-pick">
+            <span>Clock</span>
+            <div className="pace-options" role="radiogroup" aria-label="Clock">
+              {PACES.map((p) => (
+                <button
+                  type="button"
+                  key={p.key}
+                  role="radio"
+                  aria-checked={pace === p.key}
+                  className={`pace-option${pace === p.key ? ' active' : ''}`}
+                  onClick={() => setPace(p.key)}
+                >
+                  <b>{p.title}</b>
+                  <span className="muted small">{p.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       {kind === 'design' && (
         <p className="muted small">
@@ -299,6 +309,11 @@ function Setup({ history, onStart, onHistory }) {
     </div>
   )
 }
+
+const PACES = [
+  { key: 'split', title: 'Shared out', hint: 'Each problem gets its share. A short round picks quicker problems.' },
+  { key: 'full', title: 'One clock', hint: 'One timer for the whole round. Spend it as you like.' },
+]
 
 function Running({ session, progress, onSelect, onFinish }) {
   const remaining = useRemaining(session)

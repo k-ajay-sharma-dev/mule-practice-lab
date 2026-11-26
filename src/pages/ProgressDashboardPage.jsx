@@ -4,7 +4,7 @@ import { CATEGORIES, categoryBySlug } from '../data/categories.js'
 import { problemById, problems } from '../data/problems.js'
 import { LevelBadge } from '../components/Badges.jsx'
 import { statusOf, todayKey, useActivity, useProgress, useReview } from '../store/progress.js'
-import { POINTS, usePoints } from '../store/points.js'
+import { LEVEL_NAMES, POINTS, pointsFor, usePoints } from '../store/points.js'
 import { independence } from '../study/independence.js'
 import {
   buckets,
@@ -164,6 +164,8 @@ export default function ProgressDashboardPage() {
         )}
         </div>
       </header>
+
+      <PointsCard first={data.first} />
 
       <section className="pd-kpis">
         <Kpi
@@ -343,8 +345,6 @@ export default function ProgressDashboardPage() {
         </div>
         <Activity activity={activity} />
       </section>
-
-      <PointsCard />
 
       <OnYourOwn progress={progress} />
     </div>
@@ -718,42 +718,96 @@ function SolvedTable({ events }) {
   )
 }
 
-// Points earned so far, the level they give, and how close the next level is.
-function PointsCard() {
-  const { total, level, name, into, need, solved } = usePoints()
+// Points earned so far, the level they give, how close the next level is, and what it takes to get there.
+// `first` maps each solved problem to the day it was first solved, so points today and this week count new solves only.
+function PointsCard({ first }) {
+  const { total, level, name, from, to, into, need, solved } = usePoints()
   const pct = Math.round((into / need) * 100)
+  const left = need - into
+  const nextName = LEVEL_NAMES[level] ?? `Level ${level + 1}`
+
+  const today = todayKey()
+  const weekFrom = periodStart('week')
+  let todayPts = 0
+  let weekPts = 0
+  for (const [id, day] of first) {
+    const pts = pointsFor(problemById.get(id))
+    if (day === today) todayPts += pts
+    if (day >= weekFrom && day <= today) weekPts += pts
+  }
+
+  // circle around the level number: how far into this level you are
+  const R = 34
+  const C = 2 * Math.PI * R
+
   return (
-    <section className="points-card" id="points">
-      <div className="points-card-level">
-        <span className="points-badge">
-          <span className="small">Level</span>
-          <strong>{level}</strong>
-        </span>
-        <div>
-          <div className="points-name">{name}</div>
-          <div className="points-total">
-            <span className="points-star">★</span> {total} points earned
-          </div>
+    <section className="lvl-card" id="points" aria-label="Level and points">
+      <div className="lvl-main">
+        <div className="lvl-ring" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Progress to the next level">
+          <svg viewBox="0 0 80 80" aria-hidden="true">
+            <circle cx="40" cy="40" r={R} className="lvl-ring-track" />
+            <circle cx="40" cy="40" r={R} className="lvl-ring-fill" strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} />
+          </svg>
+          <span className="lvl-ring-text">
+            <small>Level</small>
+            <strong>{level}</strong>
+          </span>
+        </div>
+        <div className="lvl-who">
+          <span className="lvl-name">{name}</span>
+          <span className="lvl-total">
+            <span className="points-star">★</span> <b>{total.toLocaleString()}</b> points · {solved} solved
+          </span>
         </div>
       </div>
-      <div className="points-card-next">
-        <div className="points-bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Progress to the next level">
+
+      <div className="lvl-next">
+        <div className="lvl-next-head">
+          <span>
+            Next: <b>Level {level + 1}</b> <span className="muted">{nextName}</span>
+          </span>
+          <span className="mono small">
+            <b>{left}</b> <span className="muted">points to go</span>
+          </span>
+        </div>
+        <div className="points-bar lvl-bar">
           <div style={{ width: `${pct}%` }} />
         </div>
-        <div className="small muted">
-          {need - into} points to Level {level + 1}. {solved} solved {solved === 1 ? 'problem' : 'problems'} so far.
-        </div>
-        <div className="small muted">
-          A problem gives{' '}
-          {Object.entries(POINTS)
-            .map(([l, p]) => `${p} (${l.toLowerCase()})`)
-            .join(', ')}
-          .
+        <div className="lvl-next-foot small muted">
+          <span className="mono">{from.toLocaleString()}</span>
+          <span>
+            About {Math.ceil(left / POINTS.INTERMEDIATE)} intermediate or {Math.ceil(left / POINTS.ADVANCED)} advanced problems
+          </span>
+          <span className="mono">{to.toLocaleString()}</span>
         </div>
       </div>
-      <Link to="/calm" className="btn btn-ghost btn-sm points-calm">
-        Need a pause? Calm Corner
-      </Link>
+
+      <div className="lvl-gains">
+        <div className={`lvl-gain${todayPts ? ' on' : ''}`}>
+          <span className="lvl-gain-value">{todayPts ? `+${todayPts}` : 0}</span>
+          <span className="small muted">today</span>
+        </div>
+        <div className={`lvl-gain${weekPts ? ' on' : ''}`}>
+          <span className="lvl-gain-value">{weekPts ? `+${weekPts}` : 0}</span>
+          <span className="small muted">this week</span>
+        </div>
+      </div>
+
+      <div className="lvl-ladder" aria-label={`Level ${level} of ${LEVEL_NAMES.length}`}>
+        {LEVEL_NAMES.map((n, i) => (
+          <span
+            key={n}
+            className={`lvl-step${i + 1 < level ? ' done' : i + 1 === level ? ' now' : ''}`}
+            title={`Level ${i + 1}: ${n}`}
+          />
+        ))}
+        <span className="lvl-ladder-text small muted">
+          {Object.entries(POINTS)
+            .map(([l, p]) => `${l[0]}${l.slice(1).toLowerCase()} ${p}`)
+            .join(' · ')}{' '}
+          points per solve
+        </span>
+      </div>
     </section>
   )
 }

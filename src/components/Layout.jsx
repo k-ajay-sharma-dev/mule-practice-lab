@@ -221,7 +221,7 @@ function PointsChip() {
   const { total, level, name, into, need } = usePoints()
   return (
     <Link
-      to="/"
+      to="/dashboard"
       className="points-chip"
       title={`${total} points · Level ${level}, ${name} · ${need - into} points to the next level`}
       aria-label={`${total} points, level ${level}`}

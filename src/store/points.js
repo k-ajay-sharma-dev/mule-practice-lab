@@ -18,7 +18,7 @@ export function levelOf(points) {
   return { level, name: LEVEL_NAMES[level - 1] ?? `Level ${level}`, from, to, into: points - from, need: to - from }
 }
 
-const LEVEL_NAMES = [
+export const LEVEL_NAMES = [
   'First Steps',
   'Curious Builder',
   'Flow Starter',

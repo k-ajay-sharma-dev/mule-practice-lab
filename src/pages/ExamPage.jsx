@@ -204,15 +204,14 @@ function Setup({ history, onStart, onHistory }) {
             ))}
           </select>
         </label>
-        <TimePicker value={minutes} onChange={setMinutes} suggested={count * MINUTES_PER_QUESTION} />
         <MultiPick label="Difficulty" options={LEVEL_OPTIONS} value={levels} onChange={setLevels} allLabel="Any level" />
         <MultiPick label="Focus" options={TRACK_OPTIONS} value={tracks} onChange={setTracks} />
+        <TimePicker value={minutes} onChange={setMinutes} suggested={count * MINUTES_PER_QUESTION} />
+        <label className="exam-details small muted">
+          <input type="checkbox" checked={details} onChange={(e) => setDetails(e.target.checked)} />
+          Include detail questions: exact limits, defaults and names you can only learn by reading the docs
+        </label>
       </div>
-
-      <label className="exam-details small muted">
-        <input type="checkbox" checked={details} onChange={(e) => setDetails(e.target.checked)} />
-        Include detail questions: exact limits, defaults and names you can only learn by reading the docs
-      </label>
 
       {poolSize === 0 && <p className="warn-text small">No quizzes match this focus and difficulty. Try a wider choice.</p>}
       {failed && <p className="warn-text small">Couldn't load the questions. Check your connection and try again.</p>}
