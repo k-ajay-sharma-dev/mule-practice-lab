@@ -578,8 +578,162 @@
   border-radius: 6px;
   background: #fff;
 }
+/* guided lab steps beside the page */
+.gh-body.with-guide {
+  grid-template-columns: 210px minmax(0, 1fr) 300px;
+}
+.gh-guide {
+  position: sticky;
+  top: 12px;
+  align-self: start;
+  display: grid;
+  gap: 8px;
+  max-height: calc(100vh - 90px);
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f6f8fa;
+}
+.gh-guide p {
+  margin: 0;
+}
+.gh-guide-head {
+  display: grid;
+  gap: 2px;
+}
+.gh-guide-head b {
+  font-size: 15px;
+}
+.gh-guide-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #d1d9e0;
+}
+.gh-guide-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #1f883d;
+  transition: width 0.4s ease;
+}
+.gh-guide-done {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid #4ac26b;
+  border-radius: 6px;
+  background: #dafbe1;
+}
+.gh-guide-done b {
+  color: #1a7f37;
+}
+.gh-todo {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.gh-todo li {
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+.gh-todo li.on {
+  border-color: #54aeff;
+  background: #fff;
+}
+.gh-todo button {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.gh-todo li.on button {
+  font-weight: 600;
+}
+.gh-todo li.done button span {
+  color: var(--muted);
+}
+.gh-todo button i {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid #8c959f;
+  border-radius: 50%;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+}
+.gh-todo li.on button i {
+  border-color: #0969da;
+  background: #0969da;
+  color: #fff;
+}
+.gh-todo li.done button i {
+  border-color: #1f883d;
+  background: #1f883d;
+  color: #fff;
+}
+.gh-todo-body {
+  display: grid;
+  gap: 6px;
+  padding: 0 10px 10px 36px;
+  font-size: 13px;
+}
+.gh-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+.gh-choice input {
+  margin-top: 3px;
+}
+.gh-choice.right {
+  border-color: #1f883d;
+  background: #dafbe1;
+}
+.gh-choice.wrong {
+  border-color: #d1242f;
+  background: #ffebe9;
+}
+.gh-good {
+  color: #1a7f37;
+}
+.gh-bad {
+  color: #d1242f;
+}
+@media (max-width: 1250px) {
+  .gh-body.with-guide {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+  .gh-body.with-guide .gh-guide {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    position: static;
+    max-height: none;
+  }
+}
+
 @media (max-width: 900px) {
-  .gh-body {
+  .gh-body,
+  .gh-body.with-guide {
     grid-template-columns: 1fr;
     padding: 16px;
   }

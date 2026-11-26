@@ -1,6 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { GUIDED_LABS, labById, runCheck } from '../../lab/labs.js'
 import { GROUPS, PLATFORM_LABS } from '../../lab/platform-labs.js'
+import { PIPELINE_LABS } from '../../lab/pipeline-labs.js'
+import PipelineScreen from './PipelineScreen.jsx'
 import { policyByType } from '../../lab/policies.js'
 import Assumed from './Assumed.jsx'
 import { AppsTab, NodesTab, PoliciesTab, TiersTab } from './ConfigTabs.jsx'
@@ -10,10 +12,12 @@ import { topologyOf } from '../../lab/engine.js'
 const PlatformLab = lazy(() => import('../anypoint/PlatformLab.jsx').then((m) => ({ default: m.PlatformLab })))
 
 const PROGRESS_KEY = 'pl.lab.guided'
-const ALL = [...PLATFORM_LABS, ...GUIDED_LABS]
+const ALL = [...PLATFORM_LABS, ...PIPELINE_LABS, ...GUIDED_LABS]
 const platformIds = new Set(PLATFORM_LABS.map((l) => l.id))
+const pipelineIds = new Set(PIPELINE_LABS.map((l) => l.id))
 const SECTIONS = [
   ...GROUPS.map((name) => [name, PLATFORM_LABS.filter((l) => l.group === name)]),
+  ['CI/CD with GitHub Actions', PIPELINE_LABS],
   ['Policies and quotas', GUIDED_LABS.filter((l) => l.kind !== 'runtime')],
   ['Deployments', GUIDED_LABS.filter((l) => l.kind === 'runtime')],
 ]
@@ -68,7 +72,7 @@ export default function GuidedLabsScreen() {
     return (
       <div className="lab-sections">
         <p className="muted small">
-          {solvedCount} of {ALL.length} solved. The first {GROUPS.length} groups run in the Anypoint console, with steps that tick off as you work.
+          {solvedCount} of {ALL.length} solved. The first {GROUPS.length} groups run in the Anypoint console and the CI/CD labs run on a GitHub Actions page, with steps that tick off as you work.
         </p>
         {SECTIONS.map(([name, labs]) => (
           <section key={name} aria-label={name}>
@@ -110,7 +114,9 @@ export default function GuidedLabsScreen() {
           Next lab
         </button>
       </div>
-      {platformIds.has(labId) ? (
+      {pipelineIds.has(labId) ? (
+        <PipelineScreen key={labId} guided={lab} solved={Boolean(progress.solved[labId])} onSolved={markSolved} />
+      ) : platformIds.has(labId) ? (
         <Suspense fallback={<p className="muted">Loading the console…</p>}>
           <PlatformLab key={labId} lab={lab} solved={Boolean(progress.solved[labId])} onSolved={markSolved} />
         </Suspense>

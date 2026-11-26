@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { pipelineLabDone, pipelineStepDone } from '../../lab/pipeline-labs.js'
 import { isSnapshot, versionsOf } from '../../lab/exchange.js'
 import {
   ASSET_ID,
@@ -32,23 +33,30 @@ import { LabOutcome } from './ExchangeScreen.jsx'
 import './exchange.css'
 
 const STATE_KEY = 'pl.lab.pipeline'
+const GUIDED_KEY = 'pl.lab.cicd' // the guided lab in progress, one at a time
 const TICK_MS = 900 // real time between two stages while a run plays
 const STATUS_TEXT = { pending: 'Waiting', passed: 'Passed', warned: 'Passed, check this', failed: 'Failed', skipped: 'Skipped' }
 
-function loadSaved() {
-  const fresh = { lab: newState(), config: newConfig() }
+const emptySeen = () => ({ views: [], jobs: [] })
+const freshFor = (guided) => ({ lab: newState(), config: { ...newConfig(), ...guided?.patch }, seen: emptySeen(), answers: {} })
+
+// The open pipeline and a guided lab keep separate saves, so a lab never changes the pipeline you built yourself.
+function loadSaved(guided) {
+  const fresh = freshFor(guided)
   try {
-    const saved = JSON.parse(localStorage.getItem(STATE_KEY))
-    const valid = saved?.lab?.envs?.Sandbox && saved.lab.envs.Production && Array.isArray(saved.lab.runs) && saved.lab.exchange && saved.config
-    return valid ? { lab: saved.lab, config: { ...newConfig(), ...saved.config } } : fresh
+    const saved = JSON.parse(localStorage.getItem(guided ? GUIDED_KEY : STATE_KEY))
+    const valid = saved?.lab?.envs?.Sandbox && saved.lab.envs.Production && Array.isArray(saved.lab.runs) && saved.lab.exchange && saved.config && (!guided || saved.id === guided.id)
+    if (!valid) return fresh
+    const seen = Array.isArray(saved.seen?.views) && Array.isArray(saved.seen?.jobs) ? saved.seen : emptySeen()
+    return { lab: saved.lab, config: { ...newConfig(), ...saved.config }, seen, answers: saved.answers ?? {} }
   } catch {
     return fresh
   }
 }
 
-function save(lab, config) {
+function save(guided, value) {
   try {
-    localStorage.setItem(STATE_KEY, JSON.stringify({ lab, config }))
+    localStorage.setItem(guided ? GUIDED_KEY : STATE_KEY, JSON.stringify(guided ? { id: guided.id, ...value } : { lab: value.lab, config: value.config }))
   } catch {
     // storage blocked: the pipeline lasts for this visit
   }
@@ -64,10 +72,13 @@ const SIDE = [
   ['promote', 'Promote API instance', 'arrow'],
 ]
 
-export default function PipelineScreen() {
-  const [saved] = useState(loadSaved)
+// `guided` is a lab from pipeline-labs.js: the screen then shows its steps beside the page.
+export default function PipelineScreen({ guided, solved, onSolved }) {
+  const [saved] = useState(() => loadSaved(guided))
   const [state, setState] = useState(saved.lab)
   const [config, setConfig] = useState(saved.config)
+  const [seen, setSeen] = useState(saved.seen)
+  const [answers, setAnswers] = useState(saved.answers)
   const [scenarioId, setScenarioId] = useState('')
   const [outcome, setOutcome] = useState(null)
   const [view, setView] = useState('runs')
@@ -75,8 +86,16 @@ export default function PipelineScreen() {
   const active = Boolean(running(state))
   const scenario = SCENARIOS.find((s) => s.id === scenarioId)
   const run = openRun === null ? null : state.runs.find((r) => r.id === openRun)
+  const ctx = { state, config, seen, answers }
+  const finished = Boolean(guided) && pipelineLabDone(guided, ctx)
 
-  useEffect(() => save(state, config), [state, config])
+  useEffect(() => save(guided, { lab: state, config, seen, answers }), [guided, state, config, seen, answers])
+
+  useEffect(() => {
+    if (finished && !solved) onSolved?.()
+  }, [finished, solved, onSolved])
+
+  const note = useCallback((kind, key) => setSeen((s) => (s[kind].includes(key) ? s : { ...s, [kind]: [...s[kind], key] })), [])
 
   useEffect(() => {
     if (!active) return undefined
@@ -105,8 +124,11 @@ export default function PipelineScreen() {
   }
 
   function reset() {
-    setState(newState())
-    setConfig(newConfig())
+    const fresh = freshFor(guided)
+    setState(fresh.lab)
+    setConfig(fresh.config)
+    setSeen(fresh.seen)
+    setAnswers(fresh.answers)
     setScenarioId('')
     setOutcome(null)
     setOpenRun(null)
@@ -117,6 +139,7 @@ export default function PipelineScreen() {
     setView(key)
     setOpenRun(null)
     setOutcome(null)
+    note('views', key)
   }
 
   return (
@@ -129,7 +152,7 @@ export default function PipelineScreen() {
           <b>orders-papi</b>
           <span className="gh-pill">Private</span>
           <button className="gh-btn gh-btn-sm gh-reset" onClick={reset}>
-            Reset lab
+            {guided ? 'Restart this lab' : 'Reset lab'}
           </button>
         </div>
         <nav className="gh-tabs" aria-label="Repository">
@@ -148,7 +171,7 @@ export default function PipelineScreen() {
         </nav>
       </header>
 
-      <div className="gh-body">
+      <div className={`gh-body${guided ? ' with-guide' : ''}`}>
         <aside className="gh-side" aria-label="Actions">
           <div className="gh-side-title">Actions</div>
           {SIDE.slice(0, 1).map(([key, label, icon]) => (
@@ -170,6 +193,7 @@ export default function PipelineScreen() {
               active={active && run === state.runs[0]}
               onBack={() => setOpenRun(null)}
               onSkip={() => setState(settle(state))}
+              onSeen={(job) => note('jobs', job)}
             />
           )}
 
@@ -186,6 +210,9 @@ export default function PipelineScreen() {
                   This workflow has a <code>workflow_dispatch</code> event trigger.
                 </span>
                 <div className="gh-dispatch-row">
+                  {guided ? (
+                    <span className="gh-field gh-dim">The lab has set the options for this exercise.</span>
+                  ) : (
                   <label className="gh-field">
                     <span>Exercise</span>
                     <select className="gh-input" value={scenarioId} onChange={(e) => chooseScenario(e.target.value)}>
@@ -198,7 +225,8 @@ export default function PipelineScreen() {
                       ))}
                     </select>
                   </label>
-                  {scenario && (
+                  )}
+                  {scenario && !guided && (
                     <button className="gh-btn" onClick={() => setConfig({ ...config, ...scenario.fix })} disabled={active}>
                       Apply the fix
                     </button>
@@ -215,7 +243,9 @@ export default function PipelineScreen() {
           {view === 'options' && (
             <section className="gh-box gh-pad" aria-label="Pipeline options">
               <h2 className="gh-h">Workflow options</h2>
-              <p className="gh-dim small">What the next run of release.yml uses. Pick an exercise on the runs page to load its options.</p>
+              <p className="gh-dim small">
+                What the next run of release.yml uses.{guided ? '' : ' Pick an exercise on the runs page to load its options.'}
+              </p>
               <Options config={config} onChange={setConfig} />
             </section>
           )}
@@ -242,6 +272,15 @@ export default function PipelineScreen() {
 
           {view === 'promote' && <Promotion state={state} onPromote={(input) => apply(promoteInstance(state, input))} />}
         </main>
+
+        {guided && (
+          <LabSteps
+            lab={guided}
+            ctx={ctx}
+            finished={finished}
+            onAnswer={(i, value) => setAnswers((a) => ({ ...a, [i]: value }))}
+          />
+        )}
       </div>
     </div>
   )
@@ -269,7 +308,7 @@ function RunList({ runs, onOpen }) {
         <div className="gh-empty">
           <Icon name="workflow" />
           <b>There are no workflow runs yet.</b>
-          <span className="gh-dim">Pick an exercise or set the options, then press Run workflow.</span>
+          <span className="gh-dim">Press Run workflow to start the first run.</span>
         </div>
       )}
       {runs.map((r) => (
@@ -289,13 +328,20 @@ function RunList({ runs, onOpen }) {
   )
 }
 
-function RunPage({ run, active, onBack, onSkip }) {
+function RunPage({ run, active, onBack, onSkip, onSeen }) {
   const [picked, setPicked] = useState(null)
   const stages = run.stages
   const notable = [...stages].reverse().find((s) => s.status === 'failed' || s.status === 'warned')
   const latest = [...stages].reverse().find((s) => s.status !== 'pending' && s.status !== 'skipped')
   const shown = stages.find((s) => s.id === picked) ?? notable ?? latest ?? stages[0]
   const status = runStatus(run)
+  const shownId = shown?.id
+  const shownDone = shown && shown.status !== 'pending' && shown.status !== 'skipped'
+
+  // a guided lab counts a job log as read once it is on screen with output
+  useEffect(() => {
+    if (shownDone) onSeen?.(shownId)
+  }, [shownId, shownDone, onSeen])
 
   return (
     <>
@@ -459,6 +505,76 @@ function Icon({ name }) {
     <svg className="gh-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
       <path d={ICONS[name]} />
     </svg>
+  )
+}
+
+// The steps of a guided lab, beside the page. Each step ticks off when the pipeline shows it was done.
+function LabSteps({ lab, ctx, finished, onAnswer }) {
+  const done = lab.steps.map((s, i) => pipelineStepDone(s, i, ctx))
+  const current = done.indexOf(false)
+  const [open, setOpen] = useState(null)
+  const shown = open ?? current
+  const count = done.filter(Boolean).length
+  const box = useRef(null)
+
+  useEffect(() => {
+    setOpen(null)
+    const step = box.current?.querySelector('[aria-current="step"]')
+    if (box.current) box.current.scrollTop = step && current > 0 ? step.offsetTop - 70 : 0
+  }, [current])
+
+  return (
+    <aside ref={box} className="gh-guide" aria-label="Lab steps">
+      <div className="gh-guide-head">
+        <span className="gh-dim small">Guided lab</span>
+        <b>{lab.title}</b>
+      </div>
+      <p className="small">{lab.scenario}</p>
+      <div className="gh-guide-bar" role="progressbar" aria-valuemin={0} aria-valuemax={done.length} aria-valuenow={count} aria-label="Steps done">
+        <i style={{ width: `${(count / done.length) * 100}%` }} />
+      </div>
+      <span className="gh-dim small">
+        {count} of {done.length} steps
+      </span>
+      {finished && (
+        <div className="gh-guide-done" role="status">
+          <b>Lab solved</b>
+          <p className="small">{lab.why}</p>
+          <a href={lab.docs} target="_blank" rel="noreferrer" className="small">
+            Docs
+          </a>
+        </div>
+      )}
+      <ol className="gh-todo">
+        {lab.steps.map((s, i) => (
+          <li key={i} className={done[i] ? 'done' : i === current ? 'on' : ''} aria-current={i === current ? 'step' : undefined}>
+            <button type="button" aria-expanded={shown === i} onClick={() => setOpen(shown === i ? -1 : i)}>
+              <i>{done[i] ? '✓' : i + 1}</i>
+              <span>{s.title}</span>
+            </button>
+            {shown === i &&
+              (s.ask ? (
+                <div className="gh-todo-body">
+                  <p>{s.ask}</p>
+                  {s.options.map((o, j) => (
+                    <label key={o} className={`gh-choice${ctx.answers[i] === j ? (j === s.right ? ' right' : ' wrong') : ''}`}>
+                      <input type="radio" name={`${lab.id}-q${i}`} checked={ctx.answers[i] === j} onChange={() => onAnswer(i, j)} />
+                      <span>{o}</span>
+                    </label>
+                  ))}
+                  {ctx.answers[i] !== undefined && (
+                    <p className={ctx.answers[i] === s.right ? 'gh-good' : 'gh-bad'}>{ctx.answers[i] === s.right ? s.reason : 'Not this one. Look again and choose another.'}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="gh-todo-body">
+                  <p>{s.how}</p>
+                </div>
+              ))}
+          </li>
+        ))}
+      </ol>
+    </aside>
   )
 }
 
