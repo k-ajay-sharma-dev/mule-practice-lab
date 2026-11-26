@@ -19,7 +19,7 @@ import { saveProblem } from '../study/recording.js'
 import { useSyncStatus } from '../sync/status.js'
 
 // Timed spoken practice on interview follow-ups: answer out loud against the clock, then compare and rate honestly.
-// Ratings share the flashcard boxes, so a miss also shows up in Flashcards, Review and Weak Areas.
+// Ratings share the flashcard boxes, so a miss also shows up in Flashcards, Review and Weak Spots.
 const HISTORY_KEY = 'pl.interview.history'
 const MAX_HISTORY = 30
 const LOW_SECONDS = 10

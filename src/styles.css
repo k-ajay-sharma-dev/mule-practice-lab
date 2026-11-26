@@ -284,6 +284,10 @@ h3 {
   justify-content: center;
   padding-inline: 0;
 }
+.side-badge.side-badge-warn {
+  background: var(--warning);
+  color: #1a1200;
+}
 .sidebar-collapsed .side-badge {
   position: absolute;
   top: 2px;

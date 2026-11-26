@@ -1,5 +1,7 @@
 import { fitsQuestion, grade, initialResponse, isAnswered } from '../../quiz/quiz.js'
+import { Link } from 'react-router-dom'
 import { scheduleReview, updateEntry, useEntry, workedStatus } from '../../store/progress.js'
+import { recordAnswers } from '../../store/wrong.js'
 import QuestionCard from './QuestionCard.jsx'
 
 // Runs a list of auto-graded questions, optionally preceded by a "pick the relevant log lines" step.
@@ -32,7 +34,9 @@ export default function QuizRunner({ problem, questions, logs, intro }) {
       status: allRight ? 'solved' : workedStatus(problem.id),
     }, { graded: allRight })
     if (!allRight) scheduleReview(problem.id) // missed questions come back for review
+    recordAnswers(questions.map((q, i) => ({ pid: problem.id, qi: i, q, ok: results[i] })))
   }
+  const missed = results.filter((ok) => !ok).length
 
   function retry() {
     // keep the right answers, clear the wrong ones; a written logger stays, so it can be fixed rather than retyped
@@ -101,6 +105,11 @@ export default function QuizRunner({ problem, questions, logs, intro }) {
               <button className="btn btn-primary" onClick={retry}>
                 Try the wrong ones again
               </button>
+            )}
+            {missed > 0 && (
+              <span className="muted small quiz-weak-note">
+                {missed === 1 ? '1 question' : `${missed} questions`} saved to <Link to="/weak-spots">Weak Spots</Link>
+              </span>
             )}
             {score === total && (
               <button className="btn btn-ghost" onClick={() => save({ submitted: false, responses: {}, logs: [] })}>

@@ -8,6 +8,7 @@ import useRemaining from '../components/useRemaining.js'
 import MultiPick from '../components/MultiPick.jsx'
 import TimePicker from '../components/TimePicker.jsx'
 import { loadProblems, problemById, problems } from '../data/problems.js'
+import { recordAnswers } from '../store/wrong.js'
 import { TRACK_OPTIONS, trackLists, trackProblems, TRACKS, tracksLabel } from '../data/tracks.js'
 import {
   chooseQuestions,
@@ -101,6 +102,7 @@ export default function ExamPage() {
     const items = session.items.filter(questionOf)
     const results = scoreExam(items, session.responses, questionOf)
     missedProblems(results).forEach((id) => scheduleReview(id))
+    recordAnswers(results.filter((r) => r.answered).map((r) => ({ pid: r.id, qi: r.q, q: questionOf(r), ok: r.ok })))
     const { correct, total, pct, passed } = examSummary(results)
     const entry = { date: finishedIso, focus: session.focus, correct, total, pct, passed, results: results.map(({ id, q, ok, answered }) => ({ id, q, ok, answered })) }
     const next = [entry, ...history].slice(0, MAX_HISTORY)
@@ -370,7 +372,7 @@ function Result({ session, questionOf, loaded, onClose, onDelete, onRetake }) {
       <p className="muted">
         {minutesUsed} of {session.minutes} minutes used.
         {skipped > 0 && ` ${skipped} left unanswered.`}
-        {missedProblems(session.results).length > 0 && ' Problems behind your wrong answers are now on your review schedule.'}
+        {missedProblems(session.results).length > 0 && ' Your wrong answers are saved to Weak Spots, and their problems are on your review schedule.'}
       </p>
 
       {topics.length > 0 && (

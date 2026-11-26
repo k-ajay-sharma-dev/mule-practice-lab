@@ -144,7 +144,7 @@ export default function ReadinessPage() {
             retakes of missed questions.
           </li>
           <li>
-            Your weakest topics by misses are on <Link to="/weak-areas">Weak Areas</Link>.
+            Your weakest topics by misses are on <Link to="/weak-spots">Weak Spots</Link>.
           </li>
         </ul>
       </details>

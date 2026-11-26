@@ -7,6 +7,7 @@ import { statusOf, todayKey, useProgress, useReview } from '../store/progress.js
 import { LevelBadge, StatusBadge } from '../components/Badges.jsx'
 import Pagination, { paginate } from '../components/Pagination.jsx'
 import TodayPlan from '../components/TodayPlan.jsx'
+import { promptText, rankWrong, useWrong } from '../store/wrong.js'
 import { signIn, useSyncStatus } from '../sync/status.js'
 
 const PHASE_PAGE_SIZE = 10
@@ -40,11 +41,12 @@ function lastWorked(progress) {
 const ICONS = {
   path: 'M4 19h4l3-7 3 4 6-10M17 6h3v3',
   resume: 'M12 8v4l3 2M21 12a9 9 0 1 1-3-6.7M21 4v5h-5',
+  weak: 'M12 3l9 16H3zM12 10v4M12 17h.01',
 }
 
-function NextCard({ icon, label, target, meta, action }) {
+function NextCard({ icon, label, target, title, meta, action, to, tone }) {
   return (
-    <Link to={`/${target.category}/${target.id}`} className="next-card">
+    <Link to={to ?? `/${target.category}/${target.id}`} className={`next-card${tone ? ` next-${tone}` : ''}`}>
       <span className="next-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d={ICONS[icon]} />
@@ -52,7 +54,7 @@ function NextCard({ icon, label, target, meta, action }) {
       </span>
       <span className="next-body">
         <span className="stat-label">{label}</span>
-        <span className="next-title">{target.title}</span>
+        <span className="next-title">{title ?? target.title}</span>
         <span className="muted small next-meta">{meta}</span>
       </span>
       <span className="btn btn-primary next-go">{action} →</span>
@@ -96,6 +98,8 @@ export default function DashboardPage() {
   const activePhase = currentStage(phases)
   const nextUp = activePhase?.list.find((p) => !isSolved(p))
   const resume = lastWorked(progress)
+  const wrong = useWrong().filter((w) => problemById.has(w.pid))
+  const weakest = rankWrong(wrong)[0]
 
   // any section and any level; when everything is solved, any problem at all
   function openRandom() {
@@ -167,8 +171,19 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {(nextUp || resume) && (
+      {(nextUp || resume || weakest) && (
         <section className="next-row">
+          {weakest && (
+            <NextCard
+              icon="weak"
+              tone="warn"
+              label={`Weak spot · ${wrong.length} wrong ${wrong.length === 1 ? 'answer' : 'answers'}`}
+              title={promptText(weakest.p)}
+              meta={`${problemById.get(weakest.pid)?.title ?? ''} · ${weakest.misses} ${weakest.misses === 1 ? 'miss' : 'misses'}`}
+              action="Retry"
+              to="/weak-spots"
+            />
+          )}
           {nextUp && (
             <NextCard
               icon="path"

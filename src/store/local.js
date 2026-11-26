@@ -21,6 +21,7 @@ export const BACKUP_KEYS = [
   'pl.focus.goal',
   'pl.logging',
   'pl.mistakes',
+  'pl.wrong',
   'pl.stories',
 ]
 

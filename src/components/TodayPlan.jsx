@@ -8,6 +8,7 @@ import { readMocks, weakAreaReport } from '../data/weakAreas.js'
 import { loadBoxes } from '../store/flash.js'
 import { beginFocus, readFocusGoal, readFocusHistory, saveFocusGoal, useFocusSession } from '../store/focus.js'
 import { writeLocal } from '../store/local.js'
+import { readWrong } from '../store/wrong.js'
 import { statusOf, todayKey, useProgress, useReview } from '../store/progress.js'
 import { solvedByCategory } from './FocusSession.jsx'
 import { FOCUS_GOALS, FOCUS_MINUTES, focusStreak, sessionsOn } from '../study/focus.js'
@@ -46,7 +47,7 @@ function candidates({ progress, review, today }) {
     .sort(([, a], [, b]) => a.due.localeCompare(b.due))
     .map(([id, r]) => candidate(problemById.get(id), dueNote(r.due, today)))
 
-  const report = weakAreaReport({ progress, review, boxes: loadBoxes(), mocks: readMocks() })
+  const report = weakAreaReport({ progress, review, boxes: loadBoxes(), mocks: readMocks(), wrong: readWrong() })
   const weak = report.weak
     .slice(0, WEAK_TOPICS)
     .flatMap((t) => trackProblems(t.track).filter(open).slice(0, WEAK_PER_TOPIC).map((p) => candidate(p, t.track.title)))

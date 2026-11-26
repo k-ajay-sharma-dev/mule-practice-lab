@@ -8,8 +8,9 @@ import { isDesign, rebuilt, sawAnswer, topHint } from '../study/independence.js'
 // interview, or you missed one of its cards (box 1). Each reason adds to its weight, so repeat misses rank first.
 // A design problem also needs work while its answer was seen and not yet rebuilt from memory, or when it took the
 // last hint (one piece of the model answer), even if it is solved.
-const WEIGHTS = { revisit: 3, review: 2, mock: 2, card: 1, answer: 2, hint: 1 }
+const WEIGHTS = { revisit: 3, review: 2, mock: 2, card: 1, answer: 2, hint: 1, quiz: 2 }
 const REASONS = {
+  quiz: 'Wrong quiz answer',
   revisit: 'Marked Revisit',
   review: 'On review',
   mock: 'Missed in mock',
@@ -29,7 +30,7 @@ export function readMocks() {
   }
 }
 
-function collectSignals({ progress, review, boxes, mocks }) {
+function collectSignals({ progress, review, boxes, mocks, wrong = [] }) {
   const signals = new Map() // id -> { weight, reasons: Set }
   const add = (id, reason, times = 1) => {
     if (!problemById.has(id)) return
@@ -58,6 +59,11 @@ function collectSignals({ progress, review, boxes, mocks }) {
     missedCards.set(id, (missedCards.get(id) ?? 0) + 1)
   }
   for (const [id, n] of missedCards) add(id, 'card', Math.min(n, MAX_CARDS))
+
+  // each wrong question counts, up to the same cap as cards
+  const wrongPer = new Map()
+  for (const w of wrong) wrongPer.set(w.pid, (wrongPer.get(w.pid) ?? 0) + 1)
+  for (const [id, n] of wrongPer) add(id, 'quiz', Math.min(n, MAX_CARDS))
   return signals
 }
 

@@ -8,6 +8,7 @@ import { useFocusSession } from '../store/focus.js'
 import { readOriginScroll, rememberOrigin, saveOriginScroll } from '../store/origin.js'
 import { statusOf, todayKey, useProgress, useReview } from '../store/progress.js'
 import { usePoints } from '../store/points.js'
+import { useWrong } from '../store/wrong.js'
 import Celebration from './Celebration.jsx'
 import { FocusBar, FocusSummary } from './FocusSession.jsx'
 import NavIcon from './NavIcons.jsx'
@@ -238,6 +239,7 @@ function Sidebar({ collapsed, onToggle, onClose }) {
   const progress = useProgress()
   const today = todayKey()
   const dueCount = Object.entries(review).filter(([id, r]) => r.due <= today && problemById.has(id)).length
+  const wrongCount = useWrong().filter((w) => problemById.has(w.pid)).length
   const { pathname } = useLocation()
   const [moreOpen, setMoreOpen] = useState(() => {
     try {
@@ -289,8 +291,7 @@ function Sidebar({ collapsed, onToggle, onClose }) {
           {item('/review', 'review', 'Review', dueCount > 0 && <span className="side-badge">{dueCount}</span>)}
           {item('/mock', 'mock', 'Mock Interview')}
           {item('/exam', 'exam', 'Practice Exam')}
-          {item('/weak-areas', 'weak', 'Weak Areas')}
-          {item('/mistakes', 'mistakes', 'Mistakes')}
+          {item('/weak-spots', 'weak', 'Weak Spots', wrongCount > 0 && <span className="side-badge side-badge-warn">{wrongCount}</span>)}
         </div>
         <div className="side-group">
           <div className="side-group-title">Practice</div>

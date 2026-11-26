@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { HashRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import Layout from './components/Layout.jsx'
 import CategoryPage from './pages/CategoryPage.jsx'
@@ -17,8 +17,7 @@ const FlashcardsPage = lazy(() => import('./pages/FlashcardsPage.jsx'))
 const MockInterviewPage = lazy(() => import('./pages/MockInterviewPage.jsx'))
 const ExamPage = lazy(() => import('./pages/ExamPage.jsx'))
 const InterviewPage = lazy(() => import('./pages/InterviewPage.jsx'))
-const WeakAreasPage = lazy(() => import('./pages/WeakAreasPage.jsx'))
-const MistakesPage = lazy(() => import('./pages/MistakesPage.jsx'))
+const WeakSpotsPage = lazy(() => import('./pages/WeakSpotsPage.jsx'))
 const ProgressDashboardPage = lazy(() => import('./pages/ProgressDashboardPage.jsx'))
 const ReadinessPage = lazy(() => import('./pages/ReadinessPage.jsx'))
 const CheatSheetsPage = lazy(() => import('./pages/CheatSheetsPage.jsx'))
@@ -54,8 +53,10 @@ export default function App() {
               <Route path="/mock" element={<MockInterviewPage />} />
               <Route path="/exam" element={<ExamPage />} />
               <Route path="/interview" element={<InterviewPage />} />
-              <Route path="/weak-areas" element={<WeakAreasPage />} />
-              <Route path="/mistakes" element={<MistakesPage />} />
+              <Route path="/weak-spots" element={<WeakSpotsPage />} />
+              {/* the two pages this one replaced, for old bookmarks */}
+              <Route path="/weak-areas" element={<Navigate to="/weak-spots" replace />} />
+              <Route path="/mistakes" element={<Navigate to="/weak-spots" replace />} />
               <Route path="/dashboard" element={<ProgressDashboardPage />} />
               <Route path="/readiness" element={<ReadinessPage />} />
               <Route path="/cheatsheets" element={<CheatSheetsPage />} />
