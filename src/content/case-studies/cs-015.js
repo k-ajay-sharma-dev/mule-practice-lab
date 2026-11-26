@@ -62,13 +62,13 @@ export default {
       needsScenario: true,
       prompt: 'How do you cut over a shipment-tracking app without downtime?',
       options: [
-        'Run Mule 4 alongside, compare outputs, then switch with a tested rollback',
-        'Swap Mule 3 for Mule 4 in one maintenance window and redeploy Mule 3 if it fails',
-        'Point consumers at the Mule 4 version one by one, the least critical first',
-        'Migrate all 15 tracking apps together in one well-rehearsed weekend',
+        'Run Mule 4 beside Mule 3 on replayed messages, compare outputs, then switch traffic with a rehearsed rollback',
+        'Run Mule 4 beside Mule 3 on replayed messages, compare outputs, then switch and undeploy Mule 3 the same hour',
+        'Run Mule 4 beside Mule 3 with both on live traffic, compare outputs, then retire Mule 3 after a rollback period',
+        'Switch to Mule 4 in a short window at the quietest hour, with Mule 3 still deployed and a rehearsed switch back',
       ],
       answer: 0,
-      explain: 'A parallel run with replayed messages or a slice of traffic, plus a rehearsed rollback, removes the risk of a one-way switch. A maintenance window is downtime, and an untested redeploy is not a rollback. Moving consumers one by one limits the blast radius, but with no output comparison the differences are found by consumers in production. Big-bang migration of all critical apps concentrates risk exactly where downtime is not allowed.',
+      explain: 'Replayed messages let you compare outputs with no effect on real shipments, and a rehearsed rollback removes the risk of a one-way switch. Undeploying Mule 3 right after the switch removes the rollback path when a difference shows up later. Both versions on live traffic process each message twice, so updates and notifications go out twice. A short window at a quiet hour is still downtime, which this app cannot have.',
     },
     {
       type: 'single',

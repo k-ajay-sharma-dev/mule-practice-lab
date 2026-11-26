@@ -47,8 +47,8 @@ Expert questions look at how the engine runs a script: which expressions actuall
       head: 'import try, orElse from dw::Runtime',
       body: 'try(() -> "x" as Number) orElse -1',
       right: '-1',
-      wrong: ['null', '"x"', FAILS],
-      explain: '`orElse` takes the result of `try` and gives the fallback when it failed. It gives the real value when it succeeded.',
+      wrong: ['{"success": false, "result": -1}', '"x"', FAILS],
+      explain: '`orElse` takes the result of `try` and gives the fallback when it failed. It gives the real value when it succeeded. It returns the value itself, not a result object. `try` catches the failed coercion, so the script does not fail, and the input "x" is not passed through.',
     }),
     out({
       body: '[1, 2, 3] filter ($ > 1) then sizeOf($)',

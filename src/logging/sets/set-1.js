@@ -1003,13 +1003,13 @@ export const SET_1 = [
       'A Transform in the Payments Process API failed with MULE:EXPRESSION because beneficiary.bankCode was null and the script did not expect it. The API answers 500. Which line is best?',
     options: [
       'Payment mapping failed paymentId=PM-90215 errorType=MULE:EXPRESSION field=beneficiary.bankCode error=Cannot coerce Null (null) to String status=500 correlationId=61d8ab',
-      'Payment mapping failed paymentId=PM-90215 errorType=MULE:EXPRESSION error=Cannot coerce Null (null) to String status=400 correlationId=61d8ab',
-      'Payment mapping failed paymentId=PM-90215 errorType=MULE:TRANSFORMATION error=Cannot coerce Null (null) to String status=500 correlationId=61d8ab',
-      'Payment mapping failed paymentId=PM-90215 errorType=MULE:EXPRESSION status=500 correlationId=61d8ab',
+      'Payment mapping failed paymentId=PM-90215 errorType=MULE:EXPRESSION field=beneficiary.bankCode error=Cannot coerce Null (null) to String status=400 correlationId=61d8ab',
+      'Payment mapping failed paymentId=PM-90215 errorType=MULE:TRANSFORMATION field=beneficiary.bankCode error=Cannot coerce Null (null) to String status=500 correlationId=61d8ab',
+      'Payment mapping failed paymentId=PM-90215 errorType=MULE:EXPRESSION field=beneficiary.bankCode error=Cannot coerce Null (null) to String status=500 next=retry in 60s correlationId=61d8ab',
     ],
     answer: 0,
     explain:
-      'error.description from DataWeave says what was null, so a developer can fix the script, and the status is the 500 the API sends. status=400 blames the caller when the fault is in the script, and it does not match what the API answered. A failed DataWeave script raises MULE:EXPRESSION, so MULE:TRANSFORMATION names an error that did not happen and a search on the real type misses the line. Without the description, a developer has to reproduce the call to learn which field was null.',
+      'The field and error.description say what was null, so a developer can fix the script, and the status is the 500 the API sends. status=400 blames the caller when the fault is in the script, and it does not match what the API answered. A failed DataWeave script raises MULE:EXPRESSION, so MULE:TRANSFORMATION names an error that did not happen and a search on the real type misses the line. A retry runs the same script on the same data and fails the same way, so next=retry in 60s sends support the wrong way.',
   },
   {
     id: 'log-1063',

@@ -50,13 +50,13 @@ export default {
       needsScenario: true,
       prompt: 'exp-mobile-api has campaign spikes. Vertical or horizontal scaling?',
       options: [
-        'Vertical: one large replica',
-        'Horizontal: more replicas during campaigns, scaled back afterwards',
-        'Neither: rate limit the campaign traffic at the gateway',
-        'Vertical first, then add replicas only if CPU stays high',
+        'Vertical: one larger replica for the spike, sized back down when it ends',
+        'Horizontal: add replicas for the spike, then go back to the usual count',
+        'Neither: a rate limit at the gateway that holds the spike to current capacity',
+        'Horizontal: add replicas for the first spike, and keep them for the next one',
       ],
       answer: 1,
-      explain: 'More replicas add capacity and resilience and can be removed after the campaign. One large replica is still a single point of failure, and a bigger size gives less extra capacity for the money.',
+      explain: 'Extra replicas add capacity and resilience for the spike, and removing them afterwards keeps the spend down. One larger replica is a single point of failure at the busiest time. A rate limit turns away real customers when the business most wants them served. Keeping the extra replicas between spikes pays for idle capacity, which works against the 40% cut finance wants.',
     },
     {
       type: 'single',

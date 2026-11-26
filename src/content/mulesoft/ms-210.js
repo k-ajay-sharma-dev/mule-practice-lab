@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'A retail support flow sends customer messages to an LLM (large language model, an AI model that reads and writes text). Abusive messages must never reach the LLM. Where does `[Toxicity] Detection by Text` belong?',
       options: [
-        'After the LLM call, scoring the customer message once the reply has come back',
+        'Before the LLM call, inside an Async scope, so the check adds no time to the reply',
         'Before the LLM call, with a Choice that stops the message when it is flagged',
-        'In a scheduled flow that scores all of the stored messages once a day',
-        'After the LLM call, scoring the reply in place of the customer message',
+        'Before the LLM call, with a Logger that writes the score so flagged messages are reviewed',
+        'After the LLM call, on the reply, with a Choice that drops the reply when it is flagged',
       ],
       answer: 1,
-      explain: 'Toxic input detection blocks harmful user input before it is sent to the LLM. The check has to run first, and the flow has to act on its result. A check after the call is too late for this goal.',
+      explain: 'The check has to run before the call, and the flow has to act on its result, so a Choice stops a flagged message. In an Async scope the flow does not wait for the score, so the message is already on its way to the LLM. A Logger records the score but lets the message through. Checking the reply blocks bad output, but the abusive message has already reached the LLM.',
     },
     {
       type: 'single',

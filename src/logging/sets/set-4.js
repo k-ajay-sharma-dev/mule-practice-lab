@@ -963,14 +963,14 @@ export const SET_4 = [
     situation: 'Pick every true statement about logging a Salesforce Bulk API job.',
     options: [
       'Log the job ID when the job is created, so it can be found in Salesforce under Bulk Data Load Jobs',
-      'Log every record of the job at INFO, so a failed row can be found later',
+      'A job in state JobComplete loaded all its records, so one INFO line with the job ID is enough',
       'Log each poll of the job state at DEBUG and the final state at INFO or WARN',
       'A job in state Failed or Aborted needs an ERROR line with the job ID and the reason',
-      'The job ID changes each time the job state is polled, so log it only at the end',
+      'Log the job ID once, when the job reaches its final state, so each job has one line',
     ],
     answers: [0, 2, 3],
     explain:
-      'The job ID is the key to everything Salesforce knows about the job, including the failed rows. Per-record lines for 400,000 records would bury the log.',
+      'The job ID is the key to everything Salesforce knows about the job, including the failed rows, so log it as soon as the job exists. JobComplete means Salesforce finished processing, not that every record loaded: log numberRecordsFailed and use WARN when it is above 0. If the flow stops or times out while polling, a job ID logged only at the final state is never written, and the job cannot be found.',
   },
   {
     id: 'log-4060',

@@ -23,13 +23,13 @@ export default {
       detail: true,
       prompt: 'The Order System API needs a breaking change. How is v2 published?',
       options: [
-        'As a new Exchange asset called sys-sap-order-api-v2',
-        'As major version 2.0.0 of the same asset, with /api/v2 in the base path',
-        'As version 1.5.0 of the same asset, with a changelog note',
-        'By adding a `version` query parameter',
+        'As version 1.0.0 of a new asset sys-sap-order-api-v2, with /api/v2 in the base path',
+        'As version 2.0.0 of the same asset, with /api/v2 in the base path',
+        'As version 1.5.0 of the same asset, with /api/v2 in the base path for new consumers',
+        'As version 2.0.0 of the same asset, keeping /api/v1 in the base path so URLs stay the same',
       ],
       answer: 1,
-      explain: 'Semantic versioning on one asset keeps history and consumers together; the major version appears in the base path.',
+      explain: 'Semantic versioning on one asset keeps history and consumers together, a change that breaks callers raises the first number, and that number appears in the base path. A new asset for v2 splits the history and the consumer list in Exchange. Version 1.5.0 tells consumers the change is safe for them when it is not. Keeping /api/v1 sends v1 callers to the new contract and stops both versions running side by side.',
     },
     {
       type: 'single',

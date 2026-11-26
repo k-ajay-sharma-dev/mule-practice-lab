@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'The apps need a VPN to the data centre, custom certificates and custom domains. What CloudHub 2.0 target do you choose?',
       options: [
-        'A private space with a VPN, and ingress set up for the domains and TLS',
-        'The shared space, with the VPN and certificates added to each app',
-        'The shared space behind a new Dedicated Load Balancer, as on CloudHub 1.0',
-        'A private space for the VPN, with each app keeping its own public URL',
+        'A private space with a VPN to the data centre, and the domains and certificates in a TLS context on its ingress',
+        'The shared space with a VPN added to the environment, and the domains and certificates set on each app',
+        'A private space with a VPN to the data centre, and a Dedicated Load Balancer in front for the domains and TLS',
+        'A private space with the domains and TLS on its ingress, and a VPN set in the deployment settings of each app',
       ],
       answer: 0,
-      explain: 'Private connectivity (VPN) and custom ingress need a private space. The shared space cannot connect to the data centre. The CloudHub 1.0 DLB does not exist in CloudHub 2.0; its job moves to private space ingress, which is also where the custom domains and certificates go.',
+      explain: 'A private space gives private connectivity, and its ingress holds the custom domains and certificates in a TLS context, which replaces the DLB. The shared space has no VPN, so the apps there cannot reach the data centre. The Dedicated Load Balancer is a CloudHub 1.0 feature that does not exist in CloudHub 2.0. A VPN belongs to the private space network, not to the deployment settings of an app.',
     },
     {
       type: 'match',

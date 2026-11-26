@@ -47,13 +47,13 @@ export default {
       type: 'single',
       prompt: 'Where should the row count of a large file be logged?',
       options: [
-        'Before reading the file, from a quick count of its lines',
-        'At the end, from a step that counts while it processes, such as the writer',
-        'In every step, so support can follow progress through the flow',
-        'Only in the error handler, since a good run needs no row count',
+        'At the start, from a pass that counts the lines before the flow processes them',
+        'At the end, from the count the writer or the batch job result already holds',
+        'After each step, from sizeOf(payload), so support can follow the progress',
+        'At the start, from the file size in the attributes divided by the average row size',
       ],
       answer: 1,
-      explain: 'The batch job result also has counts. Count once, while the data flows past.',
+      explain: 'Count once, while the data flows past: the writer or the batch job result already has the number. A counting pass at the start reads the whole file one extra time. sizeOf(payload) after each step reads the stream again each time. Size divided by an average row size is an estimate, not a count, so it cannot show that rows were lost.',
     },
     {
       type: 'single',
