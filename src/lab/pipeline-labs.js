@@ -14,6 +14,12 @@ const failedAt = (s, id) => someRun(s, (r) => stageIn(r, id)?.status === 'failed
 const passedAt = (s, id) => someRun(s, (r) => stageIn(r, id)?.status === 'passed')
 const sawView = (ctx, view) => ctx.seen.views.includes(view)
 const sawJob = (ctx, job) => ctx.seen.jobs.includes(job)
+// runs to Harbor's own servers: an issue code from pipeline.js, or a deploy that passed through Runtime Manager
+const failedWith = (s, code) => someRun(s, (r) => r.stages.some((st) => st.issues.some((i) => i.code === code)))
+const hybridPassed = (s, envName, test = () => true) => someRun(s, (r) => r.config.deployTarget === 'hybrid' && stageIn(r, envName)?.status === 'passed' && test(r))
+const targetOf = (s, envName, name) => s.envs[envName].targets?.find((t) => t.name === name)
+
+const ON_PREM = 'https://docs.mulesoft.com/mule-runtime/latest/deploy-on-premises'
 
 export const PIPELINE_LABS = [
   {
@@ -472,6 +478,220 @@ export const PIPELINE_LABS = [
     ],
     why: 'Build once and promote the same artifact. mvn mule:deploy deploys what is already published, so Sandbox and Production run the same tested jar.',
     docs: CH2,
+  },
+  {
+    id: 'cicd-hybrid-first',
+    title: 'Deploy to your own servers with armDeployment',
+    scenario: 'Harbor Foods runs Mule on its own Windows servers. Runtime Manager manages them as server groups: sbx-group in Sandbox and prod-group in Production. Point the workflow at them and follow one release.',
+    minutes: 9,
+    patch: {},
+    steps: [
+      {
+        title: 'Choose the company servers',
+        how: 'In Workflow options, under Deployment target, choose Own servers through Runtime Manager (armDeployment). Open "Deployment block these options produce" at the bottom: the block is now armDeployment, with target, targetType and muleVersion.',
+        done: (ctx) => ctx.config.deployTarget === 'hybrid',
+      },
+      {
+        title: 'Find the registered targets',
+        how: 'Open Environments. Under Own servers in Runtime Manager, each environment lists its servers, server groups and clusters, with the status and Mule runtime of every server. sbx-group has two Windows servers that both run Mule 4.6.0.',
+        done: (ctx) => sawView(ctx, 'environments'),
+      },
+      {
+        title: 'What goes in target?',
+        ask: 'The workflow passes -Dtarget=sbx-group. What does target hold in armDeployment?',
+        options: ['The Maven server ID from settings.xml', 'The name of the server, server group or cluster in Runtime Manager', 'The Windows host name of one server', 'The environment ID'],
+        right: 1,
+        reason: 'Right. target is the name of the server, server group or cluster registered in Runtime Manager. It is not the Maven server ID. targetType then says which kind it is: server, serverGroup or cluster.',
+      },
+      {
+        title: 'Run the workflow',
+        how: 'Open Release pipeline and press Run workflow. Wait for Promote to Production to pass, or press Skip to result.',
+        done: (ctx) => hybridPassed(ctx.state, 'Production'),
+      },
+      {
+        title: 'Read the Deploy to Sandbox log',
+        how: 'Open the run and click Deploy to Sandbox. Under the job graph, the path shows who talks to whom. The log shows the call to Runtime Manager and one line for each server.',
+        done: (ctx) => sawJob(ctx, 'Sandbox') && hybridPassed(ctx.state, 'Sandbox'),
+      },
+      {
+        title: 'Who opened the connection to the servers?',
+        ask: 'The runner is a GitHub-hosted machine on the internet. The servers are in the Harbor data center. How did the deployment reach them?',
+        options: ['The runner connected to each server over a VPN', 'The Runtime Manager agent on each server keeps an outbound connection to the control plane, and the deployment came over it', 'Runtime Manager opened an inbound port on each server', 'The servers download new releases from GitHub'],
+        right: 1,
+        reason: 'Right. The agent makes an outbound HTTPS connection to Runtime Manager on port 443 and keeps a secure WebSocket on it. The runner only calls the control plane, and the servers need no inbound port.',
+      },
+      {
+        title: 'And if the control plane is down?',
+        ask: 'Runtime Manager is unreachable for an hour. What happens to orders-papi on the servers?',
+        options: ['It stops at once', 'It keeps serving traffic. New or updated policies wait until the connection returns', 'It restarts every minute', 'It moves to CloudHub 2.0'],
+        right: 1,
+        reason: 'Right. The hot deployment page says Mule applications keep serving API and integration traffic if Runtime Manager is unreachable, and new or updated policies are not pulled until the connection returns. Deploys, start and stop from Runtime Manager also wait until the agent connects again.',
+      },
+    ],
+    why: 'With armDeployment the pipeline deploys through Runtime Manager, the same as a person in the console. The runner needs HTTPS to Anypoint Platform and nothing else, because each server reaches out to the control plane on its own.',
+    docs: ON_PREM,
+  },
+  {
+    id: 'cicd-hybrid-target',
+    title: 'Three wrong values in armDeployment',
+    scenario: 'A teammate set up the deploy jobs from an old wiki page. The workflow has no Exchange stage: it builds, tests and deploys the jar. The first run fails in Deploy to Sandbox, and so will the next two.',
+    minutes: 10,
+    patch: { deployTarget: 'hybrid', publishStage: false, sandboxTarget: 'harbor-sandbox', sandboxTargetType: 'server', muleVersion: '4.8.0' },
+    steps: [
+      {
+        title: 'Run the workflow',
+        how: 'Press Run workflow and let it finish. Read the annotation on Deploy to Sandbox.',
+        done: (ctx) => failedWith(ctx.state, 'target-missing'),
+      },
+      {
+        title: 'Use the real target name',
+        how: 'Open Environments and find the server group in Sandbox. In Workflow options, set Sandbox target to that name, sbx-group.',
+        done: (ctx) => ctx.config.sandboxTarget.trim() === 'sbx-group',
+      },
+      {
+        title: 'Run it again',
+        how: 'Run the workflow. The name is right now. Read the next annotation.',
+        done: (ctx) => failedWith(ctx.state, 'target-type') || hybridPassed(ctx.state, 'Sandbox'),
+      },
+      {
+        title: 'Which targetType?',
+        ask: 'sbx-group is a group of two servers. Which targetType does Runtime Manager expect for it?',
+        options: ['server', 'serverGroup', 'cluster', 'servers'],
+        right: 1,
+        reason: 'Right. targetType takes server, serverGroup or cluster, and it must match the kind of target. A server group is not a cluster: in a group the app instances run in isolation, while cluster nodes share information.',
+      },
+      {
+        title: 'Fix the targetType',
+        how: 'In Workflow options, set Sandbox targetType to serverGroup.',
+        done: (ctx) => ctx.config.sandboxTargetType === 'serverGroup',
+      },
+      {
+        title: 'Run it once more',
+        how: 'Run the workflow. Read the annotation.',
+        done: (ctx) => failedWith(ctx.state, 'mule-version') || hybridPassed(ctx.state, 'Sandbox'),
+      },
+      {
+        title: 'What does a muleVersion mismatch do?',
+        ask: 'armDeployment says muleVersion 4.8.0 and the servers run Mule 4.6.0. What does the Mule Maven plugin do?',
+        options: ['It installs Mule 4.8.0 on the servers', 'It raises an exception and does not download a Mule runtime', 'It deploys and logs a warning', 'It upgrades the Runtime Manager agent'],
+        right: 1,
+        reason: 'Right. If muleVersion does not match the Mule version on the target, the plugin raises an exception. It never downloads or installs a runtime. A runtime upgrade is work on the servers, and every server in a group must end up on the same version.',
+      },
+      {
+        title: 'Match the runtime',
+        how: 'The app is built and tested on Mule 4.6.0. In Workflow options, set muleVersion to 4.6.0.',
+        done: (ctx) => ctx.config.muleVersion.trim() === '4.6.0',
+      },
+      {
+        title: 'Ship it',
+        how: 'Run the workflow. Both deploy jobs should pass.',
+        done: (ctx) => hybridPassed(ctx.state, 'Production'),
+      },
+    ],
+    why: 'target, targetType and muleVersion describe something that already exists in Runtime Manager. Read them from the Servers page, keep one value per environment in the workflow, and let the deploy fail fast when they do not match.',
+    docs: ON_PREM,
+  },
+  {
+    id: 'cicd-hybrid-disconnected',
+    title: 'The runner got through, the server did not',
+    scenario: 'Harbor gives orders-papi its own Sandbox server, sbx-batch-01, for a load test. The deploy job reaches Runtime Manager and still fails. Nobody touched the workflow.',
+    minutes: 8,
+    patch: { deployTarget: 'hybrid', publishStage: false, deployProduction: false, sandboxTarget: 'sbx-batch-01', sandboxTargetType: 'server' },
+    steps: [
+      {
+        title: 'Run the workflow',
+        how: 'Press Run workflow and let it finish.',
+        done: (ctx) => failedWith(ctx.state, 'target-disconnected'),
+      },
+      {
+        title: 'Read the deploy job',
+        how: 'Open Deploy to Sandbox. The log shows that the call to Runtime Manager worked. The annotation says why the deploy stopped there.',
+        done: (ctx) => sawJob(ctx, 'Sandbox'),
+      },
+      {
+        title: 'Where is the fault?',
+        ask: 'sbx-batch-01 shows Disconnected in Runtime Manager. Where do you fix this?',
+        options: ['Give the GitHub runner a VPN into the data center', 'On the server: its agent cannot open its outbound HTTPS connection to the control plane', 'Add a scope to the Connected App', 'Raise deploymentTimeout in the POM'],
+        right: 1,
+        reason: 'Right. A target must be running before Runtime Manager can deploy to it. The agent reaches out on port 443 to runtime-manager.anypoint.mulesoft.com, so a firewall or proxy that blocks that traffic leaves the server Disconnected. The pipeline cannot fix that.',
+      },
+      {
+        title: 'What about apps already on it?',
+        ask: 'Another app already runs on a server that becomes Disconnected. What happens to it?',
+        options: ['It stops at once', 'It keeps serving traffic. New or updated policies wait until the connection returns', 'Runtime Manager deletes it', 'It is moved to another server'],
+        right: 1,
+        reason: 'Right. The hot deployment page says Mule applications keep serving API and integration traffic if Runtime Manager is unreachable, and new or updated policies are not pulled until the connection returns. Deploys, start and stop from Runtime Manager also wait until the agent connects again.',
+      },
+      {
+        title: 'Fix it on the server side',
+        how: 'Open Environments. On sbx-batch-01, press Allow outbound HTTPS 443 from this server to the control plane. That stands for the firewall change the network team makes. The server shows Running again.',
+        done: (ctx) => targetOf(ctx.state, 'Sandbox', 'sbx-batch-01')?.servers.every((s) => s.status === 'Running'),
+      },
+      {
+        title: 'Run it again',
+        how: 'Run the workflow without changing it. Deploy to Sandbox should pass.',
+        done: (ctx) => hybridPassed(ctx.state, 'Sandbox', (r) => r.config.sandboxTarget.trim() === 'sbx-batch-01'),
+      },
+    ],
+    why: 'In a hybrid setup the connection always starts from the server. When a server is Disconnected, look at outbound HTTPS 443 from that server, its proxy and the agent, not at the pipeline or the runner.',
+    docs: 'https://docs.mulesoft.com/runtime-manager/rtm-agent-whitelists',
+  },
+  {
+    id: 'cicd-hybrid-runner',
+    title: 'No VPN and no file copy',
+    scenario: 'An old deploy script copies the jar into MULE_HOME/apps on each server. It moved into GitHub Actions and the first run fails. A teammate asks for a VPN from GitHub to the data center.',
+    minutes: 10,
+    patch: { deployTarget: 'copy', publishStage: false },
+    steps: [
+      {
+        title: 'Run the workflow',
+        how: 'Press Run workflow and let it finish. Read the annotation on Deploy to Sandbox.',
+        done: (ctx) => failedWith(ctx.state, 'runner-no-route'),
+      },
+      {
+        title: 'Why can the runner not copy?',
+        ask: 'Why can the job not reach the file share on HBR-SBX-MULE01?',
+        options: ['The jar is too large', 'A GitHub-hosted runner runs on GitHub\'s network, outside the data center', 'The server is Disconnected in Runtime Manager', 'Mule is not installed'],
+        right: 1,
+        reason: 'Right. A GitHub-hosted runner is a machine outside your network. A file copy needs a route to every server, which is why the script asks for a VPN or a runner inside the data center.',
+      },
+      {
+        title: 'Try a self-hosted runner',
+        how: 'In Workflow options, set Deploy jobs run on to Self-hosted runner in the data center. Run the workflow. The jobs pass with a warning.',
+        done: (ctx) => someRun(ctx.state, (r) => r.config.deployTarget === 'copy' && r.config.runner === 'self-hosted' && stageIn(r, 'Sandbox')?.status === 'warned'),
+      },
+      {
+        title: 'Compare the two records',
+        how: 'Open Environments. sbx-group shows 2.3.0 as the last deployment through Runtime Manager, and a note about the copied file. It did not replace orders-papi. Mule deployed it as a second app named after the file, next to the one Runtime Manager deployed.',
+        done: (ctx) => sawView(ctx, 'environments') && Boolean(targetOf(ctx.state, 'Sandbox', 'sbx-group')?.copied),
+      },
+      {
+        title: 'What is wrong with a green copy?',
+        ask: 'The app runs. Why is copying into the apps folder still the wrong way on these servers?',
+        options: ['Mule cannot hot deploy a jar', 'Runtime Manager manages these servers, and the docs say you cannot then use other deployment and management methods or tools on them', 'The anchor file is missing', 'A self-hosted runner cannot run Maven'],
+        right: 1,
+        reason: 'Right. Once Runtime Manager manages a server, deploy through Runtime Manager. A copy script also needs a machine inside the data center with write access to every server, which is more to protect.',
+      },
+      {
+        title: 'Deploy through Runtime Manager',
+        how: 'In Workflow options, set the deployment target to Own servers through Runtime Manager (armDeployment), and set Deploy jobs run on back to the GitHub-hosted runner.',
+        done: (ctx) => ctx.config.deployTarget === 'hybrid' && ctx.config.runner === 'github-hosted',
+      },
+      {
+        title: 'Run it again',
+        how: 'Run the workflow. Deploy to Sandbox should pass from the GitHub-hosted runner, with no VPN.',
+        done: (ctx) => hybridPassed(ctx.state, 'Sandbox', (r) => r.config.runner === 'github-hosted'),
+      },
+      {
+        title: 'What does the runner need now?',
+        ask: 'What network access does the GitHub-hosted runner need for armDeployment?',
+        options: ['A VPN to every server', 'Outbound HTTPS to Anypoint Platform, and nothing in the data center', 'An inbound port on each server', 'A file share on every server'],
+        right: 1,
+        reason: 'Right. The runner calls the control plane. The agent on each server holds its own outbound connection, and inbound connectivity to your network is not required. Remove what the old script copied into the apps folders as well.',
+      },
+    ],
+    why: 'For servers managed by Runtime Manager, the pipeline should deploy through Runtime Manager with armDeployment. Then a GitHub-hosted runner is enough, and the data center keeps every inbound door closed.',
+    docs: 'https://docs.mulesoft.com/runtime-manager/deploying-to-your-own-servers',
   },
 ]
 

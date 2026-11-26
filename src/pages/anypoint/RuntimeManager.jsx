@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  addRmAlert, appNamed, cpuOf, cronError, dayText, deleteApp, deployApp, endpointOf, eventsOf, heapOf, HOUR, internalOf, jarsOf, LOG_LEVELS, mark, removeRmAlert, REPLICA_SIZES, replicaName, RM_CONDITIONS,
+  addRmAlert, appNamed, hybridTargets, cpuOf, cronError, dayText, deleteApp, deployApp, endpointOf, eventsOf, heapOf, HOUR, internalOf, jarsOf, LOG_LEVELS, mark, removeRmAlert, REPLICA_SIZES, replicaName, RM_CONDITIONS,
   RM_SEVERITIES, runNow, RUNTIME_VERSIONS, scheduleText, searchLogs, setRmAlert, setSchedule, stamp, startApp, stopApp, TIME_ZONES, UNIT_NAMES,
 } from '../../lab/platform.js'
 import { packageOf } from '../../lab/platform-packages.js'
 import { PRIVATE_SPACE } from '../../lab/platform-project.js'
+import { NodeTable, ServersPage } from './Servers.jsx'
 import { Btn, Chart, Check, Dot, Errors, Field, Input, Link, Modal, Note, Select, SideNav, Table, Tabs } from './parts.jsx'
 import { bucketsOf, COLORS } from './charts.js'
 
@@ -24,10 +25,11 @@ export default function RuntimeManager({ state, update, place, go, openEnv }) {
     )
   return (
     <>
-      <SideNav env={state.env} onEnv={openEnv} items={[['Applications', 'Applications'], ['Servers', 'Servers', true], ['Omni Gateways', 'Omni Gateways', true], ['Alerts', 'Alerts'], null, ['VPCs', 'VPCs', true], ['Private Spaces', 'Private Spaces', true], ['Load Balancers', 'Load Balancers', true]]} value={page === 'Deploy' ? 'Applications' : page} onPick={(p) => go({ page: p })} />
+      <SideNav env={state.env} onEnv={openEnv} items={[['Applications', 'Applications'], ['Servers', 'Servers'], ['Omni Gateways', 'Omni Gateways', true], ['Alerts', 'Alerts'], null, ['VPCs', 'VPCs', true], ['Private Spaces', 'Private Spaces', true], ['Load Balancers', 'Load Balancers', true]]} value={page === 'Deploy' ? 'Applications' : page} onPick={(p) => go({ page: p })} />
       <main className="pc-main">
         {page === 'Deploy' && <Deploy state={state} update={update} go={go} />}
         {page === 'Alerts' && <Alerts state={state} update={update} />}
+        {page === 'Servers' && <ServersPage state={state} update={update} go={go} />}
         {page === 'Applications' && <Applications state={state} go={go} />}
       </main>
     </>
@@ -55,7 +57,7 @@ function Applications({ state, go }) {
               <Link onClick={() => go({ app: a.name, tab: 'Dashboard' })}>{a.name}</Link>
             </td>
             <td>{a.target}</td>
-            <td>CloudHub 2.0</td>
+            <td>{a.targetType ?? 'CloudHub 2.0'}</td>
             <td>
               <Dot status={a.status} />
             </td>
@@ -98,14 +100,25 @@ function Overview({ app, state, go }) {
         <dd>{packageOf(app.pkg).handle ? internalOf(app) : 'None'}</dd>
         <dt>Target</dt>
         <dd>{app.target}</dd>
-        <dt>Replicas</dt>
-        <dd>
-          {app.replicas} x {app.vCores} vCores
-        </dd>
-        <dt>Runtime</dt>
-        <dd>
-          {app.version} {app.channel}, Java {app.java}
-        </dd>
+        {app.targetType ? (
+          <>
+            <dt>Target type</dt>
+            <dd>{app.targetType}, in your data center</dd>
+            <dt>Runtime</dt>
+            <dd>{app.version}, from the servers</dd>
+          </>
+        ) : (
+          <>
+            <dt>Replicas</dt>
+            <dd>
+              {app.replicas} x {app.vCores} vCores
+            </dd>
+            <dt>Runtime</dt>
+            <dd>
+              {app.version} {app.channel}, Java {app.java}
+            </dd>
+          </>
+        )}
         <dt>Last Updated</dt>
         <dd>{stamp(app.updated)}</dd>
         {app.restarts > 0 && (
@@ -115,6 +128,8 @@ function Overview({ app, state, go }) {
           </>
         )}
       </dl>
+      {app.targetType && <NodeTable state={state} app={app} />}
+      {app.status === 'Waiting' && <Note>No server of the target is connected, so the deployment waits. It goes out when a server connects to Runtime Manager again.</Note>}
       {app.error && (
         <Note>
           <b>Deployment failed.</b> {app.error}{' '}
@@ -123,8 +138,8 @@ function Overview({ app, state, go }) {
       )}
       <div className="pc-charts">
         <Chart title="Mule messages" labels={b.labels} series={[{ name: app.name, color: COLORS.blue, points: each((f, t) => eventsOf(state, target, f, t).filter((e) => e.k !== 'skip').length) }]} />
-        <Chart title="CPU" labels={b.labels} unit="%" max={100} series={[{ name: replicaName(app), color: COLORS.teal, points: each((f, t) => cpuOf(state, app, f, t)) }]} />
-        <Chart title="Memory" labels={b.labels} unit="%" max={100} series={[{ name: replicaName(app), color: COLORS.violet, points: each((f, t) => heapOf(state, app, f, t)) }]} />
+        <Chart title="CPU" labels={b.labels} unit="%" max={100} series={[{ name: app.targetType ? app.target : replicaName(app), color: COLORS.teal, points: each((f, t) => cpuOf(state, app, f, t)) }]} />
+        <Chart title="Memory" labels={b.labels} unit="%" max={100} series={[{ name: app.targetType ? app.target : replicaName(app), color: COLORS.violet, points: each((f, t) => heapOf(state, app, f, t)) }]} />
       </div>
     </>
   )
@@ -165,7 +180,7 @@ function Logs({ app, state, update }) {
         </div>
       </div>
       <Note>Logs are kept for 30 days or up to 100 MB per config. Times are shown in the lab time, UTC.</Note>
-      <LogLines rows={shown.map((l) => ({ ...l, replica: replicaName(app) }))} latest />
+      <LogLines rows={shown.map((l) => ({ ...l, replica: l.node ?? replicaName(app) }))} latest />
     </>
   )
 }
@@ -405,15 +420,22 @@ function Deploy({ state, update, go }) {
           <Input value={form.name} onChange={(name) => set({ name })} placeholder="orders-sapi" />
         </Field>
         <Field label="Deployment Target">
-          <Select value={form.target} onChange={(target) => set({ target, ...(target === 'Shared Space' && { publicEndpoint: true }) })} options={[['Shared Space', 'Shared Space, US East (Ohio), CloudHub 2.0'], [PRIVATE_SPACE, `Private Space ${PRIVATE_SPACE}, US East (Ohio)`]]} />
+          <Select
+            value={form.targetType ? `${form.targetType}|${form.target}` : form.target}
+            onChange={(v) => {
+              const [type, name] = v.includes('|') ? v.split('|') : [undefined, v]
+              set({ target: name, targetType: type, ...(name === 'Shared Space' && { publicEndpoint: true }) })
+            }}
+            options={[['Shared Space', 'Shared Space, US East (Ohio), CloudHub 2.0'], [PRIVATE_SPACE, `Private Space ${PRIVATE_SPACE}, US East (Ohio)`], ...hybridTargets(state).map((t) => [`${t.type}|${t.name}`, `${t.type}: ${t.name}, your data center`])]}
+          />
         </Field>
         <Field label="Application File" required hint={jars.length === 0 ? 'No files yet. Export an application from Anypoint Studio first.' : chosen ? packageOf(chosen.pkg).note : undefined}>
           <Select value={form.jar} onChange={(jar) => set({ jar, pkg: jars.find((j) => j.jar === jar)?.pkg ?? '' })} placeholder="Choose file" options={jars.map((j) => j.jar)} />
         </Field>
       </div>
       <Tabs tabs={['Runtime', 'Ingress', 'Properties', 'Logging']} value={tab} onChange={setTab} />
-      {tab === 'Runtime' && <RuntimeTab form={form} set={set} />}
-      {tab === 'Ingress' && <Ingress app={{ name: form.name, env: state.env }} target={form.target} on={form.publicEndpoint} onChange={(publicEndpoint) => set({ publicEndpoint })} />}
+      {tab === 'Runtime' && (form.targetType ? <HybridRuntime /> : <RuntimeTab form={form} set={set} />)}
+      {tab === 'Ingress' && (form.targetType ? <HybridIngress app={{ name: form.name, env: state.env, targetType: form.targetType }} /> : <Ingress app={{ name: form.name, env: state.env }} target={form.target} on={form.publicEndpoint} onChange={(publicEndpoint) => set({ publicEndpoint })} />)}
       {tab === 'Properties' && <Properties rows={rows} onChange={setRows} />}
       {tab === 'Logging' && <LoggingTab />}
       <Errors list={errors} />
@@ -445,6 +467,18 @@ const Ingress = ({ app, target, on, onChange }) => (
     </Check>
   </div>
 )
+const HybridRuntime = () => (
+  <div className="pc-split">
+    <b>Runtime</b>
+    <p className="pc-dim">The servers of the target already run a Mule runtime, so the version comes from them. Every server of a group or cluster gets its own copy of the application.</p>
+  </div>
+)
+const HybridIngress = ({ app }) => (
+  <div className="pc-split">
+    <b>Load balancer</b>
+    <p className="pc-dim">Neither a server group nor an on premises cluster has a built in load balancer. Harbor puts its own in front of the servers: {app.name ? endpointOf(app) : 'give the application a name first'}.</p>
+  </div>
+)
 const LoggingTab = () => (
   <>
     <Check checked onChange={() => {}}>
@@ -465,7 +499,7 @@ function Settings({ app, state, update, go }) {
   const jars = jarsOf(state)
   const chosen = jars.find((j) => j.jar === jar)
   function apply() {
-    const result = deployApp(state, { ...form, ...(chosen ?? { pkg: app.pkg }), ...toProps(rows), name: app.name, editing: true })
+    const result = deployApp(state, { ...form, ...(app.targetType && { target: app.target, targetType: app.targetType }), ...(chosen ?? { pkg: app.pkg }), ...toProps(rows), name: app.name, editing: true })
     setErrors(result.errors)
     if (result.errors.length) return
     update(() => result.state)
@@ -480,8 +514,8 @@ function Settings({ app, state, update, go }) {
         </Field>
       </div>
       <Tabs tabs={['Runtime', 'Ingress', 'Properties', 'Logging']} value={tab} onChange={setTab} />
-      {tab === 'Runtime' && <RuntimeTab form={form} set={set} />}
-      {tab === 'Ingress' && <Ingress app={app} target={app.target} on={form.publicEndpoint} onChange={(publicEndpoint) => set({ publicEndpoint })} />}
+      {tab === 'Runtime' && (app.targetType ? <HybridRuntime /> : <RuntimeTab form={form} set={set} />)}
+      {tab === 'Ingress' && (app.targetType ? <HybridIngress app={app} /> : <Ingress app={app} target={app.target} on={form.publicEndpoint} onChange={(publicEndpoint) => set({ publicEndpoint })} />)}
       {tab === 'Properties' && <Properties rows={rows} onChange={setRows} />}
       {tab === 'Logging' && <LoggingTab />}
       <Errors list={errors} />

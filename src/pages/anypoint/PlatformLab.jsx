@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { labDone, openConsole, PLATFORM_LABS, stepDone } from '../../lab/platform-labs.js'
+import { defaultHybrid } from '../../lab/platform-project.js'
 import AnypointConsole from './AnypointConsole.jsx'
 import { Btn, Copy } from './parts.jsx'
 
@@ -42,7 +43,8 @@ function useSaved(key, value) {
 export function OpenConsole() {
   const [state, setState] = useState(() => {
     const saved = read(OPEN_KEY)
-    return isState(saved) ? saved : openConsole()
+    // a console saved before the data center existed gets its servers
+    return isState(saved) ? (saved.hybrid ? saved : { ...saved, hybrid: defaultHybrid() }) : openConsole()
   })
   useSaved(OPEN_KEY, state)
   useEffect(() => {

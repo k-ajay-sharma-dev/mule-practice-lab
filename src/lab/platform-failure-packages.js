@@ -14,5 +14,17 @@ import { PACKAGES as ledPiiExposure } from './failures/led-pii-exposure.pkg.js'
 import { PACKAGES as mqAckTimeout } from './failures/mq-ack-timeout.pkg.js'
 import { PACKAGES as jwtKeyRotation } from './failures/jwt-key-rotation.pkg.js'
 import { PACKAGES as mockUrlProd } from './failures/mock-url-prod.pkg.js'
+import { PACKAGES as verSemverBump } from './failures/ver-semver-bump.pkg.js'
+import { PACKAGES as verSideBySide } from './failures/ver-side-by-side.pkg.js'
+import { PACKAGES as verMinorInPlace } from './failures/ver-minor-in-place.pkg.js'
+import { PACKAGES as verDeprecateRetire } from './failures/ver-deprecate-retire.pkg.js'
+import { PACKAGES as verAppRollback } from './failures/ver-app-rollback.pkg.js'
+import { PACKAGES as verDependencyImpact } from './failures/ver-dependency-impact.pkg.js'
+import { PACKAGES as hybRegister } from './failures/hyb-register.pkg.js'
+import { PACKAGES as hybServerGroup } from './failures/hyb-server-group.pkg.js'
+import { PACKAGES as hybDisconnected } from './failures/hyb-disconnected.pkg.js'
+import { PACKAGES as hybClusterScheduler } from './failures/hyb-cluster-scheduler.pkg.js'
+import { PACKAGES as hybVersionMismatch } from './failures/hyb-version-mismatch.pkg.js'
+import { PACKAGES as hybManualCopy } from './failures/hyb-manual-copy.pkg.js'
 
-export const FAILURE_PACKAGES = { ...duplicateOrders, ...schedulerTwice, ...expiredCert, ...dbPool, ...retryStorm, ...sasExpired, ...smtpAuth, ...ledBreakingChange, ...ledChattyCalls, ...ledStaleCache, ...ledLostCorrelation, ...ledPiiExposure, ...mqAckTimeout, ...jwtKeyRotation, ...mockUrlProd }
+export const FAILURE_PACKAGES = { ...duplicateOrders, ...schedulerTwice, ...expiredCert, ...dbPool, ...retryStorm, ...sasExpired, ...smtpAuth, ...ledBreakingChange, ...ledChattyCalls, ...ledStaleCache, ...ledLostCorrelation, ...ledPiiExposure, ...mqAckTimeout, ...jwtKeyRotation, ...mockUrlProd, ...verSemverBump, ...verSideBySide, ...verMinorInPlace, ...verDeprecateRetire, ...verAppRollback, ...verDependencyImpact, ...hybRegister, ...hybServerGroup, ...hybDisconnected, ...hybClusterScheduler, ...hybVersionMismatch, ...hybManualCopy }

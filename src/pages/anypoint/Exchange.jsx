@@ -70,7 +70,7 @@ function Asset({ group, state, update, go }) {
             </span>
           </div>
           <span className="pc-grow" />
-          <Select value={version} onChange={setVersion} options={group.map((a) => [a.version, `${a.version} ${a.lifecycle}`])} aria-label="Version" />
+          <Select value={version} onChange={setVersion} options={group.map((a) => [a.version, `${a.version}, ${a.apiVersion}, ${a.lifecycle}`])} aria-label="Version" />
           <Btn kind="primary" onClick={() => setAsking(true)}>
             Request access
           </Btn>

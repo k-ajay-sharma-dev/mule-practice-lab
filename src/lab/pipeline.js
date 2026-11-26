@@ -11,6 +11,12 @@ const MUNIT = 'https://docs.mulesoft.com/munit/latest/munit-maven-plugin'
 const UPDATE = 'https://docs.mulesoft.com/cloudhub-2/ch2-update-apps'
 const PROMOTE = 'https://docs.mulesoft.com/api-manager/latest/promote-api-task'
 const PUBLISHING = 'https://docs.mulesoft.com/exchange/to-publish-assets-maven'
+// deploying to the company's own servers through Runtime Manager (hybrid)
+const ON_PREM = 'https://docs.mulesoft.com/mule-runtime/latest/deploy-on-premises'
+const OWN_SERVERS = 'https://docs.mulesoft.com/runtime-manager/deploying-to-your-own-servers'
+const AGENT = 'https://docs.mulesoft.com/runtime-manager/runtime-manager-agent'
+const AGENT_HOSTS = 'https://docs.mulesoft.com/runtime-manager/rtm-agent-whitelists'
+const HOT = 'https://docs.mulesoft.com/mule-runtime/latest/hot-deployment'
 
 export const ASSET_ID = 'orders-papi' // sample application
 export const ENVIRONMENTS = ['Sandbox', 'Production']
@@ -23,6 +29,21 @@ export const DEPLOY_COMMANDS = [
   { id: 'clean-deploy-mule', name: 'mvn clean deploy -DmuleDeploy', note: 'Packages the project again, then deploys.' },
   { id: 'clean-deploy', name: 'mvn clean deploy', note: 'No muleDeploy: uploads to the repository in distributionManagement.' },
 ]
+
+// Where the deploy stage sends the application. CloudHub 2.0 is the default. The other two reach Harbor's own Windows
+// servers, which are registered in Runtime Manager.
+export const DEPLOY_TARGETS = [
+  { id: 'cloudhub2', name: 'CloudHub 2.0 (cloudhub2Deployment)', note: 'MuleSoft runs the replicas. The app is deployed from Exchange.' },
+  { id: 'hybrid', name: 'Own servers through Runtime Manager (armDeployment)', note: 'The runner calls the Anypoint control plane over HTTPS. The Runtime Manager agent on each server holds its own outbound connection to the control plane, and the deployment reaches the servers that way.' },
+  { id: 'copy', name: 'Runner copies the jar into MULE_HOME/apps', note: 'The way some teams do it: a script on the runner copies the jar onto each server. Runtime Manager takes no part.' },
+]
+export const TARGET_TYPES = ['server', 'serverGroup', 'cluster']
+export const RUNNER_TYPES = [
+  { id: 'github-hosted', name: 'GitHub-hosted runner (ubuntu-latest)' },
+  { id: 'self-hosted', name: 'Self-hosted runner in the data center' },
+]
+export const SERVER_RUNTIME = '4.6.0' // the Mule runtime on Harbor's servers in the lab
+const TYPE_NAMES = { server: 'server', serverGroup: 'server group', cluster: 'cluster' }
 
 export const PROPERTY_MODES = [
   { id: 'omit', name: 'Omit both elements', note: 'CloudHub 2.0 keeps the properties already in the environment.' },
@@ -58,7 +79,35 @@ export const newConfig = () => ({
   connectedAppScope: true,
   snapshotGuard: true,
   deployProduction: true,
+  deployTarget: 'cloudhub2',
+  sandboxTarget: 'sbx-group',
+  sandboxTargetType: 'serverGroup',
+  productionTarget: 'prod-group',
+  productionTargetType: 'serverGroup',
+  muleVersion: SERVER_RUNTIME,
+  runner: 'github-hosted',
 })
+
+// The target name and type the workflow passes for one environment, as -Dtarget and -DtargetType.
+export const targetFor = (config, envName) => {
+  const key = envName.toLowerCase()
+  return { name: String(config[`${key}Target`] ?? '').trim(), type: config[`${key}TargetType`] }
+}
+
+// Servers, server groups and clusters registered in Runtime Manager for each environment. Names, hosts and statuses are
+// sample data. All servers in a group run the same Mule runtime, as the server group page requires.
+const server = (name, host, status = 'Running') => ({ name, host, status, runtime: SERVER_RUNTIME })
+export function hybridTargets(envName) {
+  const app = () => ({ version: '2.3.0', build: 'b-1', status: 'Started' })
+  if (envName === 'Production') {
+    return [{ name: 'prod-group', type: 'serverGroup', servers: [server('prod-mule-01', 'HBR-PRD-MULE01'), server('prod-mule-02', 'HBR-PRD-MULE02')], app: app(), copied: null, note: '' }]
+  }
+  return [
+    { name: 'sbx-group', type: 'serverGroup', servers: [server('sbx-mule-01', 'HBR-SBX-MULE01'), server('sbx-mule-02', 'HBR-SBX-MULE02')], app: app(), copied: null, note: '' },
+    { name: 'sbx-batch-01', type: 'server', servers: [server('sbx-batch-01', 'HBR-SBX-BATCH01', 'Disconnected')], app: null, copied: null, note: 'A firewall change last week blocked outbound HTTPS 443 on this server.' },
+  ]
+}
+export const typeName = (type) => TYPE_NAMES[type] ?? type
 
 // sample values for the application; they stand for what each environment needs
 const sampleValues = (envName) => ({
@@ -78,6 +127,7 @@ function seededEnv(envName, instance) {
     applied: `${envName}-config-0`,
     configs: [{ id: `${envName}-config-0`, version: '2.3.0', build: 'b-1', properties: withApi, secure, status: 'Applied' }],
     instance,
+    targets: hybridTargets(envName),
   }
 }
 
@@ -116,13 +166,22 @@ const warning = (...args) => issue('warning', ...args)
 
 const commandName = (id) => DEPLOY_COMMANDS.find((c) => c.id === id).name
 
+// The command a deploy job runs, and the runner it runs on.
+function deployJob(config, envName, command = commandName(config.deployCommand)) {
+  const t = targetFor(config, envName)
+  const runsOn = config.runner === 'self-hosted' ? 'self-hosted' : 'ubuntu-latest'
+  if (config.deployTarget === 'copy') return { command: `Copy-Item target\\*-mule-application.jar to MULE_HOME\\apps on each server of ${t.name || '(no target)'}`, runsOn }
+  const extra = config.deployTarget === 'hybrid' ? ` -Dtarget=${t.name} -DtargetType=${t.type}` : ''
+  return { command: `${command} -Denvironment=${envName}${extra}`, runsOn }
+}
+
 export function stagesFor(config) {
   return [
     { id: 'build', name: 'Build', command: 'mvn clean package' },
     { id: 'munit', name: 'MUnit and coverage', command: config.skipTests ? 'mvn test -DskipTests' : 'mvn test' },
     ...(config.publishStage ? [{ id: 'publish', name: 'Publish to Exchange', command: 'mvn clean deploy' }] : []),
-    { id: 'Sandbox', name: 'Deploy to Sandbox', command: `${commandName(config.deployCommand)} -Denvironment=Sandbox` },
-    ...(config.deployProduction ? [{ id: 'Production', name: 'Promote to Production', command: `${commandName(config.deployCommand)} -Denvironment=Production` }] : []),
+    { id: 'Sandbox', name: 'Deploy to Sandbox', ...deployJob(config, 'Sandbox') },
+    ...(config.deployProduction ? [{ id: 'Production', name: 'Promote to Production', ...deployJob(config, 'Production') }] : []),
   ]
 }
 
@@ -223,6 +282,10 @@ function authIssue(config) {
       { docs: CH2, incident: 'inc-121', assumption: 'The docs state the overwrite. The 401 is the lab showing a refused login.' },
     )
   }
+  if (!config.deployUserPass && config.authMode === 'connected-app' && !config.connectedAppScope && config.deployTarget === 'hybrid') {
+    // the deploy-on-premises page states the same scope for armDeployment and names no Runtime Manager scope
+    return failure('The Connected App is missing a scope', 'For armDeployment, the Connected App credentials must have the Design Center Developer access scope.', 'Add the Design Center Developer scope to the Connected App.', { docs: ON_PREM, assumption: 'The docs state the requirement. They do not describe the failure.' })
+  }
   if (!config.deployUserPass && config.authMode === 'connected-app' && !config.connectedAppScope) {
     return failure('The Connected App is missing a scope', 'The Connected App credentials must have the Design Center Developer access scope.', 'Add the Design Center Developer scope, and the scopes the target needs.', { docs: CH2, assumption: 'The docs state the requirement. They do not describe the failure.' })
   }
@@ -298,6 +361,146 @@ function startFailure(state, run, envName, values, missing) {
   return { logs, issues: [failure('Deployment verification failed', cause, fix, extra)] }
 }
 
+// Finds the target the workflow names, and checks the name and the type the way Runtime Manager would see them.
+function lookupTarget(env, envName, want) {
+  const target = (env.targets ?? []).find((t) => t.name === want.name)
+  if (!target) {
+    const known = (env.targets ?? []).map((t) => `${t.name} (${t.type})`).join(', ') || 'none'
+    return {
+      issue: failure(
+        `No target named ${want.name || '(empty)'} in ${envName}`,
+        `target must be the name of a server, server group or cluster registered in Runtime Manager for ${envName}. It is not the Maven server ID. ${envName} has: ${known}.`,
+        'Copy the exact name from Runtime Manager, under Servers, and pass it for this environment.',
+        { docs: ON_PREM, code: 'target-missing', assumption: 'The docs define target. They do not give the error text.' },
+      ),
+    }
+  }
+  return { target }
+}
+
+const runnerName = (config) => (config.runner === 'self-hosted' ? 'self-hosted runner in the data center' : 'GitHub-hosted runner (ubuntu-latest)')
+
+// armDeployment: the runner only talks to the Anypoint control plane. The agent on each server opened its own outbound
+// connection, and the deployment reaches the servers over it.
+function hybridDeploy(state, run, envName, notes) {
+  const { config } = run
+  const env = state.envs[envName]
+  const want = targetFor(config, envName)
+  const logs = [
+    line('INFO', `Job runs on the ${runnerName(config)}.`),
+    line('INFO', `Calling Runtime Manager at https://anypoint.mulesoft.com over HTTPS 443: deploy ${ASSET_ID} ${run.version} to ${want.type} ${want.name} in ${envName}.`),
+  ]
+  const fail = (issue) => ({ logs: [...logs, line('ERROR', issue.title, 'assumed')], issues: [...notes, issue] })
+  const found = lookupTarget(env, envName, want)
+  if (found.issue) return fail(found.issue)
+  const { target } = found
+  if (target.type !== want.type) {
+    return fail(
+      failure(
+        `${target.name} is a ${typeName(target.type)}, not a ${typeName(want.type)}`,
+        `targetType takes server, serverGroup or cluster, and it must match the kind of target. In Runtime Manager ${target.name} is a ${typeName(target.type)}, and the workflow passed targetType ${want.type}.`,
+        `Pass -DtargetType=${target.type} for ${envName}.`,
+        { docs: ON_PREM, code: 'target-type', assumption: 'The docs list the targetType values. They do not give the error text.' },
+      ),
+    )
+  }
+  const down = target.servers.filter((s) => s.status !== 'Running')
+  if (down.length > 0) {
+    return fail(
+      failure(
+        `${target.name} is not running`,
+        `The target must be a running server, server group, or cluster. ${down.map((s) => s.name).join(', ')} is ${down[0].status}: its Runtime Manager agent has no connection to the control plane, so the deployment cannot reach it. The runner is not the problem. It reached Runtime Manager.`,
+        'Fix it on the server side. The agent opens an outbound HTTPS connection on port 443 to runtime-manager.anypoint.mulesoft.com and keeps a WebSocket on it. Allow that in the firewall or proxy. No inbound port and no VPN from the runner is needed. Then deploy again.',
+        { docs: AGENT_HOSTS, code: 'target-disconnected', assumption: 'The docs state that the target must be running. The lab reads Disconnected as not running.' },
+      ),
+    )
+  }
+  const muleVersion = String(config.muleVersion ?? '').trim()
+  const off = target.servers.find((s) => s.runtime !== muleVersion)
+  if (off) {
+    return fail(
+      failure(
+        'muleVersion does not match the servers',
+        `armDeployment has muleVersion ${muleVersion || '(empty)'},and ${target.name} runs Mule ${off.runtime}. If this value does not match the Mule version on the target, the plugin raises an exception. It does not download a Mule runtime.`,
+        `Set muleVersion to the runtime of the target, ${off.runtime}, when the app is built and tested for it. If the app needs a newer runtime, upgrade every server in the group first: all servers in a group run the same runtime.`,
+        { docs: ON_PREM, code: 'mule-version' },
+      ),
+    )
+  }
+  const build = run.build ?? findVersion(state.exchange, ASSET_ID, run.version)?.build ?? target.app?.build ?? null
+  target.app = { version: run.version, build, status: 'Started' }
+  logs.push(
+    line('INFO', `Uploaded ${ASSET_ID}-${run.version}-mule-application.jar to Runtime Manager.`),
+    line('INFO', 'Runtime Manager sends the deployment request to the agent on each server, over the WebSocket the agent opened from inside the data center (wss://runtime-manager.anypoint.mulesoft.com:443/mule).', 'docs'),
+    ...target.servers.map((s) => line('INFO', `${s.name} (${s.host}): ${ASSET_ID} ${run.version} Started on Mule ${s.runtime}.`)),
+    line('INFO', 'The runner never connected to a server, and the servers need no inbound port.', 'docs'),
+  )
+  if (config.propertiesMode !== 'omit') logs.push(line('INFO', 'The lab does not model application properties on hybrid targets.'))
+  if (config.skipDeploymentVerification) logs.push(line('WARN', 'Status verification was skipped.', 'docs'))
+  return { logs, issues: notes }
+}
+
+// The wrong way: a script on the runner copies the jar onto each server. Mule hot deploys it from the apps folder.
+function copyToApps(state, run, envName, notes) {
+  const { config } = run
+  const env = state.envs[envName]
+  const want = targetFor(config, envName)
+  const jar = `${ASSET_ID}-${run.version}-mule-application`
+  const logs = [line('INFO', `Job runs on the ${runnerName(config)}.`)]
+  const found = lookupTarget(env, envName, want)
+  if (found.issue) return { logs, issues: [...notes, found.issue] }
+  const { target } = found
+  if (config.runner !== 'self-hosted') {
+    const share = `\\\\${target.servers[0].host}\\mule\\apps`
+    return {
+      logs: [...logs, line('ERROR', `Copy-Item: the network path ${share} was not found.`)],
+      issues: [
+        ...notes,
+        failure(
+          'The runner cannot reach the servers',
+          `A GitHub-hosted runner is a machine on GitHub's network, outside the Harbor data center. Copying into ${share} needs a network path from the runner to every server, such as a VPN.`,
+          'Do not open the data center to the runner. Deploy with armDeployment: the runner then needs only HTTPS to Anypoint Platform, and the agent on each server keeps its own outbound connection.',
+          { basis: 'assumed', docs: AGENT_HOSTS, code: 'runner-no-route', assumption: 'GitHub-hosted runners run outside your network. The error text is made up by the lab.' },
+        ),
+      ],
+    }
+  }
+  const rmApp = target.app ? `${ASSET_ID} ${target.app.version}` : null
+  for (const s of target.servers) {
+    logs.push(line('INFO', `Copy-Item target\\${jar}.jar \\\\${s.host}\\mule\\apps\\`))
+    logs.push(line('INFO', `${s.host}: Mule unpacks a jar dropped in MULE_HOME\\apps into a folder named after the file. ${jar}-anchor.txt marks it as deployed.`, 'docs'))
+    logs.push(line('INFO', `${s.host}: ${jar} started as its own app${rmApp ? `, next to ${rmApp} that Runtime Manager deployed` : ''}.`))
+    if (rmApp) logs.push(line('WARN', `${s.host}: both apps use the same HTTP listener port, so they conflict.`))
+  }
+  target.copied = { version: run.version, app: jar, at: target.servers.map((s) => s.host) }
+  const before = target.app ? `${target.app.version}` : 'nothing'
+  const second = rmApp
+    ? ` The copied file does not replace ${ASSET_ID}. It becomes a second app named after the file, ${jar}, next to ${rmApp}, and both use the same HTTP listener port.`
+    : ''
+  return {
+    logs,
+    issues: [
+      ...notes,
+      warning(
+        'Deployed outside Runtime Manager',
+        `The jar went straight into the apps folder of each server in ${target.name}, and Mule deployed it there. These servers are managed by Runtime Manager, and the docs say that when Runtime Manager manages a server you cannot use other deployment and management methods or tools to manage it. Runtime Manager did not deploy this version: the last deployment it made to ${target.name} is ${before}.${second} The runner also needed a self-hosted machine inside the data center with write access to every server.`,
+        `Remove the copy step and delete ${jar} from the apps folders. Deploy with armDeployment from a GitHub-hosted runner, so Runtime Manager deploys the app and the runner needs no access to the servers.`,
+        { docs: OWN_SERVERS, code: 'outside-rm', assumption: 'The docs state the rule and the hot deployment steps. That the copy starts as a second app and that both apps clash on one listener port is the lab reasoning from the file name, not a docs statement. The docs also do not say how Runtime Manager shows an app it did not deploy.' },
+      ),
+    ],
+  }
+}
+
+// Lets the agent on each server of a target reach the control plane again, so the servers show Running.
+export function allowOutbound(state, envName, targetName) {
+  const next = structuredClone(state)
+  const target = next.envs[envName].targets?.find((t) => t.name === targetName)
+  if (!target) return state
+  for (const s of target.servers) s.status = 'Running'
+  target.note = ''
+  return next
+}
+
 function deployTo(state, run, envName) {
   const { config } = run
   const env = state.envs[envName]
@@ -308,6 +511,7 @@ function deployTo(state, run, envName) {
     if (config.snapshotGuard) return { issues: [failure('SNAPSHOT blocked before Production', `The pipeline guard stopped this stage. ${cause}`, fix, { docs: CH2, incident: 'inc-123' })] }
     notes.push(warning('SNAPSHOT running in Production', `${cause} Each redeploy refreshes the app with the latest snapshot binaries.`, fix, { docs: CH2, incident: 'inc-123' }))
   }
+  if (config.deployTarget === 'copy') return copyToApps(state, run, envName, notes)
   const auth = authIssue(config)
   if (auth) return { logs: [line('ERROR', auth.title, 'assumed')], issues: [auth] }
   if (config.deployUserPass) {
@@ -317,6 +521,7 @@ function deployTo(state, run, envName) {
     const result = uploadOnly(state, run, envName)
     return { ...result, issues: [...notes, ...(result.issues ?? [])] }
   }
+  if (config.deployTarget === 'hybrid') return hybridDeploy(state, run, envName, notes)
   const published = findVersion(state.exchange, ASSET_ID, run.version)
   if (!published) {
     return { issues: [failure('The application is not published in Exchange', `${run.version} is not in Exchange, and deploying to CloudHub 2.0 requires the application to be published there first.`, 'Keep the publish stage, or publish the version before deploying.', { docs: CH2, assumption: 'The docs state the prerequisite. They do not describe the failure.' })] }
@@ -372,8 +577,10 @@ export function startRun(state, config) {
 // Runs only the deploy step for a version, as rerunning a deployment job does. Nothing is built or published.
 export function startRedeploy(state, config, envName, version) {
   if (running(state)) return state
-  const stage = { id: envName, name: `Redeploy to ${envName}`, command: `${commandName('mule-deploy')} -Denvironment=${envName}` }
-  return addRun(state, { ...config, deployCommand: 'mule-deploy' }, version, [stage])
+  // the Environments page redeploys the CloudHub 2.0 application, whatever target the workflow options name
+  const redeploy = { ...config, deployTarget: 'cloudhub2', deployCommand: 'mule-deploy' }
+  const stage = { id: envName, name: `Redeploy to ${envName}`, ...deployJob(redeploy, envName) }
+  return addRun(state, redeploy, version, [stage])
 }
 
 // Executes the next stage. A failed stage stops the run and the stages after it are skipped.
@@ -535,6 +742,47 @@ export function pomPreview(config) {
     partial: ['  <properties>', '    <api.id>${api.id}</api.id>', '  </properties>'],
     full: ['  <properties>', '    <db.host>${db.host}</db.host>', '    <db.user>${db.user}</db.user>', '    <client.id>${app.client.id}</client.id>', '    <api.id>${api.id}</api.id>', '  </properties>', '  <secureProperties>', '    <db.password>${db.password}</db.password>', '  </secureProperties>'],
   }[config.propertiesMode]
+  if (config.deployTarget === 'copy') {
+    const t = targetFor(config, 'Sandbox')
+    return [
+      '# release.yml: the deploy job. No deployment block: the Mule Maven plugin does not deploy.',
+      'deploy-sandbox:',
+      config.runner === 'self-hosted' ? '  runs-on: self-hosted   # a machine inside the data center' : '  runs-on: ubuntu-latest   # GitHub-hosted, outside the data center',
+      '  steps:',
+      `    - name: Copy the jar to each server of ${t.name}`,
+      '      shell: pwsh',
+      '      run: |',
+      '        foreach ($s in $env:MULE_SERVERS -split ",") {',
+      '          Copy-Item target\\*-mule-application.jar "\\\\$s\\mule\\apps\\"',
+      '        }',
+    ].join('\n')
+  }
+  if (config.deployTarget === 'hybrid') {
+    const ids = ['Sandbox', 'Production'].map((e) => {
+      const t = targetFor(config, e)
+      return `<!-- ${e}: -Denvironment=${e} -Dtarget=${t.name} -DtargetType=${t.type} -->`
+    })
+    // armDeployment takes properties and propertiesFile. It has no secureProperties element.
+    const armProperties = {
+      omit: [],
+      partial: properties,
+      full: ['  <properties>', '    <db.host>${db.host}</db.host>', '    <db.user>${db.user}</db.user>', '    <client.id>${app.client.id}</client.id>', '    <api.id>${api.id}</api.id>', '  </properties>', '  <!-- or one key=value per line in a Java properties file: -->', '  <!-- <propertiesFile>${project.basedir}/deploy/${environment}.properties</propertiesFile> -->'],
+    }[config.propertiesMode]
+    return [
+      ...ids,
+      '<armDeployment>',
+      '  <uri>https://anypoint.mulesoft.com</uri>',
+      `  <muleVersion>${String(config.muleVersion ?? '').trim()}</muleVersion>`,
+      '  <target>${target}</target>',
+      '  <targetType>${targetType}</targetType>',
+      '  <environment>${environment}</environment>',
+      `  <applicationName>${ASSET_ID}</applicationName>`,
+      ...auth,
+      ...armProperties,
+      ...(config.skipDeploymentVerification ? ['  <skipDeploymentVerification>true</skipDeploymentVerification>'] : []),
+      '</armDeployment>',
+    ].join('\n')
+  }
   return [
     '<cloudhub2Deployment>',
     '  <provider>MC</provider>',
@@ -578,4 +826,9 @@ export const SCENARIOS = [
   { id: 'no-extensions', title: 'Plugin declared without extensions', patch: { pluginExtensions: false }, expect: { stage: 'build', status: 'failed' }, fix: { pluginExtensions: true } },
   { id: 'connected-app-scope', title: 'Connected App without the required scope', patch: { authMode: 'connected-app', connectedAppScope: false }, expect: { stage: 'Sandbox', status: 'failed' }, fix: { connectedAppScope: true, publishStage: false } },
   { id: 'rebuild-production', title: 'Production packaged again', patch: { deployCommand: 'clean-deploy-mule' }, expect: { stage: 'Production', status: 'warned' }, fix: { deployCommand: 'mule-deploy', publishStage: false } },
+  { id: 'hybrid-target-missing', title: 'Own servers: a target name that does not exist', patch: { deployTarget: 'hybrid', sandboxTarget: 'harbor-sandbox' }, expect: { stage: 'Sandbox', status: 'failed' }, fix: { sandboxTarget: 'sbx-group', publishStage: false } },
+  { id: 'hybrid-target-type', title: 'Own servers: the wrong targetType', patch: { deployTarget: 'hybrid', sandboxTargetType: 'cluster' }, expect: { stage: 'Sandbox', status: 'failed' }, fix: { sandboxTargetType: 'serverGroup', publishStage: false } },
+  { id: 'hybrid-mule-version', title: 'Own servers: muleVersion above the server runtime', patch: { deployTarget: 'hybrid', muleVersion: '4.8.0' }, expect: { stage: 'Sandbox', status: 'failed' }, fix: { muleVersion: SERVER_RUNTIME, publishStage: false } },
+  { id: 'hybrid-copy-hosted', title: 'Own servers: a GitHub-hosted runner copies to the apps folder', patch: { deployTarget: 'copy' }, expect: { stage: 'Sandbox', status: 'failed' }, fix: { deployTarget: 'hybrid', publishStage: false } },
+  { id: 'hybrid-copy-self', title: 'Own servers: a self-hosted runner copies to the apps folder', patch: { deployTarget: 'copy', runner: 'self-hosted' }, expect: { stage: 'Sandbox', status: 'warned' }, fix: { deployTarget: 'hybrid', runner: 'github-hosted', publishStage: false } },
 ]

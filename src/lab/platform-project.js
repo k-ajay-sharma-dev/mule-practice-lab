@@ -1,6 +1,6 @@
 // The API-led project of Harbor Foods: what is designed, published, managed and deployed. The open console starts with all
 // of it, and each lab starts with a part of it missing or broken.
-import { addMonAlert, at, newApi, newApp, newPlatform } from './platform.js'
+import { addMonAlert, at, newApi, newApp, newPlatform, newHybrid, newServer } from './platform.js'
 import { asset, CLIENTS, creds, OPS, policy, until } from './platform-kit.js'
 import { LAYER_PROPERTY } from './platform-led.js'
 
@@ -160,6 +160,9 @@ export const patchApp = (s, key, patch) => {
   return s
 }
 
+// Two Windows servers in the data center of Harbor, with the Mule runtime installed and not registered yet
+export const defaultHybrid = () => newHybrid([newServer('HBR-MULE-01', { ip: '10.20.1.11' }), newServer('HBR-MULE-02', { ip: '10.20.1.12' })])
+
 // The open console: the whole project, and the scheduled jobs of the same company
 export function openConsole() {
   let s = ledProject({ clock: at(0, 12), traffic: [{ ...MOBILE_TRAFFIC, every: 5 }, { ...PARTNER_TRAFFIC, every: 10 }, { ...MOBILE_TRAFFIC, method: 'POST', path: '/my-orders', every: 30 }] })
@@ -168,6 +171,7 @@ export function openConsole() {
     newApp('customer-export', { props: { 'blob.account': 'harborstore', 'blob.container': 'customer-exports' } }),
     newApp('stock-file-poll', { props: { 'sftp.host': 'sftp.harbor.lab' }, secrets: { 'sftp.password': 'lab' } }),
   )
+  s.hybrid = defaultHybrid()
   s.jars.push({ pkg: 'orders-sapi-v2', autodiscovery: jarOf('orders').autodiscovery, jar: 'orders-sapi-2.0.0-mule-application.jar' }, 'orders-nightly-load', 'customer-export', 'stock-file-poll', 'search-eapi')
   const alert = { resource: 'Application', severity: 'High', operator: 'Above', recipients: OPS, minutes: 1 }
   s = addMonAlert(s, { ...alert, title: 'Errors in the process layer', name_: LED.process.app, metric: 'Message Error Count', threshold: 0 })

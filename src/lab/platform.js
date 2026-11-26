@@ -103,9 +103,11 @@ export const newApp = (name, extra = {}) => ({
   ...extra,
 })
 export const replicaName = (app) => `${app.name.slice(0, 18)}-${(app.name.length * 7919 + app.config * 31).toString(16).slice(0, 5)}-x2k9p`
-export const endpointOf = (app) => `https://${app.name}-lab1a2.${app.env === 'Sandbox' ? 'sbx' : 'prd'}.usa-e2.cloudhub.example`
+// An application on the company's own servers is reached through the company's own load balancer
+const dcOf = (app) => `https://${app.name}-lab1a2.dc-${app.env === 'Sandbox' ? 'sbx' : 'prd'}.harbor.lab`
+export const endpointOf = (app) => (app.targetType ? dcOf(app) : `https://${app.name}-lab1a2.${app.env === 'Sandbox' ? 'sbx' : 'prd'}.usa-e2.cloudhub.example`)
 // Each application also has an address that only other applications of the network reach
-export const internalOf = (app) => `https://${app.name}-lab1a2.internal-${app.env === 'Sandbox' ? 'sbx' : 'prd'}.usa-e2.cloudhub.example/api`
+export const internalOf = (app) => (app.targetType ? `${dcOf(app)}/api` : `https://${app.name}-lab1a2.internal-${app.env === 'Sandbox' ? 'sbx' : 'prd'}.usa-e2.cloudhub.example/api`)
 export const propsOf = (app) => ({ ...app.props, ...app.secrets })
 // `store` is what the application keeps between runs, such as a watermark. A package says with volatileStore() when
 // that store lives in memory, so a restart or redeploy empties it.
@@ -115,8 +117,9 @@ function schedulesOf(pkg, now) {
   return (packageOf(pkg)?.schedules ?? []).map((x) => ({ ...x, at: now + (x.type === 'fixed' ? everyMs(x) : 0), busyUntil: 0, last: null }))
 }
 
-const log = (s, app, lines, t = s.clock) => {
-  for (const l of lines) app.logs.push({ t, level: l.level, text: l.text, logger: l.logger, config: app.config })
+// `node` is the server that wrote the line, for an application on the company's own servers
+const log = (s, app, lines, t = s.clock, node) => {
+  for (const l of lines) app.logs.push({ t, level: l.level, text: l.text, logger: l.logger, config: app.config, ...(node && { node }) })
   if (app.logs.length > MAX_LOGS) app.logs.splice(0, app.logs.length - MAX_LOGS)
 }
 const event = (s, e) => {
@@ -167,16 +170,16 @@ export function nextRun(schedule, now) {
 const EVERY = { '0 * * * * ?': 'Every minute' }
 export const scheduleText = (x) => (x.type === 'fixed' ? `Every ${x.value} ${Number(x.value) === 1 ? x.unit.slice(0, -1) : x.unit}` : (EVERY[x.value] ?? `${x.value} (${x.tz})`))
 
-function runJob(s, app, schedule, manual = false) {
+function runJob(s, app, schedule, manual = false, node) {
   const now = s.clock
   if (schedule.noOverlap && now < schedule.busyUntil) {
-    log(s, app, [info(`Flow '${schedule.flow}' is already running and 'disallowConcurrentExecution' is set to 'true'. Execution skipped.`, 'org.mule.runtime.core.internal.construct.FlowBackPressure')])
+    log(s, app, [info(`Flow '${schedule.flow}' is already running and 'disallowConcurrentExecution' is set to 'true'. Execution skipped.`, 'org.mule.runtime.core.internal.construct.FlowBackPressure')], s.clock, node)
     schedule.skipped = (schedule.skipped ?? 0) + 1
     event(s, { k: 'skip', app: app.name, env: app.env, fl: schedule.flow })
     return
   }
-  const result = packageOf(app.pkg).run[schedule.flow](ctxOf(s, app))
-  log(s, app, result.log)
+  const result = packageOf(app.pkg).run[schedule.flow](ctxOf(s, app, { node }))
+  log(s, app, result.log, s.clock, node)
   schedule.busyUntil = now + result.ms
   schedule.last = { t: now, ok: result.ok, manual, error: result.errorType ?? null }
   event(s, { k: 'job', app: app.name, env: app.env, fl: schedule.flow, s: result.ok ? 'ok' : 'failed', ms: result.ms, e: result.errorType, n: result.errors ?? (result.ok ? 0 : 1), hp: result.heap })
@@ -200,7 +203,7 @@ function put(s, queue, body) {
 }
 
 function consumeQueues(s) {
-  for (const app of s.apps.filter((a) => a.status === 'Running' && packageOf(a.pkg)?.consume)) {
+  for (const app of s.apps.filter((a) => a.status === 'Running' && packageOf(a.pkg)?.consume && (!a.targetType || liveNodes(s, a).length > 0))) {
     const pkg = packageOf(app.pkg)
     const q = s.queues.find((x) => x.name === propsOf(app)[pkg.consumes])
     if (!q?.messages.length) continue
@@ -279,7 +282,8 @@ const ENV_OF = { sbx: 'Sandbox', prd: 'Production' }
 // An application calls another one by its address. The answer has an error type, the way the HTTP Request operation has.
 function invoke(s, from, key, req, timeout, cid) {
   const url = String(propsOf(from)[key] ?? '')
-  const [, name, internal, env] = url.match(/^https?:\/\/([a-z0-9-]+)-lab1a2\.(internal-)?(sbx|prd)\./) ?? []
+  const [, name, place, env] = url.match(/^https?:\/\/([a-z0-9-]+)-lab1a2\.(internal-|dc-)?(sbx|prd)\./) ?? []
+  const internal = place === 'internal-'
   const target = name && appNamed(s, name, ENV_OF[env])
   const result = (r) => {
     linked(s, from.name, name ?? url, from.env, r.status ?? 0, r.ms)
@@ -307,6 +311,14 @@ function callApp(s, app, req) {
     return { status: r.status, ms: r.ms ?? 5, body: r.body ?? '', policy: r.policy ?? null, trace: r.trace ?? [], headers: [...(r.headers ?? []), ...(cid ? [['X-Correlation-ID', cid]] : [])], api: api?.id ?? null, cid }
   }
   if (!app || app.status !== 'Running') return done({ status: 503, body: '{"error":"Service Unavailable"}', error: 'NO_APPLICATION' })
+  // on the company's own servers the load balancer of the company sends each request to a server where the app runs
+  let node
+  if (app.targetType) {
+    const live = liveNodes(s, app)
+    if (live.length === 0) return done({ status: 503, body: '{"error":"Service Unavailable. No server behind the load balancer answers."}', error: 'NO_SERVER' })
+    app.rr = ((app.rr ?? -1) + 1) % live.length
+    node = live[app.rr].agent.name
+  }
   const pair = pairing(s, app)
   if (pair.state === 'credentials' || pair.state === 'unknown') return done({ status: 503, body: '{"error":"API is not available. The gateway is waiting for its policies."}', error: 'GATEKEEPER' })
   let extra = {}
@@ -324,6 +336,7 @@ function callApp(s, app, req) {
   const say = (text) => lines.push(info(`event:${cid} ${text}`))
   say(`${req.method} ${req.path} received`)
   const ctx = ctxOf(s, app, {
+    node,
     perMinute,
     say,
     backend: (id) => backendOf(s, app, id),
@@ -340,9 +353,9 @@ function callApp(s, app, req) {
   const r = pkg.handle?.(ctx, req) ?? { status: 404, ms: 3, body: '' }
   say(`Answered ${r.status} in ${r.ms} ms`)
   // steady traffic that works would fill the log, so its lines are written for failures and for calls of the API client
-  if (pkg.traced && (req.traced || r.status >= 500)) log(s, app, lines)
-  if (r.log) log(s, app, pkg.traced ? r.log.map((l) => ({ ...l, text: `event:${cid} ${l.text}` })) : r.log)
-  return done({ ...r, ...extra })
+  if (pkg.traced && (req.traced || r.status >= 500)) log(s, app, lines, s.clock, node)
+  if (r.log) log(s, app, pkg.traced ? r.log.map((l) => ({ ...l, text: `event:${cid} ${l.text}` })) : r.log, s.clock, node)
+  return done({ ...r, ...extra, ...(node && { headers: [...(extra.headers ?? r.headers ?? []), ['X-Lab-Server', node]] }) })
 }
 
 // A request from the API client. `url` is the endpoint of an application, with /api in front of the resource path.
@@ -366,22 +379,63 @@ export function deployErrors(state, form, existing) {
   if (!NAME_RULE.test(form.name)) errors.push('An application name has 3 to 42 letters, digits and dashes.')
   if (!existing && appNamed(state, form.name)) errors.push(`The name ${form.name} is already in use in ${state.env}.`)
   if (!form.pkg) errors.push('Choose an application file.')
-  if (!(form.replicas >= 1 && form.replicas <= 8)) errors.push('The replica count is 1 to 8.')
+  if (form.targetType) {
+    if (!hybridTargets(state, state.env).some((t) => t.name === form.target && t.type === form.targetType)) errors.push(`There is no ${form.targetType.toLowerCase()} named ${form.target} in ${state.env}.`)
+  } else if (!(form.replicas >= 1 && form.replicas <= 8)) errors.push('The replica count is 1 to 8.')
   return errors
+}
+
+// Why an application cannot start: a property it misses, or a server whose runtime is older than the application needs
+function startError(s, app, server) {
+  const need = packageOf(app.pkg).minMule
+  if (server && need && versionCompare(server.runtime, need) < 0) return `This application needs Mule runtime ${need} or newer. The server ${server.agent?.name ?? server.host} runs ${server.runtime}.`
+  return packageOf(app.pkg).boot?.(ctxOf(s, app, { node: server?.agent?.name })) ?? null
+}
+// a version error is the lab's own wording; a missing property reads like the runtime's exception
+const failLine = (app, gone) => line('ERROR', `Failed to deploy artifact [${app.name}]\n${/needs Mule runtime/.test(gone) ? gone : `org.mule.runtime.deployment.model.api.DeploymentInitException: ConfigurationPropertiesException: ${gone}`}`, 'org.mule.runtime.module.deployment')
+
+// The agent of one server gets the application, writes it to MULE_HOME\apps and the runtime starts it
+function deployOnServer(s, app, server) {
+  const gone = startError(s, app, server)
+  log(s, app, [info(`Deploying ${app.jar} to ${server.agent.name}`, 'com.mulesoft.agent'), info(`Initializing app '${app.name}'`, 'org.mule.runtime.deployment')], s.clock, server.agent.name)
+  log(s, app, [gone ? failLine(app, gone) : info(`Started app '${app.name}'`, 'org.mule.runtime.deployment')], s.clock, server.agent.name)
+  serverLog(s, server, gone ? 'ERROR' : 'INFO', gone ? `Failed to deploy artifact [${app.name}]. ${gone}` : `Started app '${app.name}' from ${app.jar}`)
+  if (app.behind) delete app.behind[server.agent.name]
+  server.apps[app.name] = { jar: app.jar, managed: true, config: app.config, status: gone ? 'failed' : 'deployed', error: gone }
+  app.nodes[server.agent.name] = gone ? 'Failed' : 'Started'
+}
+// The status of an application on the company's servers comes from its servers
+function settleNodes(app) {
+  const states = Object.values(app.nodes ?? {})
+  const failed = Object.entries(app.nodes ?? {}).find(([, x]) => x === 'Failed')
+  app.status = states.includes('Started') ? 'Running' : failed ? 'Failed' : 'Waiting'
+  app.error = failed ? `Failed on ${failed[0]}. Read the logs of that server.` : null
 }
 
 function boot(s, app) {
   if (packageOf(app.pkg).volatileStore?.(ctxOf(s, app))) app.store = {}
-  const gone = packageOf(app.pkg).boot?.(ctxOf(s, app)) ?? null
-  log(s, app, [info(`Starting replica ${replicaName(app)}`, 'com.mulesoft.cloudhub.runtime'), info(`Initializing app '${app.name}'`, 'org.mule.runtime.deployment')])
-  if (gone) {
-    log(s, app, [line('ERROR', `Failed to deploy artifact [${app.name}]\norg.mule.runtime.deployment.model.api.DeploymentInitException: ConfigurationPropertiesException: ${gone}`, 'org.mule.runtime.module.deployment')])
-    app.status = 'Failed'
-    app.error = gone
+  if (app.targetType) {
+    app.nodes = {}
+    app.behind = {}
+    for (const server of nodesOf(s, app)) {
+      const old = server.apps[app.name]
+      if (serverStatus(server) === 'Running') deployOnServer(s, app, server)
+      // a server that cannot be reached keeps running the version it has, until its agent connects again
+      else if (old?.managed && old.status === 'deployed') {
+        app.nodes[server.agent.name] = 'Started'
+        app.behind[server.agent.name] = true
+      } else app.nodes[server.agent.name] = 'Waiting'
+    }
+    settleNodes(app)
   } else {
-    app.status = 'Running'
-    app.error = null
-    log(s, app, [info(`Started app '${app.name}'`, 'org.mule.runtime.deployment')])
+    const gone = startError(s, app)
+    log(s, app, [info(`Starting replica ${replicaName(app)}`, 'com.mulesoft.cloudhub.runtime'), info(`Initializing app '${app.name}'`, 'org.mule.runtime.deployment')])
+    if (gone) log(s, app, [failLine(app, gone)])
+    else log(s, app, [info(`Started app '${app.name}'`, 'org.mule.runtime.deployment')])
+    app.status = gone ? 'Failed' : 'Running'
+    app.error = gone
+  }
+  if (app.status === 'Running') {
     const pair = pairing(s, app)
     if (pair.state === 'paired') {
       pair.api.seen = true
@@ -407,6 +461,13 @@ export function deployApp(state, form) {
   const next = edit(state, (s) => {
     const { editing, ...fields } = form
     let app = appNamed(s, form.name)
+    if (fields.targetType) {
+      // the runtime of the servers runs the application, so the version and the copies come from the target
+      const servers = serversOf(s, hybridTargets(s, s.env).find((t) => t.name === fields.target))
+      Object.assign(fields, { version: servers[0]?.runtime ?? fields.version, replicas: servers.length, vCores: 1, cluster: fields.targetType === 'Cluster', publicEndpoint: true, channel: 'Server' })
+    }
+    // an application that moves to other servers leaves the servers it ran on
+    if (app && editing && app.targetType) for (const server of hybridServers(s)) if (server.apps[app.name]?.managed && !(fields.targetType && serversOf(s, hybridTargets(s, s.env).find((t) => t.name === fields.target)).includes(server))) undeployFrom(s, server, app.name)
     if (app && editing) {
       Object.assign(app, fields, { config: app.config + 1, updated: s.clock, status: 'Starting' })
     } else {
@@ -415,6 +476,8 @@ export function deployApp(state, form) {
       s.apps.push(app)
     }
     app.logs = app.logs.slice(-MAX_LOGS)
+    // which file ran in which configuration, so a rollback can be read back
+    app.history = [...(app.history ?? []), { config: app.config, jar: app.jar, pkg: app.pkg, t: s.clock }].slice(-20)
   })
   return { state: next, errors: [] }
 }
@@ -427,7 +490,12 @@ export const finishDeploys = (state) =>
     : state
 export const stopApp = (state, name) => edit(state, (s) => void (appNamed(s, name).status = 'Stopped'))
 export const startApp = (state, name) => edit(state, (s) => void (appNamed(s, name).status = 'Starting'))
-export const deleteApp = (state, name) => edit(state, (s) => void (s.apps = s.apps.filter((a) => a !== appNamed(s, name))))
+export const deleteApp = (state, name) =>
+  edit(state, (s) => {
+    const app = appNamed(s, name)
+    if (app?.targetType) for (const server of hybridServers(s)) if (server.apps[name]?.managed) undeployFrom(s, server, name)
+    s.apps = s.apps.filter((a) => a !== app)
+  })
 
 export const setSchedule = (state, name, flow, patch) =>
   edit(state, (s) => {
@@ -440,7 +508,7 @@ export const runNow = (state, name, flow) =>
     const app = appNamed(s, name)
     if (app.status !== 'Running') return
     const x = app.schedules.find((y) => y.flow === flow)
-    runJob(s, app, x, true)
+    runOnNodes(s, app, x, true)
     if (x.type === 'fixed') x.at = s.clock + everyMs(x) // running it resets the timer
     s.clock += 1000
     checkAlerts(s)
@@ -458,7 +526,7 @@ export function advance(state, ms) {
         for (const x of app.schedules) {
           if (!x.enabled) continue
           if (x.type === 'cron' ? cronMatches(x.value, x.tz, t) : x.at <= t) {
-            runJob(s, app, x)
+            runOnNodes(s, app, x)
             if (x.type === 'fixed') x.at = Math.max(x.at, t) + everyMs(x)
           }
         }
@@ -685,7 +753,9 @@ export function addApi(state, form) {
     const asset = latestAsset(s, form.assetId)
     const id = String(19400000 + s.nextId * 137)
     s.nextId++
-    s.apis.push(newApi(id, { name: asset.name, assetId: asset.assetId, version: form.version ?? asset.version, apiVersion: asset.apiVersion, env: s.env, label: form.label, upstream: form.upstream, consumer: form.consumer, muleVersion: form.muleVersion, t: s.clock }))
+    // the API version comes from the asset version the instance uses, not from the latest one
+    const chosen = s.assets.find((a) => a.assetId === form.assetId && a.version === (form.version ?? asset.version)) ?? asset
+    s.apis.push(newApi(id, { name: asset.name, assetId: asset.assetId, version: chosen.version, apiVersion: chosen.apiVersion, env: s.env, label: form.label, upstream: form.upstream, consumer: form.consumer, muleVersion: form.muleVersion, t: s.clock }))
     s.lastApi = id
   })
 }
@@ -702,7 +772,11 @@ export function promoteApi(state, sourceId, include) {
 export const setApi = (state, id, patch) => edit(state, (s) => void Object.assign(apiById(s, id), patch))
 export const applyPolicy = (state, id, type, settings = {}) => edit(state, (s) => void apiById(s, id).policies.push({ id: idOf(s, 'po'), type, settings: { ...defaultSettings(type), ...settings } }))
 export const addTier = (state, id, tier) => edit(state, (s) => void apiById(s, id).tiers.push(tier))
+// An instance moves only within its major version; another major needs a new API instance.
+// Source: api-manager/latest/manage-versions-instances-concept
+export const sameMajor = (a, b) => String(a).split('.')[0] === String(b).split('.')[0]
 export function reviseApi(state, id, version) {
+  if (!sameMajor(apiById(state, id)?.version, version)) return state
   return edit(state, (s) => {
     const api = apiById(s, id)
     const asset = s.assets.find((a) => a.assetId === api.assetId && a.version === version)
@@ -741,3 +815,199 @@ export function queryLogs(s, query, env = s.env) {
   }
   return rows.filter((row) => terms.every((t) => test(row, t))).sort((a, b) => b.t - a.t)
 }
+
+// ---------- the company's own servers (hybrid) ----------
+// Anypoint is the control plane. The Mule runtimes run on the company's servers. The Runtime Manager agent on each
+// server makes an outbound HTTPS connection, then a secure WebSocket on port 443, to Runtime Manager, so nothing needs
+// to reach the server from outside. Sources: runtime-manager/runtime-manager-agent, runtime-manager/servers-create,
+// runtime-manager/server-group-about, mule-runtime/latest/hot-deployment and mule-high-availability-ha-clusters.
+export const CONTROL_PLANE = 'wss://runtime-manager.anypoint.mulesoft.com:443/mule'
+// The Add Server page of each environment gives its own token. These are lab values.
+export const REG_TOKENS = { Sandbox: 'HBR-REG-SBX-7f3a91', Production: 'HBR-REG-PRD-c20e54' }
+export const newServer = (host, extra = {}) => {
+  const runtime = extra.runtime ?? '4.9.0'
+  const server = { host, ip: '10.20.1.11', os: 'Windows Server 2022', runtime, java: '17', agentVersion: '2.7.0', home: `C:\\mule\\mule-enterprise-standalone-${runtime}`, service: 'Running', outbound: true, agent: null, agentFiles: false, pendingRestart: false, apps: {}, log: [], ...extra }
+  if (server.agent) server.agentFiles = true
+  return server
+}
+export const newHybrid = (servers = [], extra = {}) => ({ servers, groups: [], clusters: [], ...extra })
+
+const H = (s) => s.hybrid ?? { servers: [], groups: [], clusters: [] }
+export const hybridServers = (s) => H(s).servers
+export const serverByHost = (s, host) => H(s).servers.find((x) => x.host === host)
+export const serverNamed = (s, env, name) => H(s).servers.find((x) => x.agent?.env === env && x.agent.name === name)
+export function versionCompare(a, b) {
+  const x = String(a).split('.').map(Number)
+  const y = String(b).split('.').map(Number)
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0)
+  return 0
+}
+
+// What Runtime Manager shows for a server. A server that is stopped, or cannot reach the control plane, is Disconnected.
+// Registering a running server needs a restart before it connects.
+export function serverStatus(server) {
+  if (!server.agent) return 'Not registered'
+  return server.service !== 'Running' || !server.outbound || server.pendingRestart || !server.agentFiles ? 'Disconnected' : 'Running'
+}
+// The places Runtime Manager can deploy to in one environment: servers on their own, server groups and clusters
+export function hybridTargets(s, env = s.env) {
+  const h = H(s)
+  const sets = [...h.groups, ...h.clusters].filter((g) => g.env === env)
+  const taken = new Set(sets.flatMap((g) => g.servers))
+  return [
+    ...h.servers.filter((x) => x.agent?.env === env && !taken.has(x.agent.name)).map((x) => ({ name: x.agent.name, type: 'Server', env, servers: [x.agent.name] })),
+    ...h.groups.filter((g) => g.env === env).map((g) => ({ name: g.name, type: 'Server Group', env, servers: g.servers })),
+    ...h.clusters.filter((g) => g.env === env).map((g) => ({ name: g.name, type: 'Cluster', env, servers: g.servers })),
+  ]
+}
+export const serversOf = (s, target) => (target?.servers ?? []).map((n) => serverNamed(s, target.env, n)).filter(Boolean)
+export const nodesOf = (s, app) => serversOf(s, hybridTargets(s, app.env).find((t) => t.name === app.target && t.type === app.targetType))
+// The servers where the application runs now and that answer the load balancer. The control plane does not matter here:
+// applications keep serving traffic while Runtime Manager is unreachable.
+export const liveNodes = (s, app) => nodesOf(s, app).filter((x) => x.service === 'Running' && app.nodes?.[x.agent.name] === 'Started' && x.apps[app.name]?.status === 'deployed')
+
+function runOnNodes(s, app, x, manual = false) {
+  if (!app.targetType) return runJob(s, app, x, manual)
+  const live = liveNodes(s, app)
+  // a cluster runs its schedulers on the primary node only; servers that are not clustered each run their own
+  const nodes = app.targetType === 'Cluster' ? live.slice(0, 1) : live
+  const busy = x.busyUntil
+  for (const n of nodes) {
+    x.busyUntil = busy
+    runJob(s, app, x, manual, n.agent.name)
+  }
+}
+
+function serverLog(s, server, level, text) {
+  server.log.push({ t: s.clock, level, text })
+  if (server.log.length > 200) server.log.splice(0, server.log.length - 200)
+}
+function undeployFrom(s, server, name) {
+  delete server.apps[name]
+  serverLog(s, server, 'INFO', `Undeployed app '${name}'`)
+  const app = server.agent && appNamed(s, name, server.agent.env)
+  if (app?.nodes?.[server.agent.name]) {
+    delete app.nodes[server.agent.name]
+    settleNodes(app)
+  }
+}
+// When a server connects, the lab gives it the deployments of Runtime Manager it does not have yet
+function connectServer(s, server) {
+  if (serverStatus(server) !== 'Running') return
+  serverLog(s, server, 'INFO', `Runtime Manager agent connected to ${CONTROL_PLANE}`)
+  for (const app of s.apps.filter((a) => a.targetType && a.env === server.agent.env && a.status !== 'Stopped' && a.status !== 'Starting')) {
+    if (!nodesOf(s, app).includes(server)) continue
+    const have = server.apps[app.name]
+    if (have?.managed && have.config === app.config && app.nodes?.[server.agent.name] === 'Started') continue
+    app.nodes ??= {}
+    deployOnServer(s, app, server)
+    settleNodes(app)
+  }
+}
+const onServer = (state, host, fn) =>
+  edit(state, (s) => {
+    const server = serverByHost(s, host)
+    if (server) fn(s, server)
+  })
+// The Windows service of the Mule runtime: mule.bat install, then mule.bat start
+export const installService = (state, host) => onServer(state, host, (s, x) => void (x.service = x.service === 'Not installed' ? 'Stopped' : x.service))
+export const stopService = (state, host) =>
+  onServer(state, host, (s, x) => {
+    if (x.service !== 'Running') return
+    x.service = 'Stopped'
+    serverLog(s, x, 'INFO', 'Mule runtime stopped')
+  })
+export const startService = (state, host) =>
+  onServer(state, host, (s, x) => {
+    if (x.service !== 'Stopped') return
+    x.service = 'Running'
+    x.pendingRestart = false
+    serverLog(s, x, 'INFO', `Mule runtime ${x.runtime} started`)
+    for (const [name, a] of Object.entries(x.apps)) {
+      if (a.status === 'dropped') a.status = 'deployed'
+      serverLog(s, x, a.status === 'deployed' ? 'INFO' : 'ERROR', a.status === 'deployed' ? `Started app '${name}'` : `App '${name}' failed to start. ${a.error ?? ''}`.trim())
+    }
+    if (x.agent) {
+      if (x.outbound) connectServer(s, x)
+      else serverLog(s, x, 'ERROR', `Runtime Manager agent could not connect to ${CONTROL_PLANE}. Connection timed out.`)
+    }
+  })
+// The firewall of the data center: outbound HTTPS on 443 to the control plane
+export const setOutbound = (state, host, allowed) =>
+  onServer(state, host, (s, x) => {
+    x.outbound = allowed
+    if (allowed) connectServer(s, x)
+    else if (x.agent && x.service === 'Running') serverLog(s, x, 'WARN', 'Runtime Manager agent lost its connection to the control plane. Retrying.')
+  })
+// amc_setup -H <token> <server-name>. Returns the lines the command prints.
+export function registerServer(state, host, token, name) {
+  const server = serverByHost(state, host)
+  const env = Object.keys(REG_TOKENS).find((e) => REG_TOKENS[e] === token)
+  if (!server) return { state, out: ['No such server.'] }
+  if (server.agentFiles) return { state, out: ['This server is already registered with Runtime Manager.', 'To register it again, delete conf\\mule-agent.yml and conf\\mule-agent.jks first.'] }
+  if (!env) return { state, out: ['The registration token is not valid. Copy the command from Runtime Manager, Servers, Add Server.'] }
+  if (!NAME_RULE.test(name ?? '')) return { state, out: ['Give the server a name: amc_setup -H <token> <server-name>'] }
+  if (serverNamed(state, env, name)) return { state, out: [`A server named ${name} already exists in ${env}.`] }
+  const next = edit(state, (s) => {
+    const x = serverByHost(s, host)
+    x.agent = { env, name }
+    x.agentFiles = true
+    x.removed = false
+    x.pendingRestart = x.service === 'Running'
+    serverLog(s, x, 'INFO', `Runtime Manager agent registered as ${name} in ${env}`)
+  })
+  return { state: next, out: ['Registering the Mule agent with Runtime Manager...', `Wrote conf\\mule-agent.yml and conf\\mule-agent.jks. Server ${name}, environment ${env}.`, server.service === 'Running' ? 'The runtime is running. Restart it to connect to Runtime Manager.' : 'Start the runtime to connect to Runtime Manager.'] }
+}
+// Deleting the agent files cuts the server off. Runtime Manager keeps its record, shown as Disconnected, until
+// someone removes the server there.
+export const forgetAgent = (state, host) =>
+  onServer(state, host, (s, x) => {
+    if (!x.agentFiles) return
+    serverLog(s, x, 'INFO', 'Runtime Manager agent configuration removed')
+    x.agentFiles = false
+    x.pendingRestart = false
+  })
+// Hot deployment by hand: a jar copied into MULE_HOME\apps is unpacked into a folder named after the file, with an anchor file
+export const copyToApps = (state, host, jar) =>
+  onServer(state, host, (s, x) => {
+    const name = jar.replace(/\.jar$/i, '')
+    x.apps[name] = { jar, managed: false, config: 0, status: x.service === 'Running' ? 'deployed' : 'dropped', error: null }
+    if (x.service === 'Running') serverLog(s, x, 'INFO', `Started app '${name}' from ${jar}`)
+  })
+export const removeAnchor = (state, host, name) => onServer(state, host, (s, x) => void (x.apps[name] && undeployFrom(s, x, name)))
+
+// Runtime Manager, Servers: groups and clusters
+export function createServerSet(state, { name, servers, type }) {
+  const errors = []
+  const list = servers.map((n) => serverNamed(state, state.env, n)).filter(Boolean)
+  const taken = [...H(state).groups, ...H(state).clusters].filter((g) => g.env === state.env)
+  if (!NAME_RULE.test(name)) errors.push('A name has 3 to 42 letters, digits and dashes.')
+  if (hybridTargets(state).some((t) => t.name === name)) errors.push(`The name ${name} is already in use in ${state.env}.`)
+  if (list.length < (type === 'Cluster' ? 2 : 1)) errors.push(type === 'Cluster' ? 'A cluster has at least two servers.' : 'Choose at least one server.')
+  for (const x of list) {
+    if (taken.some((g) => g.servers.includes(x.agent.name))) errors.push(`${x.agent.name} is already in a server group or cluster.`)
+    if (Object.keys(x.apps).length) errors.push(`${x.agent.name} has applications. First stop and delete the applications from the server.`)
+  }
+  for (const key of ['runtime', 'agentVersion', 'java']) {
+    if (new Set(list.map((x) => x[key])).size > 1) errors.push(`All servers must run the same ${key === 'runtime' ? 'Mule runtime' : key === 'java' ? 'Java' : 'Runtime Manager agent'} version: ${list.map((x) => `${x.agent.name} has ${x[key]}`).join(', ')}.`)
+  }
+  if (errors.length) return { state, errors }
+  const next = edit(state, (s) => {
+    s.hybrid[type === 'Cluster' ? 'clusters' : 'groups'].push({ name, env: s.env, servers: list.map((x) => x.agent.name).sort(), t: s.clock })
+  })
+  return { state: next, errors: [] }
+}
+export const deleteServerSet = (state, name) =>
+  edit(state, (s) => {
+    for (const key of ['groups', 'clusters']) s.hybrid[key] = s.hybrid[key].filter((g) => !(g.env === s.env && g.name === name))
+  })
+// Runtime Manager, Servers, Remove: the server leaves Runtime Manager. Its agent files stay until someone deletes them.
+export const removeServer = (state, name) =>
+  edit(state, (s) => {
+    const x = serverNamed(s, s.env, name)
+    if (!x) return
+    for (const g of [...s.hybrid.groups, ...s.hybrid.clusters]) if (g.env === s.env) g.servers = g.servers.filter((n) => n !== name)
+    x.agent = null
+    x.pendingRestart = false
+    x.removed = true
+  })

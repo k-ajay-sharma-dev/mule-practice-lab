@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  addApi, addApiAlert, addTier, API_ALERT_CODES, API_ALERT_TYPES, apiById, apiStatus, applyPolicy, assetGroups, DAY, dayText, ENVS, eventsOf, HOUR, mark, promoteApi, removeApiAlert, reviseApi,
+  addApi, addApiAlert, addTier, API_ALERT_CODES, API_ALERT_TYPES, apiById, apiStatus, applyPolicy, assetGroups, DAY, dayText, ENVS, eventsOf, HOUR, mark, promoteApi, removeApiAlert, reviseApi, sameMajor,
   RM_SEVERITIES, setApi, setContract,
 } from '../../lab/platform.js'
 import { docsUrl, POLICIES, policyByType } from '../../lab/policies.js'
@@ -179,7 +179,8 @@ function AddApi({ state, update, go }) {
                   <Select value="RAML/OAS" onChange={() => {}} options={['RAML/OAS']} />
                 </Field>
                 <Field label="API version">
-                  <Select value={group[0].apiVersion} onChange={() => {}} options={[group[0].apiVersion]} />
+                  {/* the API version belongs to the asset version that is chosen */}
+                  <Select value={(group.find((a) => a.version === f.version) ?? group[0]).apiVersion} onChange={() => {}} options={[(group.find((a) => a.version === f.version) ?? group[0]).apiVersion]} />
                 </Field>
                 <Field label="Asset version">
                   <Select value={f.version} onChange={(version) => set({ version })} options={group.map((a) => a.version)} />
@@ -701,7 +702,8 @@ function Settings({ api, state, update }) {
   const [f, setF] = useState({ label: api.label, consumer: api.consumer, upstream: api.upstream })
   const [version, setVersion] = useState(api.version)
   const [said, setSaid] = useState('')
-  const versions = state.assets.filter((a) => a.assetId === api.assetId).map((a) => a.version)
+  // the platform offers only the versions of the same major; another major needs a new instance
+  const versions = state.assets.filter((a) => a.assetId === api.assetId && sameMajor(a.version, api.version)).map((a) => a.version)
   const save = () => {
     update((s) => setApi(version === api.version ? s : reviseApi(s, api.id, version), api.id, f))
     setSaid('Saved.')
@@ -714,6 +716,7 @@ function Settings({ api, state, update }) {
         </Field>
         <Field label="Asset version">
           <Select value={version} onChange={setVersion} options={versions.length ? versions : [api.version]} />
+          <small className="pc-hint">Only versions of the same major are offered. A new major version needs its own API instance.</small>
         </Field>
         <Field label="Instance label">
           <Input value={f.label} onChange={(label) => setF({ ...f, label })} />

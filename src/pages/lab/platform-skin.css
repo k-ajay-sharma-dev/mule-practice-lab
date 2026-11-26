@@ -457,6 +457,58 @@
 .gh-job-pending .gh-job-name {
   color: var(--muted);
 }
+.gh-job-runner {
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+}
+/* how a deploy job reaches Harbor's own servers */
+.gh-path {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: #fff;
+}
+.gh-path-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.gh-path-node {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: 12px;
+}
+.gh-path-cloud {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+.gh-path-link {
+  color: var(--success);
+  font-size: 12px;
+  font-weight: 600;
+}
+.gh-path-link.bad {
+  color: var(--danger);
+}
+.gh-path p {
+  margin: 0;
+}
+.gh-target {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.gh-target-down {
+  color: var(--danger);
+  font-weight: 600;
+}
 .gh-status {
   flex: none;
 }

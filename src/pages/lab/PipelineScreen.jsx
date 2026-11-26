@@ -2,10 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { pipelineLabDone, pipelineStepDone } from '../../lab/pipeline-labs.js'
 import { isSnapshot, versionsOf } from '../../lab/exchange.js'
 import {
+  allowOutbound,
   ASSET_ID,
   DEPLOY_COMMANDS,
+  DEPLOY_TARGETS,
   ENVIRONMENTS,
   freeReserved,
+  hybridTargets,
   isFeatureBuild,
   newConfig,
   newPromotion,
@@ -17,6 +20,7 @@ import {
   PROPERTY_MODES,
   REQUIRED_KEYS,
   rollback,
+  RUNNER_TYPES,
   running,
   SCENARIOS,
   settle,
@@ -24,6 +28,9 @@ import {
   startRedeploy,
   startRun,
   step,
+  TARGET_TYPES,
+  targetFor,
+  typeName,
   undeploy,
   updateBinding,
 } from '../../lab/pipeline.js'
@@ -47,6 +54,8 @@ function loadSaved(guided) {
     const saved = JSON.parse(localStorage.getItem(guided ? GUIDED_KEY : STATE_KEY))
     const valid = saved?.lab?.envs?.Sandbox && saved.lab.envs.Production && Array.isArray(saved.lab.runs) && saved.lab.exchange && saved.config && (!guided || saved.id === guided.id)
     if (!valid) return fresh
+    // saves from before the hybrid targets existed get the sample servers
+    for (const name of ENVIRONMENTS) saved.lab.envs[name].targets ??= hybridTargets(name)
     const seen = Array.isArray(saved.seen?.views) && Array.isArray(saved.seen?.jobs) ? saved.seen : emptySeen()
     return { lab: saved.lab, config: { ...newConfig(), ...saved.config }, seen, answers: saved.answers ?? {} }
   } catch {
@@ -263,6 +272,7 @@ export default function PipelineScreen({ guided, solved, onSolved }) {
                   onUndeploy={() => setState(undeploy(state, name))}
                   onOverwrite={() => setState(overwriteSnapshot(state, state.envs[name].version))}
                   onBind={() => setState(updateBinding(state, name))}
+                  onAllow={(target) => setState(allowOutbound(state, name, target))}
                 />
               ))}
             </div>
@@ -390,10 +400,12 @@ function RunPage({ run, active, onBack, onSkip, onSeen }) {
               <button className={`gh-job gh-job-${s.status}${s === shown ? ' on' : ''}`} onClick={() => setPicked(s.id)}>
                 <StatusIcon status={active && s === stages.find((x) => x.status === 'pending') ? 'running' : s.status} />
                 <span className="gh-job-name">{s.name}</span>
+                {s.runsOn === 'self-hosted' && <span className="gh-job-runner">self-hosted</span>}
               </button>
             </li>
           ))}
         </ol>
+        {run.config.deployTarget !== 'cloudhub2' && run.config.deployTarget && <DeployPath config={run.config} />}
       </div>
 
       {shown?.issues.length > 0 && (
@@ -438,6 +450,40 @@ function RunPage({ run, active, onBack, onSkip, onSeen }) {
         </section>
       )}
     </>
+  )
+}
+
+// Who talks to whom in a deploy job to Harbor's own servers.
+function DeployPath({ config }) {
+  const targets = ENVIRONMENTS.map((e) => targetFor(config, e).name).filter(Boolean).join(', ')
+  if (config.deployTarget === 'copy') {
+    return (
+      <div className="gh-path" aria-label="How the deploy job reaches the servers">
+        <div className="gh-path-row">
+          <span className="gh-path-node">{config.runner === 'self-hosted' ? 'Self-hosted runner in the data center' : 'GitHub-hosted runner'}</span>
+          <span className="gh-path-link bad">file copy to each server →</span>
+          <span className="gh-path-node">MULE_HOME\apps on the servers of {targets}</span>
+        </div>
+        <p className="gh-dim small">
+          Runtime Manager takes no part. The runner needs a network route and write access to every server, so it has to sit inside the data center.
+          <Assumed />
+        </p>
+      </div>
+    )
+  }
+  return (
+    <div className="gh-path" aria-label="How the deploy job reaches the servers">
+      <div className="gh-path-row">
+        <span className="gh-path-node">{config.runner === 'self-hosted' ? 'Self-hosted runner' : 'GitHub-hosted runner'}</span>
+        <span className="gh-path-link">HTTPS 443 →</span>
+        <span className="gh-path-node gh-path-cloud">Anypoint control plane (Runtime Manager)</span>
+        <span className="gh-path-link">← WSS 443, opened by the agent</span>
+        <span className="gh-path-node">Runtime Manager agent on each server of {targets}</span>
+      </div>
+      <p className="gh-dim small">
+        The runner talks only to the control plane. Each agent opened its own outbound connection from inside the data center, so the runner needs no VPN and the servers need no inbound port.
+      </p>
+    </div>
   )
 }
 
@@ -593,6 +639,7 @@ function Options({ config, onChange }) {
   )
   const command = DEPLOY_COMMANDS.find((c) => c.id === config.deployCommand)
   const mode = PROPERTY_MODES.find((m) => m.id === config.propertiesMode)
+  const target = DEPLOY_TARGETS.find((t) => t.id === config.deployTarget) ?? DEPLOY_TARGETS[0]
 
   return (
     <>
@@ -676,6 +723,47 @@ function Options({ config, onChange }) {
       </fieldset>
 
       <fieldset className="lx-group">
+        <legend className="small">Deployment target</legend>
+        <div className="lab-fields">
+          <label className="lab-field lab-wide">
+            <span className="small muted">Where the deploy jobs send the application</span>
+            <select className="input" value={config.deployTarget} onChange={(e) => set({ deployTarget: e.target.value })}>
+              {DEPLOY_TARGETS.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="muted small lab-wide lab-note">{target.note}</p>
+          {config.deployTarget !== 'cloudhub2' && (
+            <>
+              {ENVIRONMENTS.map((e) => (
+                <TargetInputs key={e} envName={e} config={config} set={set} withType={config.deployTarget === 'hybrid'} />
+              ))}
+              {config.deployTarget === 'hybrid' && (
+                <label className="lab-field">
+                  <span className="small muted">muleVersion</span>
+                  <input className="input mono" value={config.muleVersion} onChange={(e) => set({ muleVersion: e.target.value })} />
+                </label>
+              )}
+              <label className="lab-field">
+                <span className="small muted">Deploy jobs run on</span>
+                <select className="input" value={config.runner} onChange={(e) => set({ runner: e.target.value })}>
+                  {RUNNER_TYPES.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="muted small lab-wide lab-note">The names of the registered servers, server groups and clusters are under Environments.</p>
+            </>
+          )}
+        </div>
+      </fieldset>
+
+      <fieldset className="lx-group">
         <legend className="small">Deployment credentials</legend>
         <div className="lab-fields">
           <label className="lab-field lab-wide">
@@ -699,7 +787,82 @@ function Options({ config, onChange }) {
   )
 }
 
-function Environment({ name, state, busy, onRedeploy, onRollback, onUndeploy, onOverwrite, onBind }) {
+// The -Dtarget and -DtargetType values the workflow passes for one environment.
+function TargetInputs({ envName, config, set, withType }) {
+  const key = envName.toLowerCase()
+  return (
+    <>
+      <label className="lab-field">
+        <span className="small muted">{envName} target</span>
+        <input className="input mono" value={config[`${key}Target`]} onChange={(e) => set({ [`${key}Target`]: e.target.value })} />
+      </label>
+      {withType && (
+        <label className="lab-field">
+          <span className="small muted">{envName} targetType</span>
+          <select className="input mono" value={config[`${key}TargetType`]} onChange={(e) => set({ [`${key}TargetType`]: e.target.value })}>
+            {TARGET_TYPES.map((t) => (
+              <option key={t}>{t}</option>
+            ))}
+          </select>
+        </label>
+      )}
+    </>
+  )
+}
+
+// Servers, server groups and clusters registered in Runtime Manager for one environment.
+function HybridTargets({ envName, targets, busy, onAllow }) {
+  if (!targets?.length) return null
+  return (
+    <>
+      <h3 className="small muted lab-history-title">
+        Own servers in Runtime Manager (sample data
+        <Assumed />)
+      </h3>
+      {targets.map((t) => {
+        const down = t.servers.some((s) => s.status !== 'Running')
+        return (
+          <div key={t.name} className="gh-target" aria-label={`${envName} target ${t.name}`}>
+            <div className="lab-row-head">
+              <b className="mono small lab-grow">{t.name}</b>
+              <span className="small muted">{typeName(t.type)}</span>
+              <span className={`lab-state lab-state-${down ? 'idle' : 'good'}`}>{down ? 'Disconnected' : 'Running'}</span>
+            </div>
+            <ul className="lab-history mono small">
+              {t.servers.map((s) => (
+                <li key={s.name} className="lab-history-row">
+                  <span className="lab-grow">
+                    {s.name} <span className="muted">on {s.host}</span>
+                  </span>
+                  <span className="muted">Mule {s.runtime}</span> <span className={s.status === 'Running' ? '' : 'gh-target-down'}>{s.status}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="small">
+              Last deployed through Runtime Manager: <span className="mono">{t.app ? `${ASSET_ID} ${t.app.version} ${t.app.status}` : 'nothing'}</span>
+            </p>
+            {t.copied && (
+              <p className="lx-alert small">
+                The apps folder on {t.copied.at.join(', ')} also has <span className="mono">{t.copied.app ?? `${ASSET_ID}-${t.copied.version}-mule-application`}</span>, copied there by a runner. Runtime Manager did not deploy it. It does not replace {ASSET_ID}: it runs as a second app named after the file, and both apps use the same HTTP listener port.
+                <Assumed />
+              </p>
+            )}
+            {t.note && <p className="lx-alert small">{t.note}</p>}
+            {down && (
+              <div className="lab-actions">
+                <button className="btn btn-sm" disabled={busy} onClick={() => onAllow(t.name)}>
+                  Allow outbound HTTPS 443 from this server to the control plane
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+function Environment({ name, state, busy, onRedeploy, onRollback, onUndeploy, onOverwrite, onBind, onAllow }) {
   const env = state.envs[name]
   const keys = Object.keys(env.properties)
   const secure = Object.keys(env.secure)
@@ -715,6 +878,7 @@ function Environment({ name, state, busy, onRedeploy, onRollback, onUndeploy, on
         <span className={`lab-state lab-state-${tone}`}>{env.status}</span>
       </div>
       <p className="small">
+        <span className="muted">CloudHub 2.0: </span>
         <span className="mono">
           {ASSET_ID} {env.version ?? 'not deployed'}
         </span>
@@ -774,6 +938,7 @@ function Environment({ name, state, busy, onRedeploy, onRollback, onUndeploy, on
           </ul>
         </>
       )}
+      <HybridTargets envName={name} targets={env.targets} busy={busy} onAllow={onAllow} />
     </section>
   )
 }

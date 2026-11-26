@@ -14,5 +14,17 @@ import { LABS as ledPiiExposure } from './failures/led-pii-exposure.lab.js'
 import { LABS as mqAckTimeout } from './failures/mq-ack-timeout.lab.js'
 import { LABS as jwtKeyRotation } from './failures/jwt-key-rotation.lab.js'
 import { LABS as mockUrlProd } from './failures/mock-url-prod.lab.js'
+import { LABS as verSemverBump } from './failures/ver-semver-bump.lab.js'
+import { LABS as verSideBySide } from './failures/ver-side-by-side.lab.js'
+import { LABS as verMinorInPlace } from './failures/ver-minor-in-place.lab.js'
+import { LABS as verDeprecateRetire } from './failures/ver-deprecate-retire.lab.js'
+import { LABS as verAppRollback } from './failures/ver-app-rollback.lab.js'
+import { LABS as verDependencyImpact } from './failures/ver-dependency-impact.lab.js'
+import { LABS as hybRegister } from './failures/hyb-register.lab.js'
+import { LABS as hybServerGroup } from './failures/hyb-server-group.lab.js'
+import { LABS as hybDisconnected } from './failures/hyb-disconnected.lab.js'
+import { LABS as hybClusterScheduler } from './failures/hyb-cluster-scheduler.lab.js'
+import { LABS as hybVersionMismatch } from './failures/hyb-version-mismatch.lab.js'
+import { LABS as hybManualCopy } from './failures/hyb-manual-copy.lab.js'
 
-export const FAILURE_LABS = [...duplicateOrders, ...schedulerTwice, ...expiredCert, ...dbPool, ...retryStorm, ...sasExpired, ...smtpAuth, ...ledBreakingChange, ...ledChattyCalls, ...ledStaleCache, ...ledLostCorrelation, ...ledPiiExposure, ...mqAckTimeout, ...jwtKeyRotation, ...mockUrlProd]
+export const FAILURE_LABS = [...duplicateOrders, ...schedulerTwice, ...expiredCert, ...dbPool, ...retryStorm, ...sasExpired, ...smtpAuth, ...ledBreakingChange, ...ledChattyCalls, ...ledStaleCache, ...ledLostCorrelation, ...ledPiiExposure, ...mqAckTimeout, ...jwtKeyRotation, ...mockUrlProd, ...verSemverBump, ...verSideBySide, ...verMinorInPlace, ...verDeprecateRetire, ...verAppRollback, ...verDependencyImpact, ...hybRegister, ...hybServerGroup, ...hybDisconnected, ...hybClusterScheduler, ...hybVersionMismatch, ...hybManualCopy]
