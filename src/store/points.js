@@ -1,4 +1,5 @@
 import { problems } from '../data/problems.js'
+import { useLabPoints } from './lab-points.js'
 import { statusOf, useProgress } from './progress.js'
 
 // Points and levels. Nothing extra is stored: points are counted from the solved problems already saved, so work
@@ -44,7 +45,11 @@ export function countPoints(progress) {
   return { total, solved }
 }
 
+// The total also holds Platform Lab points (store/lab-points.js): labs solved once each, and the on call drill bonus.
+// `solved` stays the count of problems.
 export function usePoints() {
   const counted = countPoints(useProgress())
-  return { ...counted, ...levelOf(counted.total) }
+  const lab = useLabPoints()
+  const total = counted.total + lab.labPoints + lab.drillPoints
+  return { ...counted, total, problemPoints: counted.total, ...lab, ...levelOf(total) }
 }

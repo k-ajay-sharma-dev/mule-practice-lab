@@ -1,111 +1,9 @@
 import { useEffect, useState } from 'react'
-import { assetGroups, callApi, dayText, endpointOf, importSpec, mark, packageJar, purge, sendMessage, setBackend, setStudio, stamp, studioFlows, viewMessages } from '../../lab/platform.js'
+import { assetGroups, callApi, dayText, endpointOf, importSpec, mark, packageJar, setBackend, setStudio, studioFlows } from '../../lab/platform.js'
 import { BACKENDS } from '../../lab/platform-led.js'
 import { packageOf } from '../../lab/platform-packages.js'
-import { Btn, Check, Field, Input, Link, Modal, Note, Select, SideNav, Table } from './parts.jsx'
-
-// ---------- Anypoint MQ ----------
-
-export function Mq({ state, update, place, go, openEnv }) {
-  const queue = state.queues.find((q) => q.name === place.queue)
-  return (
-    <>
-      <SideNav env={state.env} onEnv={openEnv} back={queue ? ['Destinations', () => go({})] : undefined} items={queue ? [['Message Browser', 'Message Browser'], ['Message Sender', 'Message Sender'], ['Settings', 'Settings']] : [['Destinations', 'Destinations'], ['Client Apps', 'Client Apps', true], ['Usage', 'Usage', true]]} value={queue ? (place.tab ?? 'Settings') : 'Destinations'} onPick={(tab) => (queue ? go({ queue: queue.name, tab }) : go({}))} />
-      <main className="pc-main">
-        {!queue && (
-          <>
-            <h2>Destinations</h2>
-            <p className="pc-dim">Region US East (Ohio)</p>
-            <Table
-              heads={['Name', 'Type', 'Messages', 'Dead Letter Queue']}
-              empty="No queues in this environment."
-              rows={state.queues.map((q) => (
-                <tr key={q.name}>
-                  <td>
-                    <Link onClick={() => go({ queue: q.name, tab: 'Message Browser' })}>{q.name}</Link>
-                  </td>
-                  <td>{q.type}</td>
-                  <td>{q.messages.length}</td>
-                  <td>{q.dlq || 'None'}</td>
-                </tr>
-              ))}
-            />
-          </>
-        )}
-        {queue && <Queue key={queue.name} queue={queue} tab={place.tab ?? 'Settings'} update={update} />}
-      </main>
-    </>
-  )
-}
-
-function Queue({ queue, tab, update }) {
-  const [shown, setShown] = useState(null)
-  const [open, setOpen] = useState(null)
-  const [body, setBody] = useState('{ "order": "O-2001", "total": 10 }')
-  return (
-    <>
-      <h2>{queue.name}</h2>
-      {tab === 'Settings' && (
-        <dl className="pc-facts one">
-          <dt>Type</dt>
-          <dd>{queue.type}</dd>
-          <dt>Messages</dt>
-          <dd>{queue.messages.length}</dd>
-          <dt>Assign a Dead Letter Queue</dt>
-          <dd>{queue.dlq ? `On, ${queue.dlq}` : 'Off'}</dd>
-          <dt>Delivery attempts before reroute</dt>
-          <dd>{queue.dlq ? queue.attempts : 'Not used'}</dd>
-        </dl>
-      )}
-      {tab === 'Message Sender' && (
-        <>
-          <Field label="Type">
-            <Select value="JSON" onChange={() => {}} options={['JSON']} />
-          </Field>
-          <Field label="Payload">
-            <textarea className="pc-input pc-mono" rows={5} value={body} onChange={(e) => setBody(e.target.value)} />
-          </Field>
-          <Btn kind="primary" onClick={() => update((s) => sendMessage(s, queue.name, body))}>
-            Send
-          </Btn>
-        </>
-      )}
-      {tab === 'Message Browser' && (
-        <>
-          <div className="pc-bar">
-            <Btn kind="primary" onClick={() => { setShown(queue.messages); update((s) => viewMessages(s, queue.name)) }}>
-              Get Messages
-            </Btn>
-            <Btn disabled={!shown} onClick={() => { setShown(null); setOpen(null) }}>
-              Return Messages
-            </Btn>
-            <Btn disabled={queue.messages.length === 0} onClick={() => { update((s) => purge(s, queue.name)); setShown(null); setOpen(null) }}>
-              Purge Messages
-            </Btn>
-          </div>
-          <Note>Purge deletes the messages for good. In a real queue, returning a message counts as a failed delivery.</Note>
-          {shown && (
-            <Table
-              heads={['Message ID', 'Received', 'Deliveries', 'From']}
-              empty="The queue is empty."
-              rows={shown.map((m) => (
-                <tr key={m.id} className={open?.id === m.id ? 'on' : ''}>
-                  <td>
-                    <Link onClick={() => setOpen(m)}>{m.id}</Link>
-                  </td>
-                  <td>{stamp(m.t)}</td>
-                  <td>{m.deliveries}</td>
-                  <td>{m.from ?? ''}</td>
-                </tr>
-              ))}
-            />
-          )}
-          {open && <pre className="pc-pre">{open.body}</pre>}
-        </>
-      )}
-    </>
-  )
-}
+import { TOKENS } from '../../lab/policies.js'
+import { Btn, Check, Field, Input, Modal, Note, Select, Table } from './parts.jsx'
 
 // ---------- Anypoint Studio, the part of it that links an application to an API ----------
 
@@ -201,7 +99,7 @@ export function Studio({ state, update, place, go }) {
 export function ApiClient({ state, update }) {
   const apps = state.apps.filter((a) => a.env === state.env && packageOf(a.pkg).handle)
   const sampleOf = (a) => (a && packageOf(a.pkg).sample) ?? { method: 'GET', path: '/orders' }
-  const [f, setF] = useState({ app: apps[0]?.name ?? '', ...sampleOf(apps[0]), client: '', clientId: '', clientSecret: '', body: '', cid: '' })
+  const [f, setF] = useState({ app: apps[0]?.name ?? '', ...sampleOf(apps[0]), client: '', clientId: '', clientSecret: '', body: '', cid: '', token: 'none', scopes: '', ip: '', headers: [] })
   const [history, setHistory] = useState([])
   const set = (patch) => setF({ ...f, ...patch })
   const app = apps.find((a) => a.name === f.app)
@@ -209,7 +107,7 @@ export function ApiClient({ state, update }) {
     let s = state
     const results = []
     for (let i = 0; i < times; i++) {
-      const r = callApi(s, { env: state.env, app: f.app, method: f.method, path: f.path, body: f.body, client: f.client, clientId: f.clientId, clientSecret: f.clientSecret, cid: f.cid.trim() })
+      const r = callApi(s, { env: state.env, app: f.app, method: f.method, path: f.path, body: f.body, client: f.client, clientId: f.clientId, clientSecret: f.clientSecret, cid: f.cid.trim(), token: f.token, scopes: f.scopes.trim(), ...(f.ip.trim() && { ip: f.ip.trim() }), headers: f.headers.filter(([k]) => k.trim()).map(([k, v]) => [k.trim(), v]) })
       s = r.state
       results.unshift({ ...r.response, key: s.clock })
     }
@@ -246,6 +144,32 @@ export function ApiClient({ state, update }) {
       <Field label="X-Correlation-ID header (optional)">
         <Input value={f.cid} onChange={(cid) => set({ cid })} placeholder="The runtime makes one" />
       </Field>
+      <div className="pc-pair">
+        <Field label="Authorization: Bearer token (optional)" hint="The lab plays the token by its kind. JWT Validation and OpenID Connect policies read it.">
+          <Select value={f.token} onChange={(token) => set({ token })} options={TOKENS} />
+        </Field>
+        <Field label="Token scopes (optional)" hint="Separated by spaces, such as read write">
+          <Input value={f.scopes} onChange={(scopes) => set({ scopes })} disabled={f.token === 'none'} />
+        </Field>
+        <Field label="Source IP (optional)" hint="The address the request comes from. Empty means 10.1.2.3.">
+          <Input value={f.ip} onChange={(ip) => set({ ip })} placeholder="10.1.2.3" />
+        </Field>
+      </div>
+      <div className="pc-field">
+        <span className="pc-label">Extra headers (optional)</span>
+        {f.headers.map(([k, v], i) => (
+          <div key={i} className="pc-prop pc-header-row">
+            <Input aria-label="Header name" placeholder="X-Forwarded-For" value={k} onChange={(name) => set({ headers: f.headers.map((h, j) => (j === i ? [name, h[1]] : h)) })} />
+            <Input aria-label="Header value" placeholder="Value" value={v} onChange={(value) => set({ headers: f.headers.map((h, j) => (j === i ? [h[0], value] : h)) })} />
+            <button type="button" className="pc-x" aria-label={`Remove header ${k || i + 1}`} onClick={() => set({ headers: f.headers.filter((_, j) => j !== i) })}>
+              ×
+            </button>
+          </div>
+        ))}
+        <div>
+          <Btn onClick={() => set({ headers: [...f.headers, ['', '']] })}>Add header</Btn>
+        </div>
+      </div>
       {f.method !== 'GET' && f.method !== 'DELETE' && (
         <Field label="Body (JSON)">
           <textarea className="pc-input pc-mono" rows={3} value={f.body} onChange={(e) => set({ body: e.target.value })} />

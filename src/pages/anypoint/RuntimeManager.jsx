@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  addRmAlert, appNamed, hybridTargets, cpuOf, cronError, dayText, deleteApp, deployApp, endpointOf, eventsOf, heapOf, HOUR, internalOf, jarsOf, LOG_LEVELS, mark, removeRmAlert, REPLICA_SIZES, replicaName, RM_CONDITIONS,
+  addRmAlert, appNamed, clearStore, deleteStoreKey, hybridTargets, cpuOf, cronError, dayText, deleteApp, rollbackApp, deployApp, endpointOf, eventsOf, heapOf, HOUR, internalOf, jarsOf, LOG_LEVELS, mark, removeRmAlert, REPLICA_SIZES, replicaName, RM_CONDITIONS,
   RM_SEVERITIES, runNow, RUNTIME_VERSIONS, scheduleText, searchLogs, setRmAlert, setSchedule, stamp, startApp, stopApp, TIME_ZONES, UNIT_NAMES,
 } from '../../lab/platform.js'
 import { packageOf } from '../../lab/platform-packages.js'
@@ -17,7 +17,7 @@ export default function RuntimeManager({ state, update, place, go, openEnv }) {
   if (app)
     return (
       <>
-        <SideNav env={state.env} onEnv={openEnv} back={['Applications', () => go({ page: 'Applications' })]} items={[['Dashboard', 'Dashboard'], ['Logs', 'Logs'], ['Schedules', 'Schedules'], ['Object Store', 'Object Store', true], null, ['Settings', 'Settings']]} value={tab ?? 'Dashboard'} onPick={(t) => go({ app: name, tab: t })} />
+        <SideNav env={state.env} onEnv={openEnv} back={['Applications', () => go({ page: 'Applications' })]} items={[['Dashboard', 'Dashboard'], ['Logs', 'Logs'], ['Schedules', 'Schedules'], ['Object Store', 'Object Store'], null, ['Settings', 'Settings'], ['History', 'Configuration history']]} value={tab ?? 'Dashboard'} onPick={(t) => go({ app: name, tab: t })} />
         <main className="pc-main">
           <AppPage key={name} app={app} tab={tab ?? 'Dashboard'} state={state} update={update} go={go} />
         </main>
@@ -83,6 +83,122 @@ function AppPage({ app, tab, state, update, go }) {
       {tab === 'Logs' && <Logs app={app} state={state} update={update} />}
       {tab === 'Schedules' && <Schedules app={app} state={state} update={update} />}
       {tab === 'Settings' && <Settings app={app} state={state} update={update} go={go} />}
+      {tab === 'Object Store' && <ObjectStore app={app} update={update} />}
+      {tab === 'History' && <History app={app} state={state} update={update} go={go} />}
+    </>
+  )
+}
+
+const valueText = (v) => (typeof v === 'string' ? v : JSON.stringify(v))
+
+function ObjectStore({ app, update }) {
+  const [asking, setAsking] = useState(false)
+  useEffect(() => update((s) => mark(s, `os:${app.name}`)), [app.name, update])
+  const entries = Object.entries(app.store ?? {})
+  return (
+    <>
+      <div className="pc-bar">
+        <b>Default partition</b>
+        <span className="pc-grow" />
+        <Btn kind="danger" disabled={entries.length === 0} onClick={() => setAsking(true)}>
+          Delete all keys
+        </Btn>
+      </div>
+      <p className="pc-dim">The keys the application keeps between runs, such as a watermark. {app.objectStore === false ? 'Object Store V2 is off for this application, so the lab shows the store the application keeps in memory.' : 'The application uses Object Store V2.'}</p>
+      <Table
+        heads={['Key', 'Value', '']}
+        empty="The object store of this application has no keys."
+        rows={entries.map(([key, value]) => (
+          <tr key={key}>
+            <td className="pc-mono">{key}</td>
+            <td className="pc-mono pc-os-value">{valueText(value)}</td>
+            <td>
+              <Link onClick={() => update((s) => deleteStoreKey(s, app.name, key))}>Delete</Link>
+            </td>
+          </tr>
+        ))}
+      />
+      <Note>A deleted key is gone for the next run too. A watermark that is deleted makes the next run start from its initial value.</Note>
+      {asking && (
+        <Modal
+          title="Delete all keys"
+          onClose={() => setAsking(false)}
+          foot={
+            <>
+              <Btn onClick={() => setAsking(false)}>Cancel</Btn>
+              <Btn kind="danger" onClick={() => { update((s) => clearStore(s, app.name)); setAsking(false) }}>
+                Delete all
+              </Btn>
+            </>
+          }
+        >
+          <p>Delete the {entries.length} keys of {app.name}? This cannot be undone.</p>
+        </Modal>
+      )}
+    </>
+  )
+}
+
+function History({ app, state, update, go }) {
+  const [open, setOpen] = useState(null)
+  const [said, setSaid] = useState('')
+  const [errors, setErrors] = useState([])
+  useEffect(() => update((s) => mark(s, `history:${app.name}`)), [app.name, update])
+  // an application the lab put in place has no history yet, so its current configuration is the only row
+  const list = app.history?.length ? [...app.history].reverse() : [{ config: app.config, jar: app.jar, t: app.updated, props: app.props, secrets: app.secrets, ...(app.status === 'Running' && { result: 'Applied' }) }]
+  const redeploy = (config) => {
+    const r = rollbackApp(state, app.name, config)
+    setErrors(r.errors)
+    if (r.errors.length) return
+    update(() => r.state)
+    setSaid(`Config ${config} is deployed again as a new configuration. The application restarts with its file and properties.`)
+  }
+  const shown = list.find((h) => h.config === open)
+  return (
+    <>
+      <p className="pc-dim">Each Apply Changes creates a configuration. Deploy an earlier one to roll back to its application file and properties. The runtime settings stay as they are now.</p>
+      <Table
+        heads={['Config', 'Application file', 'Deployed', 'Result', '']}
+        empty="No configuration was deployed from Runtime Manager yet."
+        rows={list.map((h) => {
+          const current = h.config === app.config
+          return (
+            <tr key={h.config}>
+              <td>
+                <Link onClick={() => setOpen(open === h.config ? null : h.config)}>Config {h.config}</Link>
+                {current && <span className="pc-tag">Current</span>}
+                {h.rollbackOf && <small className="pc-dim"> from config {h.rollbackOf}</small>}
+              </td>
+              <td className="pc-mono">{h.jar}</td>
+              <td>{stamp(h.t)}</td>
+              <td>{h.result ? <Dot status={h.result === 'Applied' ? 'Succeeded' : h.result} /> : app.status === 'Starting' && current ? <Dot status="Starting" /> : ''}</td>
+              <td>
+                {!current && h.result !== 'Failed' && (
+                  <Link disabled={app.status === 'Starting'} onClick={() => redeploy(h.config)}>
+                    Deploy
+                  </Link>
+                )}
+              </td>
+            </tr>
+          )
+        })}
+      />
+      {shown && (
+        <div className="pc-split">
+          <b>Properties of config {shown.config}</b>
+          {shown.props ? (
+            <pre className="pc-pre">
+              {[...Object.entries(shown.props).map(([k, v]) => `${k}=${v}`), ...Object.keys(shown.secrets ?? {}).map((k) => `${k}=${MASK} (protected)`)].join('\n') || 'No properties.'}
+            </pre>
+          ) : (
+            <p className="pc-dim">This configuration was deployed before the lab kept properties. A rollback keeps the properties of now.</p>
+          )}
+        </div>
+      )}
+      <Errors list={errors} />
+      <p className="pc-dim" aria-live="polite">
+        {said} {said && <Link onClick={() => go({ app: app.name, tab: 'Dashboard' })}>Open the dashboard</Link>}
+      </p>
     </>
   )
 }
@@ -129,6 +245,19 @@ function Overview({ app, state, go }) {
         )}
       </dl>
       {app.targetType && <NodeTable state={state} app={app} />}
+      {app.status === 'Starting' && !app.targetType && (
+        <Note>
+          {app.serving
+            ? `Rolling update in progress. The replicas of config ${app.serving.config} answer requests until config ${app.config} is ready.`
+            : `Config ${app.config} is starting. ${app.model === 'Recreate' ? 'Recreate terminated the old replicas first, so' : 'No replica runs, so'} requests get 503 until it is ready.`}
+        </Note>
+      )}
+      {app.updateFailed && (
+        <Note>
+          <b>Update failed.</b> Config {app.updateFailed.config} did not start: {app.updateFailed.error.replace(/\.?$/, '.')} The replicas of config {app.config} keep running.{' '}
+          <Link onClick={() => go({ app: app.name, tab: 'Logs' })}>View logs</Link>
+        </Note>
+      )}
       {app.status === 'Waiting' && <Note>No server of the target is connected, so the deployment waits. It goes out when a server connects to Runtime Manager again.</Note>}
       {app.error && (
         <Note>

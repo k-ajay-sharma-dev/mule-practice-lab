@@ -10,6 +10,8 @@ import { formFor, RuntimeWorkbench } from './RuntimeManagerScreen.jsx'
 import { topologyOf } from '../../lab/engine.js'
 import { markLabSolved, mergeSolvedLabs, readSolvedLabs, writeSolvedLabs } from '../../store/labs.js'
 import { useSyncStatus } from '../../sync/status.js'
+import { drillBonus, readDrills } from '../../store/lab-points.js'
+import { noteSolve } from '../../store/solves.js'
 
 const PlatformLab = lazy(() => import('../anypoint/PlatformLab.jsx').then((m) => ({ default: m.PlatformLab })))
 
@@ -23,6 +25,63 @@ const SECTIONS = [
   ['Policies and quotas', GUIDED_LABS.filter((l) => l.kind !== 'runtime')],
   ['Deployments', GUIDED_LABS.filter((l) => l.kind === 'runtime')],
 ]
+
+// the console groups an on call drill picks from: things that break in production
+const DRILL_GROUPS = ['Failed jobs', 'More production failures', 'API-led failures', 'Versioning without breaking consumers', 'Your own servers', 'Files, SFTP and batch', 'Databases and queues', 'Kafka', 'Security']
+const minutesOf = (seconds) => `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, '0')}`
+
+function DrillPanel({ drills, onStart, onOpen }) {
+  const titles = new Map(PLATFORM_LABS.map((l) => [l.id, l.title]))
+  const best = Object.entries(drills.best)
+    .filter(([id]) => titles.has(id))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+  const recent = drills.history.slice(0, 5)
+  return (
+    <section className="lab-drill" aria-label="On call drills">
+      <div className="lab-panel-head">
+        <h2>On call drills</h2>
+        <button type="button" className="btn btn-primary btn-sm" onClick={onStart}>
+          Start an on call drill
+        </button>
+      </div>
+      <p className="muted small">
+        A random production failure opens in the console with the steps hidden. A timer counts up while you work. Hints show the next step and then how to do it, and each one costs points. Each lab gives up to 20 bonus points: your best score divided by 5.
+      </p>
+      {(best.length > 0 || recent.length > 0) && (
+        <div className="lab-drill-lists small">
+          {best.length > 0 && (
+            <div>
+              <b>Best scores</b>
+              <ol>
+                {best.map(([id, score]) => (
+                  <li key={id}>
+                    <button type="button" className="link-btn" onClick={() => onOpen(id)}>
+                      {titles.get(id)}
+                    </button>{' '}
+                    <span className="mono">{score}</span> <span className="muted">(+{drillBonus(score)} points)</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          {recent.length > 0 && (
+            <div>
+              <b>Recent drills</b>
+              <ol>
+                {recent.map((d) => (
+                  <li key={d.at}>
+                    {d.title} <span className="muted">{d.gaveUp ? 'gave up' : `score ${d.score}, ${minutesOf(d.seconds)}, ${d.hints} hint${d.hints === 1 ? '' : 's'}`}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
 
 const isConfig = (c) =>
   Array.isArray(c?.apps) && Array.isArray(c?.tiers) && Array.isArray(c?.policies) && [...c.policies, ...(c.automated ?? [])].every((p) => policyByType.has(p?.type))
@@ -80,10 +139,33 @@ export default function GuidedLabsScreen() {
       }),
     [labId],
   )
+  // points come from pl.lab.solved (store/lab-points.js), so a lab counts once; the celebration shows on the first solve only
   const markSolved = useCallback(() => {
+    if (!readSolvedLabs()[labId]) noteSolve(`Lab solved: ${ALL.find((l) => l.id === labId)?.title ?? 'lab'}`)
     const solved = markLabSolved(labId)
     setProgress((p) => ({ ...p, solved }))
   }, [labId])
+
+  // an on call drill: a random console lab from the failure groups, one not solved yet when there is one
+  const [drill, setDrill] = useState(null) // { labId, startedAt }
+  const [drills, setDrills] = useState(readDrills)
+  function startDrill() {
+    const pool = PLATFORM_LABS.filter((l) => DRILL_GROUPS.includes(l.group) && l.id !== labId)
+    const fresh = pool.filter((l) => !readSolvedLabs()[l.id])
+    const from = fresh.length ? fresh : pool
+    const picked = from[Math.floor(Math.random() * from.length)]
+    if (!picked) return
+    setDrill({ labId: picked.id, startedAt: Date.now() })
+    setLabId(picked.id)
+  }
+  const openLab = (id) => {
+    setDrill(null)
+    setLabId(id)
+  }
+  useEffect(() => {
+    if (!labId) setDrills(readDrills())
+  }, [labId])
+  const drilling = drill?.labId === labId ? drill : null
 
   function restart() {
     setProgress((p) => ({ ...p, configs: Object.fromEntries(Object.entries(p.configs).filter(([id]) => id !== labId)) }))
@@ -95,6 +177,7 @@ export default function GuidedLabsScreen() {
         <p className="muted small">
           {solvedCount} of {ALL.length} solved. The first {GROUPS.length} groups run in the Anypoint console and the CI/CD labs run on a GitHub Actions page, with steps that tick off as you work.
         </p>
+        <DrillPanel drills={drills} onStart={startDrill} onOpen={openLab} />
         {SECTIONS.map(([name, labs]) => (
           <section key={name} aria-label={name}>
             <div className="lab-panel-head">
@@ -105,7 +188,7 @@ export default function GuidedLabsScreen() {
             </div>
             <div className="lab-cards">
               {labs.map((l) => (
-                <button key={l.id} className="lab-card" onClick={() => setLabId(l.id)}>
+                <button key={l.id} type="button" className="lab-card" onClick={() => openLab(l.id)}>
                   <b>{l.title}</b>
                   <span className="muted small">{l.scenario}</span>
                   <span className="lab-card-foot small">
@@ -124,22 +207,37 @@ export default function GuidedLabsScreen() {
   return (
     <div className="lab-open">
       <div className="lab-row-head">
-        <button className="btn btn-sm btn-ghost" onClick={() => setLabId(null)}>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => openLab(null)}>
           ← All labs
         </button>
         <span className="lab-grow" />
-        <button className="btn btn-sm btn-ghost" disabled={position === 0} onClick={() => setLabId(ALL[position - 1].id)}>
-          Previous lab
-        </button>
-        <button className="btn btn-sm btn-ghost" disabled={position === ALL.length - 1} onClick={() => setLabId(ALL[position + 1].id)}>
-          Next lab
-        </button>
+        {drilling ? (
+          <button type="button" className="btn btn-sm btn-ghost" onClick={startDrill}>
+            Another drill
+          </button>
+        ) : (
+          <>
+            <button type="button" className="btn btn-sm btn-ghost" disabled={position === 0} onClick={() => openLab(ALL[position - 1].id)}>
+              Previous lab
+            </button>
+            <button type="button" className="btn btn-sm btn-ghost" disabled={position === ALL.length - 1} onClick={() => openLab(ALL[position + 1].id)}>
+              Next lab
+            </button>
+          </>
+        )}
       </div>
       {pipelineIds.has(labId) ? (
         <PipelineScreen key={labId} guided={lab} solved={Boolean(progress.solved[labId])} onSolved={markSolved} />
       ) : platformIds.has(labId) ? (
         <Suspense fallback={<p className="muted">Loading the console…</p>}>
-          <PlatformLab key={labId} lab={lab} solved={Boolean(progress.solved[labId])} onSolved={markSolved} />
+          <PlatformLab
+            key={drilling ? `drill-${drilling.startedAt}` : labId}
+            lab={lab}
+            solved={Boolean(progress.solved[labId])}
+            onSolved={markSolved}
+            drill={drilling}
+            onNewDrill={startDrill}
+          />
         </Suspense>
       ) : (
         <LabWorkspace

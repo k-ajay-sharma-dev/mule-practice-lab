@@ -821,3 +821,155 @@
     margin: 0 auto;
   }
 }
+
+/* ---------- on call drills, hidden how text, explain out loud ---------- */
+.lab-drill {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.lab-drill p {
+  margin: 4px 0 8px;
+}
+.lab-drill-lists {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.lab-drill-lists ol {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+.lab-drill-lists li {
+  margin-bottom: 3px;
+}
+.pl-guide-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.pl-grow {
+  flex: 1;
+}
+.pl-hide-how {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.pl-done-actions,
+.pl-drill-actions,
+.pl-explain-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.pl-drill-timer {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #fdecea;
+  color: #b3261e;
+  font-size: 15px;
+  font-weight: 600;
+}
+.pl-drill-page {
+  padding: 6px 10px;
+  border-left: 3px solid #d64545;
+  background: #fff4f2;
+  font-size: 13px;
+}
+.pl-drill-ask {
+  padding: 8px 0 0;
+  border: 1px solid var(--pc-blue, #2f6fde);
+  border-radius: 4px;
+  background: #fff;
+}
+.pl-drill-ask > b {
+  display: block;
+  padding: 0 12px 6px;
+}
+.pl-drill-hints {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pl-drill-hints li {
+  margin-bottom: 5px;
+  padding: 8px 0 0;
+  border: 1px dashed var(--pc-line, #ccd2dd);
+  border-radius: 4px;
+  background: #fff;
+}
+.pl-drill-hints li > b {
+  display: block;
+  padding: 0 12px 8px;
+}
+.pl-drill-hints li.done {
+  opacity: 0.7;
+}
+.pl-drill-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  margin: 8px 0;
+}
+.pl-drill-stats dt,
+.pl-explain-points dt {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+.pl-drill-stats dd,
+.pl-explain-points dd {
+  margin: 0;
+}
+.pl-explain-points {
+  display: grid;
+  gap: 8px;
+  margin: 6px 0;
+}
+.pl-explain-back {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.55);
+}
+.pl-explain {
+  width: min(560px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 10px 40px rgb(0 0 0 / 0.35);
+}
+.pl-explain > * + * {
+  margin-top: 10px;
+}
+.pl-explain-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pl-explain-q {
+  font-size: 17px;
+  font-weight: 600;
+}
+.pl-explain-timer {
+  font-size: 30px;
+}
+.pl-explain-timer.over {
+  color: var(--warning);
+}

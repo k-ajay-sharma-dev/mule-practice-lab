@@ -5,7 +5,10 @@ import { newRuntime, newTopology, send } from './engine.js'
 import { defaultSettings } from './policies.js'
 import { BACKENDS } from './platform-led.js'
 import { info, line as logLine, muleError, warn } from './platform-log.js'
+import { attemptsOf, deliverable, expire } from './platform-mq.js'
 import { packageOf, routeOf } from './platform-packages.js'
+import { systemsCtx } from './platform-systems.js'
+import { kafkaCtx, kafkaTick } from './platform-kafka.js'
 
 export const MINUTE = 60000
 export const HOUR = 60 * MINUTE
@@ -111,7 +114,7 @@ export const internalOf = (app) => (app.targetType ? `${dcOf(app)}/api` : `https
 export const propsOf = (app) => ({ ...app.props, ...app.secrets })
 // `store` is what the application keeps between runs, such as a watermark. A package says with volatileStore() when
 // that store lives in memory, so a restart or redeploy empties it.
-const ctxOf = (s, app, extra = {}) => ({ app, props: propsOf(app), now: s.clock, store: app.store ?? {}, ...extra })
+const ctxOf = (s, app, extra = {}) => ({ app, props: propsOf(app), now: s.clock, store: app.store ?? {}, systems: systemsCtx(s, app), kafka: kafkaCtx(s, app, extra.node), ...extra })
 
 function schedulesOf(pkg, now) {
   return (packageOf(pkg)?.schedules ?? []).map((x) => ({ ...x, at: now + (x.type === 'fixed' ? everyMs(x) : 0), busyUntil: 0, last: null }))
@@ -178,7 +181,7 @@ function runJob(s, app, schedule, manual = false, node) {
     event(s, { k: 'skip', app: app.name, env: app.env, fl: schedule.flow })
     return
   }
-  const result = packageOf(app.pkg).run[schedule.flow](ctxOf(s, app, { node }))
+  const result = packageOf(app.pkg).run[schedule.flow](ctxOf(s, app, { node, backend: (id) => backendOf(s, app, id) }))
   log(s, app, result.log, s.clock, node)
   schedule.busyUntil = now + result.ms
   schedule.last = { t: now, ok: result.ok, manual, error: result.errorType ?? null }
@@ -190,6 +193,7 @@ function runJob(s, app, schedule, manual = false, node) {
     const from = s.queues.find((q) => q.name === result.move.from)
     for (const m of from?.messages.splice(0) ?? []) put(s, result.move.to, m.body)
   }
+  if (result.mail) for (const m of [].concat(result.mail)) mail(s, m.to, m.subject, m.body, m.source ?? app.name)
   if (result.restart) {
     log(s, app, [line('FATAL', 'JVM exited after OutOfMemoryError. The replica is restarted.'), info(`Application ${app.name} started`)])
     app.restarts = (app.restarts ?? 0) + 1
@@ -208,14 +212,25 @@ function consumeQueues(s) {
     const q = s.queues.find((x) => x.name === propsOf(app)[pkg.consumes])
     if (!q?.messages.length) continue
     // a package with a rate takes that many messages a minute per replica, and the rest waits
-    const waiting = q.messages.splice(0)
-    const now = pkg.rate ? waiting.splice(0, pkg.rate * app.replicas) : waiting.splice(0)
-    q.messages.push(...waiting)
+    // locked (in flight) messages are skipped; a FIFO group waits behind its in-flight message
+    const free = deliverable(q, q.messages, s.clock)
+    const now = pkg.rate ? free.slice(0, pkg.rate * app.replicas) : free
+    q.messages = q.messages.filter((m) => !now.includes(m))
+    // a queue without a set number of attempts uses the default of Anypoint MQ, so the loop always ends
+    const attempts = attemptsOf(q)
+    const ctx = () =>
+      ctxOf(s, app, {
+        backend: (id) => backendOf(s, app, id),
+        put(queue, body) {
+          put(s, queue, body)
+          linked(s, app.name, queue, app.env, 200, 5)
+        },
+      })
     for (const m of now) {
       let done = false
       while (!done) {
-        m.deliveries++
-        const result = pkg.consume(ctxOf(s, app, { backend: (id) => backendOf(s, app, id) }), m)
+        m.deliveries = (m.deliveries ?? 0) + 1
+        const result = pkg.consume(ctx(), m)
         linked(s, q.name, app.name, app.env, result.ok ? 200 : 500, 120)
         event(s, { k: 'msg', app: app.name, env: app.env, fl: result.flow ?? result.error?.flow ?? 'order-events-flow', s: result.ok ? 'ok' : 'failed', ms: 120, e: result.errorType, n: result.ok ? 0 : 1 })
         if (result.ok) {
@@ -223,8 +238,8 @@ function consumeQueues(s) {
           done = true
         } else {
           // the same error ten times would fill the log, so the lab writes the first and the last attempt
-          if (m.deliveries === 1 || m.deliveries >= q.attempts) log(s, app, [warn(`Message ${m.id}, delivery attempt ${m.deliveries}`), muleError(result.error)])
-          if (m.deliveries >= q.attempts) {
+          if (m.deliveries === 1 || m.deliveries >= attempts) log(s, app, [warn(`Message ${m.id}, delivery attempt ${m.deliveries}`), muleError(result.error)])
+          if (m.deliveries >= attempts) {
             const dlq = s.queues.find((x) => x.name === q.dlq)
             if (dlq) dlq.messages.push({ ...m, from: q.name, t: s.clock })
             done = true
@@ -251,7 +266,7 @@ export function pairing(s, app) {
 }
 
 export function apiStatus(s, api) {
-  const live = s.apps.some((a) => a.env === api.env && a.status === 'Running' && pairing(s, a).api?.id === api.id)
+  const live = s.apps.some((a) => a.env === api.env && servingOf(a) && pairing(s, servingOf(a)).api?.id === api.id)
   return live ? 'Active' : api.seen ? 'Inactive' : 'Unregistered'
 }
 
@@ -301,7 +316,9 @@ function invoke(s, from, key, req, timeout, cid) {
 }
 const newCid = (s) => `${((s.nextId++ * 2654435761) >>> 0).toString(16).padStart(8, '0')}-c7a1-11f1`
 
-function callApp(s, app, req) {
+function callApp(s, target, req) {
+  // during a rolling update the replicas of the previous configuration answer
+  const app = servingOf(target) ?? target
   const pkg = app && packageOf(app.pkg)
   const cid = pkg?.traced ? (req.cid ?? newCid(s)) : undefined
   if (app && !req.inside && !app.publicEndpoint) return { status: 0, ms: 0, body: 'Connection refused. This application has no public endpoint.', policy: null, trace: [], headers: [], api: null }
@@ -323,7 +340,7 @@ function callApp(s, app, req) {
   if (pair.state === 'credentials' || pair.state === 'unknown') return done({ status: 503, body: '{"error":"API is not available. The gateway is waiting for its policies."}', error: 'GATEKEEPER' })
   let extra = {}
   if (pair.state === 'paired') {
-    const result = send(gatewayConfig(s, pair.api), s.gateways[pair.api.id] ?? newRuntime(), { method: req.method, ip: req.ip ?? '10.1.2.3', clientId: req.clientId ?? '', clientSecret: req.clientSecret ?? '', basicUser: '', basicPassword: '', token: 'none', scopes: '', authServer: 'ok', path: req.path, headers: [], body: req.body ?? '' }, s.clock + (req.offset ?? 0))
+    const result = send(gatewayConfig(s, pair.api), s.gateways[pair.api.id] ?? newRuntime(), { method: req.method, ip: req.ip ?? '10.1.2.3', clientId: req.clientId ?? '', clientSecret: req.clientSecret ?? '', basicUser: '', basicPassword: '', token: req.token || 'none', scopes: req.scopes ?? '', authServer: req.authServer || 'ok', path: req.path, headers: req.headers ?? [], body: req.body ?? '' }, s.clock + (req.offset ?? 0))
     s.gateways[pair.api.id] = result.runtime
     extra = { trace: result.trace, headers: result.responseHeaders }
     if (!result.reachedBackend) {
@@ -413,6 +430,25 @@ function settleNodes(app) {
 }
 
 function boot(s, app) {
+  // A rolling update whose new configuration cannot start: CloudHub 2.0 keeps the last configuration that was deployed
+  // with success until the new one deploys, and goes back to it. Source: cloudhub-2/ch2-update-apps. The lab models
+  // the console status as Running with a note that the update failed, so the old replicas keep serving.
+  const prev = app.serving
+  delete app.serving
+  delete app.updateFailed
+  if (prev && !app.targetType) {
+    const gone = startError(s, app)
+    if (gone) {
+      const failed = app.config
+      log(s, app, [info(`Starting replica ${replicaName(app)}`, 'com.mulesoft.cloudhub.runtime'), info(`Initializing app '${app.name}'`, 'org.mule.runtime.deployment'), failLine(app, gone)])
+      log(s, app, [line('WARN', `Update failed. Config ${failed} did not start. The replicas of config ${prev.config} keep running.`)])
+      const entry = app.history?.findLast((h) => h.config === failed)
+      if (entry) entry.result = 'Failed'
+      Object.assign(app, prev, { status: 'Running', error: null, updateFailed: { config: failed, error: gone, t: s.clock } })
+      deployAlerts(s, app, 'Deployment failure', `Update to config ${failed} failed. ${gone.replace(/\.?$/, '.')} Config ${prev.config} keeps running.`)
+      return
+    }
+  }
   if (packageOf(app.pkg).volatileStore?.(ctxOf(s, app))) app.store = {}
   if (app.targetType) {
     app.nodes = {}
@@ -444,14 +480,30 @@ function boot(s, app) {
       log(s, app, [line('ERROR', `API ApiKey{id='${pair.id}'} could not be tracked. ${pair.text}`, 'com.mulesoft.mule.runtime.gw.autodiscovery'), warn(`API ApiKey{id='${pair.id}'} is now blocked (unavailable).`, 'com.mulesoft.mule.runtime.gw.gatekeeper')])
     }
   }
+  // each start of the app is a new start time, so its Kafka consumers join their groups again
+  if (app.status === 'Running') app.started = s.clock
+  const entry = app.history?.findLast((h) => h.config === app.config)
+  if (entry) entry.result = app.status === 'Running' ? 'Applied' : app.status
+  deployAlerts(s, app, app.status === 'Running' ? 'Deployment success' : 'Deployment failure', app.error)
+}
+function deployAlerts(s, app, condition, detail) {
   for (const a of s.rmAlerts.filter((x) => x.enabled && x.env === app.env && (x.app === app.name || x.app === 'All'))) {
-    const hit = a.condition === (app.status === 'Running' ? 'Deployment success' : 'Deployment failure')
-    if (hit) {
-      a.fired = [...(a.fired ?? []), s.clock].slice(-20)
-      mail(s, a.recipients, a.subject || `${a.severity}: ${a.condition} for ${app.name}`, a.message || `${a.condition}. Application ${app.name}, environment ${app.env}.${app.error ? ` ${app.error}` : ''}`, 'Runtime Manager')
-    }
+    if (a.condition !== condition) continue
+    a.fired = [...(a.fired ?? []), s.clock].slice(-20)
+    mail(s, a.recipients, a.subject || `${a.severity}: ${a.condition} for ${app.name}`, a.message || `${a.condition}. Application ${app.name}, environment ${app.env}.${detail ? ` ${detail}` : ''}`, 'Runtime Manager')
   }
 }
+
+// What the replicas of the running configuration use, kept while a rolling update starts the next one
+const snapshotOf = (app) => {
+  const { logs, history, store, schedules, serving, updateFailed, ...rest } = app
+  return structuredClone(rest)
+}
+const historyEntry = (app, t) => ({ config: app.config, jar: app.jar, pkg: app.pkg, t, props: { ...app.props }, secrets: { ...app.secrets }, ...(app.autodiscovery && { autodiscovery: app.autodiscovery }), ...(app.raml && { raml: app.raml }) })
+// A configuration number is never given twice, also after a failed update that went back to an older one
+const nextConfig = (app) => Math.max(app.config, ...(app.history ?? []).map((h) => h.config)) + 1
+// The application that answers requests now: the running one, or during a rolling update the previous configuration
+export const servingOf = (app) => (app?.status === 'Running' ? app : app?.status === 'Starting' && app.serving ? { ...app, ...app.serving, status: 'Running' } : null)
 
 // New deployments and Apply Changes. The application is Starting until finishDeploys() is called.
 export function deployApp(state, form) {
@@ -459,7 +511,7 @@ export function deployApp(state, form) {
   const errors = deployErrors(state, form, form.editing ? existing : null)
   if (errors.length) return { state, errors }
   const next = edit(state, (s) => {
-    const { editing, ...fields } = form
+    const { editing, rollbackOf, ...fields } = form
     let app = appNamed(s, form.name)
     if (fields.targetType) {
       // the runtime of the servers runs the application, so the version and the copies come from the target
@@ -469,15 +521,28 @@ export function deployApp(state, form) {
     // an application that moves to other servers leaves the servers it ran on
     if (app && editing && app.targetType) for (const server of hybridServers(s)) if (server.apps[app.name]?.managed && !(fields.targetType && serversOf(s, hybridTargets(s, s.env).find((t) => t.name === fields.target)).includes(server))) undeployFrom(s, server, app.name)
     if (app && editing) {
-      Object.assign(app, fields, { config: app.config + 1, updated: s.clock, status: 'Starting' })
+      const before = app.config
+      // Rolling update: the replicas of the running configuration keep serving until the new ones are ready.
+      // Recreate: the replicas are terminated first, so requests get 503 until the new configuration starts.
+      // Source: cloudhub-2/ch2-update-apps. An application on the company's own servers is updated by its servers.
+      const rolling = !app.targetType && !fields.targetType && (fields.model ?? app.model) !== 'Recreate'
+      const wasRunning = app.status === 'Running'
+      // an application that a lab put in place has no history yet, so its current configuration is the first entry
+      if (!app.history?.length) app.history = [{ ...historyEntry(app, app.updated), ...(wasRunning && { result: 'Applied' }) }]
+      const serving = rolling ? (wasRunning ? snapshotOf(app) : app.status === 'Starting' ? app.serving : null) : null
+      Object.assign(app, fields, { config: nextConfig(app), updated: s.clock, status: 'Starting' })
+      if (serving) app.serving = serving
+      else delete app.serving
+      if (serving) log(s, app, [info(`Rolling update: the replicas of config ${serving.config} keep serving until config ${app.config} is ready.`)])
+      else if (wasRunning && !app.targetType) log(s, app, [info(`Recreate: the replicas of config ${before} are terminated before config ${app.config} starts. Requests get 503 until then.`)])
     } else {
       app = newApp(form.name, { ...fields, env: s.env, updated: s.clock, status: 'Starting' })
       app.schedules = schedulesOf(app.pkg, s.clock)
       s.apps.push(app)
     }
     app.logs = app.logs.slice(-MAX_LOGS)
-    // which file ran in which configuration, so a rollback can be read back
-    app.history = [...(app.history ?? []), { config: app.config, jar: app.jar, pkg: app.pkg, t: s.clock }].slice(-20)
+    // which file and which properties ran in which configuration, so a rollback can deploy them again
+    app.history = [...(app.history ?? []), { ...historyEntry(app, s.clock), ...(rollbackOf && { rollbackOf }) }].slice(-20)
   })
   return { state: next, errors: [] }
 }
@@ -488,13 +553,59 @@ export const finishDeploys = (state) =>
         s.clock += 1000
       })
     : state
-export const stopApp = (state, name) => edit(state, (s) => void (appNamed(s, name).status = 'Stopped'))
+export const stopApp = (state, name) =>
+  edit(state, (s) => {
+    const app = appNamed(s, name)
+    app.status = 'Stopped'
+    delete app.serving
+  })
 export const startApp = (state, name) => edit(state, (s) => void (appNamed(s, name).status = 'Starting'))
 export const deleteApp = (state, name) =>
   edit(state, (s) => {
     const app = appNamed(s, name)
     if (app?.targetType) for (const server of hybridServers(s)) if (server.apps[name]?.managed) undeployFrom(s, server, name)
     s.apps = s.apps.filter((a) => a !== app)
+  })
+
+// Settings, configuration history: deploy the file and the properties of an earlier configuration again. It becomes a
+// new configuration, the way CloudHub 2.0 moves the chosen version to the top. Source: cloudhub-2/ch2-update-apps.
+// The runtime settings (version, replicas, model) stay as they are now.
+export function rollbackApp(state, name, config) {
+  const app = appNamed(state, name)
+  const h = app?.history?.find((x) => x.config === Number(config))
+  if (!h) return { state, errors: [`Config ${config} is not in the history of ${name}.`] }
+  if (app.status === 'Starting') return { state, errors: ['A deployment is in progress. Wait until it finishes.'] }
+  return deployApp(state, {
+    name,
+    pkg: h.pkg,
+    jar: h.jar,
+    props: h.props ?? app.props,
+    secrets: h.secrets ?? app.secrets,
+    ...(h.autodiscovery && { autodiscovery: h.autodiscovery }),
+    ...(h.raml && { raml: h.raml }),
+    replicas: app.replicas,
+    target: app.target,
+    ...(app.targetType && { targetType: app.targetType }),
+    rollbackOf: h.config,
+    editing: true,
+  })
+}
+
+// ---------- Object Store ----------
+// app.store is the lab's model of the object store of the application, such as a watermark
+export const deleteStoreKey = (state, name, key) =>
+  edit(state, (s) => {
+    const app = appNamed(s, name)
+    if (!app?.store) return
+    delete app.store[key]
+    log(s, app, [info(`Object store key '${key}' was deleted in Runtime Manager`, 'com.mulesoft.objectstore')])
+  })
+export const clearStore = (state, name) =>
+  edit(state, (s) => {
+    const app = appNamed(s, name)
+    if (!app) return
+    app.store = {}
+    log(s, app, [info('Every key of the object store was deleted in Runtime Manager', 'com.mulesoft.objectstore')])
   })
 
 export const setSchedule = (state, name, flow, patch) =>
@@ -535,10 +646,12 @@ export function advance(state, ms) {
         // a flow with `every` sends only in every n-th minute
         if (f.every && (t / MINUTE) % f.every !== 0) continue
         const client = s.clients.find((c) => c.name === f.client)
-        for (let i = 0; i < f.perMinute; i++) callApp(s, appNamed(s, f.app, f.env), { method: f.method ?? 'GET', path: f.path, body: f.body, ip: f.ip, client: f.client, clientId: f.clientId ?? client?.clientId, clientSecret: f.clientSecret ?? client?.clientSecret, offset: Math.floor((i * MINUTE) / f.perMinute) })
+        for (let i = 0; i < f.perMinute; i++) callApp(s, appNamed(s, f.app, f.env), { method: f.method ?? 'GET', path: f.path, body: f.body, ip: f.ip, client: f.client, clientId: f.clientId ?? client?.clientId, clientSecret: f.clientSecret ?? client?.clientSecret, headers: f.headers, token: f.token, scopes: f.scopes, authServer: f.authServer, offset: Math.floor((i * MINUTE) / f.perMinute) })
       }
       for (const f of s.queueTraffic ?? []) if (t % (f.everyMinutes * MINUTE) === 0) put(s, f.queue, JSON.stringify({ order: `O-${1000 + s.nextId}`, total: 42 }))
+      expire(s)
       consumeQueues(s)
+      if (s.kafka) kafkaTick(s)
       checkAlerts(s)
     }
     s.clock = Math.max(end, s.clock)
@@ -705,6 +818,29 @@ export const assetGroups = (s) => {
 }
 export const latestAsset = (s, assetId) => s.assets.findLast((a) => a.assetId === assetId)
 
+// Exchange, Manage versions: the lifecycle of one asset version. The allowed changes are development to stable,
+// stable to deprecated and deprecated to stable. A version does not go back to development. A deprecated version is
+// otherwise the same as a stable one, so API instances that use it keep working.
+// Sources: exchange/lifecycle, exchange/to-deprecate-asset
+export const LIFECYCLES = ['development', 'stable', 'deprecated']
+export const LIFECYCLE_MOVES = { development: ['stable'], stable: ['deprecated'], deprecated: ['stable'] }
+export function setLifecycle(state, assetId, version, lifecycle) {
+  const asset = state.assets.find((a) => a.assetId === assetId && a.version === version)
+  if (!asset) return { state, errors: [`Version ${version} of ${assetId} is not in Exchange.`] }
+  // a version published before lifecycles were kept is stable
+  const now = asset.lifecycle ?? 'stable'
+  if (!LIFECYCLES.includes(lifecycle)) return { state, errors: [`${lifecycle} is not a lifecycle state. Use one of: ${LIFECYCLES.join(', ')}.`] }
+  if (now === lifecycle) return { state, errors: [] }
+  if (!(LIFECYCLE_MOVES[now] ?? []).includes(lifecycle)) return { state, errors: [`A ${now} version cannot change to ${lifecycle}. Allowed: ${(LIFECYCLE_MOVES[now] ?? []).join(', ') || 'none'}.`] }
+  const next = edit(state, (s) => {
+    const a = s.assets.find((x) => x.assetId === assetId && x.version === version)
+    a.lifecycle = lifecycle
+    a.lifecycleT = s.clock
+    s.seen[`lifecycle:${assetId}:${version}:${lifecycle}`] = s.clock
+  })
+  return { state: next, errors: [] }
+}
+
 export const createClient = (state, name) =>
   edit(state, (s) => {
     const n = (s.nextId * 7919 + name.length * 104729).toString(16)
@@ -783,6 +919,24 @@ export function reviseApi(state, id, version) {
     Object.assign(api, { version, apiVersion: asset.apiVersion })
   })
 }
+
+// The applications whose API Autodiscovery points at this instance
+export const pairedApps = (s, api) => s.apps.filter((a) => a.env === api.env && pairing(s, a).api?.id === api.id)
+// API Manager, Delete API. The contracts, policies, tiers and alerts go with the instance. An application whose
+// Autodiscovery still points at the ID can no longer track it, so its gateway blocks the API and answers 503.
+export const deleteApi = (state, id) =>
+  edit(state, (s) => {
+    const api = apiById(s, id)
+    if (!api) return
+    const paired = pairedApps(s, api)
+    s.apis = s.apis.filter((a) => a !== api)
+    delete s.gateways[api.id]
+    s.deletedApis = [...(s.deletedApis ?? []), { id: api.id, name: api.name, env: api.env, contracts: api.contracts.length, apps: paired.map((a) => a.name), t: s.clock }]
+    for (const app of paired.filter((a) => a.status === 'Running')) {
+      const pair = pairing(s, app)
+      log(s, app, [line('ERROR', `API ApiKey{id='${pair.id}'} could not be tracked. ${pair.text}`, 'com.mulesoft.mule.runtime.gw.autodiscovery'), warn(`API ApiKey{id='${pair.id}'} is now blocked (unavailable).`, 'com.mulesoft.mule.runtime.gw.gatekeeper')])
+    }
+  })
 
 // ---------- MQ ----------
 
@@ -1001,6 +1155,66 @@ export const deleteServerSet = (state, name) =>
   edit(state, (s) => {
     for (const key of ['groups', 'clusters']) s.hybrid[key] = s.hybrid[key].filter((g) => !(g.env === s.env && g.name === name))
   })
+const setNamed = (s, name) => [...H(s).groups.map((g) => ['Server Group', g]), ...H(s).clusters.map((g) => ['Cluster', g])].find(([, g]) => g.env === s.env && g.name === name)
+// Add Server to a group or cluster: the same rules as Create. When it joins, it gets the applications of the set.
+// Sources: runtime-manager/server-group-about, runtime-manager/cluster-about
+export function addToServerSet(state, setName, serverName) {
+  const errors = []
+  const found = setNamed(state, setName)
+  const x = serverNamed(state, state.env, serverName)
+  if (!found) return { state, errors: [`There is no server group or cluster named ${setName} in ${state.env}.`] }
+  if (!x) return { state, errors: [`There is no server named ${serverName} in ${state.env}.`] }
+  const [type, set] = found
+  const members = set.servers.map((n) => serverNamed(state, state.env, n)).filter(Boolean)
+  const taken = [...H(state).groups, ...H(state).clusters].filter((g) => g.env === state.env)
+  if (taken.some((g) => g.servers.includes(serverName))) errors.push(`${serverName} is already in a server group or cluster.`)
+  if (Object.keys(x.apps).length) errors.push(`${serverName} has applications. First stop and delete the applications from the server.`)
+  for (const key of ['runtime', 'agentVersion', 'java']) {
+    const want = members[0]?.[key]
+    if (want !== undefined && x[key] !== want) errors.push(`All servers of ${setName} must run the same ${key === 'runtime' ? 'Mule runtime' : key === 'java' ? 'Java' : 'Runtime Manager agent'} version: ${setName} has ${want}, ${serverName} has ${x[key]}.`)
+  }
+  if (errors.length) return { state, errors }
+  const next = edit(state, (s) => {
+    const [, g] = setNamed(s, setName)
+    g.servers = [...g.servers, serverName].sort()
+    const server = serverNamed(s, s.env, serverName)
+    serverLog(s, server, 'INFO', `Added to ${type === 'Cluster' ? 'cluster' : 'server group'} ${setName}`)
+    for (const app of s.apps.filter((a) => a.env === s.env && a.targetType === type && a.target === setName && a.status !== 'Stopped' && a.status !== 'Starting')) {
+      app.nodes ??= {}
+      app.replicas = g.servers.length
+      if (serverStatus(server) === 'Running') deployOnServer(s, app, server)
+      else app.nodes[serverName] = 'Waiting'
+      settleNodes(app)
+    }
+  })
+  return { state: next, errors: [] }
+}
+// Remove a server from a group or cluster: the applications of the set are undeployed from it. A cluster keeps at least
+// two servers, and a group at least one; to end it, delete the group instead.
+export function removeFromServerSet(state, setName, serverName) {
+  const found = setNamed(state, setName)
+  if (!found || !found[1].servers.includes(serverName)) return { state, errors: [`${serverName} is not in ${setName}.`] }
+  const [type, set] = found
+  if (type === 'Cluster' && set.servers.length <= 2) return { state, errors: ['A cluster has at least two servers. Add another server first, or delete the cluster.'] }
+  if (type !== 'Cluster' && set.servers.length <= 1) return { state, errors: ['A server group has at least one server. Delete the group instead.'] }
+  const next = edit(state, (s) => {
+    const [, g] = setNamed(s, setName)
+    g.servers = g.servers.filter((n) => n !== serverName)
+    const server = serverNamed(s, s.env, serverName)
+    serverLog(s, server, 'INFO', `Removed from ${type === 'Cluster' ? 'cluster' : 'server group'} ${setName}`)
+    for (const app of s.apps.filter((a) => a.env === s.env && a.targetType === type && a.target === setName)) {
+      app.replicas = g.servers.length
+      if (server.apps[app.name]?.managed) undeployFrom(s, server, app.name)
+      if (app.nodes?.[serverName]) {
+        delete app.nodes[serverName]
+        if (app.status !== 'Stopped' && app.status !== 'Starting') settleNodes(app)
+      }
+      if (app.behind) delete app.behind[serverName]
+    }
+  })
+  return { state: next, errors: [] }
+}
+
 // Runtime Manager, Servers, Remove: the server leaves Runtime Manager. Its agent files stay until someone deletes them.
 export const removeServer = (state, name) =>
   edit(state, (s) => {

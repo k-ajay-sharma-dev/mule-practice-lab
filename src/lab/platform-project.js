@@ -3,6 +3,8 @@
 import { addMonAlert, at, newApi, newApp, newPlatform, newHybrid, newServer } from './platform.js'
 import { asset, CLIENTS, creds, OPS, policy, until } from './platform-kit.js'
 import { LAYER_PROPERTY } from './platform-led.js'
+import { defaultSystems } from './platform-systems.js'
+import { harborKafka } from './platform-kafka.js'
 
 export const PRIVATE_SPACE = 'harbor-ps'
 export const internal = (name, env = 'Sandbox') => `https://${name}-lab1a2.internal-${env === 'Sandbox' ? 'sbx' : 'prd'}.usa-e2.cloudhub.example/api`
@@ -172,6 +174,9 @@ export function openConsole() {
     newApp('stock-file-poll', { props: { 'sftp.host': 'sftp.harbor.lab' }, secrets: { 'sftp.password': 'lab' } }),
   )
   s.hybrid = defaultHybrid()
+  // the SFTP and FTP servers, the storage account and the key vault that the apps of Harbor talk to
+  s.systems = defaultSystems(at(1, 9))
+  s.kafka = harborKafka(at(1, 9))
   s.jars.push({ pkg: 'orders-sapi-v2', autodiscovery: jarOf('orders').autodiscovery, jar: 'orders-sapi-2.0.0-mule-application.jar' }, 'orders-nightly-load', 'customer-export', 'stock-file-poll', 'search-eapi')
   const alert = { resource: 'Application', severity: 'High', operator: 'Above', recipients: OPS, minutes: 1 }
   s = addMonAlert(s, { ...alert, title: 'Errors in the process layer', name_: LED.process.app, metric: 'Message Error Count', threshold: 0 })

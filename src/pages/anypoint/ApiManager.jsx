@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  addApi, addApiAlert, addTier, API_ALERT_CODES, API_ALERT_TYPES, apiById, apiStatus, applyPolicy, assetGroups, DAY, dayText, ENVS, eventsOf, HOUR, mark, promoteApi, removeApiAlert, reviseApi, sameMajor,
+  addApi, addApiAlert, addTier, API_ALERT_CODES, API_ALERT_TYPES, apiById, apiStatus, applyPolicy, assetGroups, DAY, dayText, deleteApi, ENVS, eventsOf, HOUR, mark, pairedApps, promoteApi, removeApiAlert, reviseApi, sameMajor,
   RM_SEVERITIES, setApi, setContract,
 } from '../../lab/platform.js'
 import { docsUrl, POLICIES, policyByType } from '../../lab/policies.js'
@@ -183,7 +183,7 @@ function AddApi({ state, update, go }) {
                   <Select value={(group.find((a) => a.version === f.version) ?? group[0]).apiVersion} onChange={() => {}} options={[(group.find((a) => a.version === f.version) ?? group[0]).apiVersion]} />
                 </Field>
                 <Field label="Asset version">
-                  <Select value={f.version} onChange={(version) => set({ version })} options={group.map((a) => a.version)} />
+                  <Select value={f.version} onChange={(version) => set({ version })} options={group.map((a) => [a.version, a.lifecycle === 'deprecated' ? `${a.version}, deprecated` : a.version])} />
                 </Field>
               </div>
             )}
@@ -320,6 +320,7 @@ function Instance({ api, tab, state, update, go }) {
       <div className="pc-title">
         <h2>{api.name}</h2>
         <span className="pc-version">{api.version}</span>
+        {state.assets.find((a) => a.assetId === api.assetId && a.version === api.version)?.lifecycle === 'deprecated' && <span className="pc-tag pc-tag-deprecated">Deprecated</span>}
       </div>
       <p className="pc-about">
         API Status: <Dot status={apiStatus(state, api)} /> <span>Asset Version: {api.version}</span> <span>Type: RAML/OAS</span>
@@ -698,12 +699,48 @@ function Alerts({ api, update }) {
   )
 }
 
-function Settings({ api, state, update }) {
+function DeleteApi({ api, state, update, go, onClose }) {
+  const paired = pairedApps(state, api)
+  const running = paired.filter((a) => a.status === 'Running')
+  return (
+    <Modal
+      title="Delete API"
+      onClose={onClose}
+      foot={
+        <>
+          <Btn onClick={onClose}>Cancel</Btn>
+          <Btn kind="danger" onClick={() => { go({ page: 'API Administration' }); update((s) => deleteApi(s, api.id)) }}>
+            {paired.length ? 'Delete anyway' : 'Delete'}
+          </Btn>
+        </>
+      }
+    >
+      <p>
+        Delete {api.name} {api.version} ({api.label || api.id}) in {api.env}? This cannot be undone.
+      </p>
+      <ul className="pc-steps">
+        <li>
+          {api.contracts.length} contract{api.contracts.length === 1 ? '' : 's'}, {api.policies.length} polic{api.policies.length === 1 ? 'y' : 'ies'}, {api.tiers.length} SLA tier{api.tiers.length === 1 ? '' : 's'} and {api.alerts.length} alert{api.alerts.length === 1 ? '' : 's'} are deleted with the instance.
+        </li>
+        {paired.length === 0 && <li>No application is paired to this instance by API Autodiscovery.</li>}
+      </ul>
+      {paired.length > 0 && (
+        <p className="pc-errors" role="alert">
+          {paired.map((a) => a.name).join(', ')} {paired.length === 1 ? 'is' : 'are'} paired to API ID {api.id} by API Autodiscovery. After the delete the gateway cannot track the ID, blocks the API and answers 503 to every request.
+          {running.length > 0 ? ' Running applications are affected at once.' : ''} Point the application at another instance, or remove its Autodiscovery, to make it answer again.
+        </p>
+      )}
+    </Modal>
+  )
+}
+
+function Settings({ api, state, update, go }) {
   const [f, setF] = useState({ label: api.label, consumer: api.consumer, upstream: api.upstream })
   const [version, setVersion] = useState(api.version)
   const [said, setSaid] = useState('')
+  const [deleting, setDeleting] = useState(false)
   // the platform offers only the versions of the same major; another major needs a new instance
-  const versions = state.assets.filter((a) => a.assetId === api.assetId && sameMajor(a.version, api.version)).map((a) => a.version)
+  const versions = state.assets.filter((a) => a.assetId === api.assetId && sameMajor(a.version, api.version)).map((a) => [a.version, a.lifecycle === 'deprecated' ? `${a.version}, deprecated` : a.version])
   const save = () => {
     update((s) => setApi(version === api.version ? s : reviseApi(s, api.id, version), api.id, f))
     setSaid('Saved.')
@@ -735,10 +772,14 @@ function Settings({ api, state, update }) {
         <span className="pc-dim pc-grow" aria-live="polite">
           {said}
         </span>
+        <Btn kind="danger" onClick={() => setDeleting(true)}>
+          Delete API
+        </Btn>
         <Btn kind="primary" onClick={save}>
           Save
         </Btn>
       </div>
+      {deleting && <DeleteApi api={api} state={state} update={update} go={go} onClose={() => setDeleting(false)} />}
     </>
   )
 }

@@ -6,6 +6,18 @@ import {
 } from '../src/lab/platform.js'
 import { GROUPS, labDone, openConsole, PLATFORM_LABS, stepDone } from '../src/lab/platform-labs.js'
 
+// every failure package has its own name: the registry spreads them into one object, so a repeated name hides one
+{
+  const { readdirSync } = await import('node:fs')
+  const { PACKAGES: MAIN } = await import('../src/lab/platform-packages.js')
+  const { LED_PACKAGES } = await import('../src/lab/platform-led.js')
+  const seen = Object.fromEntries([...Object.keys(MAIN).map((k) => [k, 'platform-packages.js']), ...Object.keys(LED_PACKAGES).filter((k) => !MAIN[k]).map((k) => [k, 'platform-led.js'])])
+  for (const f of readdirSync(new URL('../src/lab/failures/', import.meta.url)).filter((x) => x.endsWith('.pkg.js'))) {
+    const { PACKAGES } = await import(new URL('../src/lab/failures/' + f, import.meta.url))
+    for (const k of Object.keys(PACKAGES)) assert.ok(!seen[k], `package ${k} is in ${seen[k]} and ${f}`), (seen[k] = f)
+  }
+}
+
 // clock and cron
 assert.equal(stamp(at(1, 9)), '2026-11-03 09:00:00')
 assert.ok(cronMatches('0 0 2 * * ?', 'UTC', at(1, 2)))

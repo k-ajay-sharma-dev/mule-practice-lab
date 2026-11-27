@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { apiStatus, assetGroups, createClient, dayText, mark, requestAccess } from '../../lab/platform.js'
+import { apiStatus, assetGroups, createClient, dayText, LIFECYCLE_MOVES, mark, requestAccess, setLifecycle } from '../../lab/platform.js'
 import { parseRaml } from '../../raml/parse.js'
 import { Btn, Copy, Dot, Errors, Field, Input, Link, Modal, Note, Select, SideNav, Table } from './parts.jsx'
 
@@ -39,6 +39,7 @@ function Home({ groups, state, go, place }) {
                   <small>
                     {g[0].version}, {g[0].lifecycle}
                   </small>
+                  {g[0].lifecycle === 'deprecated' && <span className="pc-tag pc-tag-deprecated">Deprecated</span>}
                 </button>
               ))}
             </div>
@@ -53,6 +54,7 @@ function Asset({ group, state, update, go }) {
   const [version, setVersion] = useState(group[0].version)
   const [page, setPage] = useState('Home')
   const [asking, setAsking] = useState(false)
+  const [managing, setManaging] = useState(false)
   const asset = group.find((a) => a.version === version) ?? group[0]
   useEffect(() => update((s) => mark(s, `asset:${asset.assetId}`)), [asset.assetId, update])
   const instances = state.apis.filter((a) => a.assetId === asset.assetId)
@@ -71,10 +73,21 @@ function Asset({ group, state, update, go }) {
           </div>
           <span className="pc-grow" />
           <Select value={version} onChange={setVersion} options={group.map((a) => [a.version, `${a.version}, ${a.apiVersion}, ${a.lifecycle}`])} aria-label="Version" />
+          <Btn onClick={() => { setManaging(true); update((s) => mark(s, `versions:${asset.assetId}`)) }}>Manage versions</Btn>
           <Btn kind="primary" onClick={() => setAsking(true)}>
             Request access
           </Btn>
         </div>
+        {asset.lifecycle === 'deprecated' && (
+          <Note>
+            <span className="pc-tag pc-tag-deprecated">Deprecated</span> Version {asset.version} is deprecated. API instances that use it keep working. Consumers should move to a newer version.
+          </Note>
+        )}
+        {asset.lifecycle === 'development' && (
+          <Note>
+            <span className="pc-tag">Development</span> Version {asset.version} is still in development.
+          </Note>
+        )}
         {page === 'Home' && (
           <>
             <p>{String(parseRaml(asset.raml).model?.root.description ?? 'No description yet.')}</p>
@@ -86,7 +99,45 @@ function Asset({ group, state, update, go }) {
         {page === 'API instances' && <Table heads={['Environment', 'Instance', 'Status']} empty="No API instances. Create one in API Manager." rows={instances.map((a) => <tr key={a.id}><td>{a.env}</td><td><Link onClick={() => go({ product: 'API Manager', api: a.id, env: a.env })}>{a.label || a.id}</Link></td><td><Dot status={apiStatus(state, a)} /></td></tr>)} />}
       </main>
       {asking && <Access instances={instances} state={state} update={update} onClose={() => setAsking(false)} />}
+      {managing && <Versions group={group} state={state} update={update} onClose={() => setManaging(false)} />}
     </>
+  )
+}
+
+// Manage versions: the lifecycle of each version. Only the allowed changes are offered.
+function Versions({ group, state, update, onClose }) {
+  const [errors, setErrors] = useState([])
+  const change = (version, lifecycle) => {
+    const r = setLifecycle(state, group[0].assetId, version, lifecycle)
+    setErrors(r.errors)
+    if (!r.errors.length) update(() => r.state)
+  }
+  return (
+    <Modal title="Manage versions" onClose={onClose} wide foot={<Btn kind="primary" onClick={onClose}>Close</Btn>}>
+      <Table
+        heads={['Version', 'API version', 'Published', 'Lifecycle state', 'Instances']}
+        rows={group.map((a) => {
+          const current = state.assets.find((x) => x.assetId === a.assetId && x.version === a.version) ?? a
+          const life = current.lifecycle ?? 'stable'
+          const uses = state.apis.filter((x) => x.assetId === a.assetId && x.version === a.version).length
+          return (
+            <tr key={a.version}>
+              <td>
+                {a.version} {life === 'deprecated' && <span className="pc-tag pc-tag-deprecated">Deprecated</span>}
+              </td>
+              <td>{a.apiVersion}</td>
+              <td>{dayText(a.t)}</td>
+              <td>
+                <Select value={life} onChange={(v) => change(a.version, v)} aria-label={`Lifecycle state of ${a.version}`} options={[life, ...(LIFECYCLE_MOVES[life] ?? [])].map((x) => [x, x[0].toUpperCase() + x.slice(1)])} />
+              </td>
+              <td>{uses}</td>
+            </tr>
+          )
+        })}
+      />
+      <p className="pc-dim">A development version can become stable. A stable version can be deprecated, and a deprecated version can become stable again. A version does not go back to development. Deprecating changes only the state: instances that use the version keep working.</p>
+      <Errors list={errors} />
+    </Modal>
   )
 }
 

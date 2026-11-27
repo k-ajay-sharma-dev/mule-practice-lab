@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  CONTROL_PLANE, createServerSet, deleteServerSet, hybridServers, hybridTargets, liveNodes, mark, nodesOf, REG_TOKENS, removeServer, serverNamed, serverStatus, serversOf, setOutbound,
+  addToServerSet, CONTROL_PLANE, createServerSet, deleteServerSet, hybridServers, hybridTargets, liveNodes, mark, nodesOf, REG_TOKENS, removeFromServerSet, removeServer, serverNamed, serverStatus, serversOf, setOutbound,
 } from '../../lab/platform.js'
 import { BUILDS, fileText, HELP, listing, run } from '../../lab/platform-server.js'
-import { Btn, Check, Copy, Dot, Errors, Field, Input, Link, Modal, Note, Table } from './parts.jsx'
+import { Btn, Check, Copy, Dot, Errors, Field, Input, Link, Modal, Note, Select, Table } from './parts.jsx'
 
 const appsOn = (state, server) => Object.keys(server.apps)
 const typeOf = (t) => (t === 'Server Group' ? 'Server group' : t)
@@ -13,8 +13,15 @@ const typeOf = (t) => (t === 'Server Group' ? 'Server group' : t)
 export function ServersPage({ state, update, go }) {
   const [adding, setAdding] = useState(false)
   const [making, setMaking] = useState(null)
+  const [joining, setJoining] = useState(null)
+  const [errors, setErrors] = useState([])
   const targets = hybridTargets(state)
   const used = (name) => state.apps.some((a) => a.env === state.env && a.target === name && a.targetType)
+  const leave = (set, name) => {
+    const r = removeFromServerSet(state, set, name)
+    setErrors(r.errors)
+    if (!r.errors.length) update(() => r.state)
+  }
   const row = (server, inside) => {
     const status = serverStatus(server)
     return (
@@ -28,7 +35,9 @@ export function ServersPage({ state, update, go }) {
         <td>{server.agentVersion}</td>
         <td>{appsOn(state, server).join(', ') || 'None'}</td>
         <td>
-          {!inside && (
+          {inside ? (
+            <Link onClick={() => leave(inside, server.agent.name)}>Remove from {inside}</Link>
+          ) : (
             <Link disabled={used(server.agent.name)} title={used(server.agent.name) ? 'Delete its applications first' : undefined} onClick={() => update((s) => removeServer(s, server.agent.name))}>
               Remove
             </Link>
@@ -68,7 +77,8 @@ export function ServersPage({ state, update, go }) {
               <td>{[...new Set(servers.map((x) => x.runtime))].join(', ')}</td>
               <td>{[...new Set(servers.map((x) => x.agentVersion))].join(', ')}</td>
               <td>{state.apps.filter((a) => a.env === state.env && a.target === t.name && a.targetType === t.type).map((a) => a.name).join(', ') || 'None'}</td>
-              <td>
+              <td className="pc-actions">
+                <Link onClick={() => { setErrors([]); setJoining(t) }}>Add server</Link>
                 <Link disabled={used(t.name)} title={used(t.name) ? 'Delete its applications first' : undefined} onClick={() => update((s) => deleteServerSet(s, t.name))}>
                   Delete
                 </Link>
@@ -78,7 +88,10 @@ export function ServersPage({ state, update, go }) {
           ]
         })}
       />
+      <Errors list={errors} />
+      <p className="pc-dim">A server that joins a group or a cluster gets the applications of the set. A server that leaves it has them undeployed. A cluster keeps at least two servers.</p>
       {adding && <AddServer env={state.env} onClose={() => setAdding(false)} go={go} />}
+      {joining && <JoinSet set={joining} state={state} onClose={() => setJoining(null)} onSave={(next) => { update(() => next); setJoining(null) }} />}
       {making && <MakeSet type={making} state={state} onClose={() => setMaking(null)} onSave={(next) => { update(() => next); setMaking(null) }} />}
     </>
   )
@@ -148,6 +161,56 @@ function MakeSet({ type, state, onClose, onSave }) {
           ? 'Nodes of a cluster share object store and VM queue data, and only the primary node runs the schedulers. The lab picks the first running node as primary.'
           : 'A server group lets you deploy an application to every server at once. Each server runs its own copy, with its own schedulers.'}
       </p>
+      <Errors list={errors} />
+    </Modal>
+  )
+}
+
+// Add a server to a group or a cluster that exists
+function JoinSet({ set, state, onClose, onSave }) {
+  const free = hybridTargets(state).filter((t) => t.type === 'Server')
+  const [picked, setPicked] = useState(free[0]?.name ?? '')
+  const [errors, setErrors] = useState([])
+  const first = serversOf(state, set)[0]
+  const apps = state.apps.filter((a) => a.env === state.env && a.target === set.name && a.targetType === set.type)
+  const save = () => {
+    const r = addToServerSet(state, set.name, picked)
+    setErrors(r.errors)
+    if (!r.errors.length) onSave(r.state)
+  }
+  return (
+    <Modal
+      title={`Add server to ${set.name}`}
+      onClose={onClose}
+      foot={
+        <>
+          <Btn onClick={onClose}>Cancel</Btn>
+          <Btn kind="primary" disabled={!picked} onClick={save}>
+            Add
+          </Btn>
+        </>
+      }
+    >
+      {first && (
+        <p className="pc-dim">
+          The servers of {set.name} run Mule {first.runtime}, agent {first.agentVersion} and Java {first.java}. A new server needs the same versions and no applications.
+        </p>
+      )}
+      {free.length === 0 ? (
+        <p className="pc-dim">No free servers. A server in a group or a cluster cannot join another one.</p>
+      ) : (
+        <Field label="Server">
+          <Select
+            value={picked}
+            onChange={setPicked}
+            options={free.map((t) => {
+              const x = serverNamed(state, state.env, t.name)
+              return [t.name, `${t.name}, Mule ${x.runtime}, agent ${x.agentVersion}, Java ${x.java}, ${serverStatus(x)}${Object.keys(x.apps).length ? `, has ${Object.keys(x.apps).join(', ')}` : ''}`]
+            })}
+          />
+        </Field>
+      )}
+      {apps.length > 0 && <Note>The server gets {apps.map((a) => a.name).join(', ')} when it joins. A server that is not connected gets them when its agent connects.</Note>}
       <Errors list={errors} />
     </Modal>
   )

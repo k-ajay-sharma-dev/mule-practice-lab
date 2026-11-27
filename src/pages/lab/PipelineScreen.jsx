@@ -38,6 +38,8 @@ import { CodeBlock } from '../../components/CopyButton.jsx'
 import Assumed from './Assumed.jsx'
 import { LabOutcome } from './ExchangeScreen.jsx'
 import './exchange.css'
+import ExplainAloud from './ExplainAloud.jsx'
+import { setHideHow, useHideHow } from './lab-prefs.js'
 
 const STATE_KEY = 'pl.lab.pipeline'
 const GUIDED_KEY = 'pl.lab.cicd' // the guided lab in progress, one at a time
@@ -562,6 +564,9 @@ function LabSteps({ lab, ctx, finished, onAnswer }) {
   const shown = open ?? current
   const count = done.filter(Boolean).length
   const box = useRef(null)
+  const hideHow = useHideHow()
+  const [howShown, setHowShown] = useState({})
+  const [explain, setExplain] = useState(false)
 
   useEffect(() => {
     setOpen(null)
@@ -579,18 +584,29 @@ function LabSteps({ lab, ctx, finished, onAnswer }) {
       <div className="gh-guide-bar" role="progressbar" aria-valuemin={0} aria-valuemax={done.length} aria-valuenow={count} aria-label="Steps done">
         <i style={{ width: `${(count / done.length) * 100}%` }} />
       </div>
-      <span className="gh-dim small">
-        {count} of {done.length} steps
-      </span>
+      <div className="pl-guide-bar">
+        <span className="gh-dim small pl-grow">
+          {count} of {done.length} steps
+        </span>
+        <label className="gh-dim small pl-hide-how">
+          <input type="checkbox" checked={hideHow} onChange={(e) => setHideHow(e.target.checked)} /> Hide the how text
+        </label>
+      </div>
       {finished && (
         <div className="gh-guide-done" role="status">
           <b>Lab solved</b>
           <p className="small">{lab.why}</p>
-          <a href={lab.docs} target="_blank" rel="noreferrer" className="small">
-            Docs
-          </a>
+          <div className="pl-done-actions">
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => setExplain(true)}>
+              Explain this fix out loud
+            </button>
+            <a href={lab.docs} target="_blank" rel="noreferrer" className="small">
+              Docs
+            </a>
+          </div>
         </div>
       )}
+      {explain && <ExplainAloud lab={lab} onClose={() => setExplain(false)} />}
       <ol className="gh-todo">
         {lab.steps.map((s, i) => (
           <li key={i} className={done[i] ? 'done' : i === current ? 'on' : ''} aria-current={i === current ? 'step' : undefined}>
@@ -614,7 +630,13 @@ function LabSteps({ lab, ctx, finished, onAnswer }) {
                 </div>
               ) : (
                 <div className="gh-todo-body">
-                  <p>{s.how}</p>
+                  {hideHow && !done[i] && !howShown[i] ? (
+                    <button type="button" className="btn btn-sm btn-ghost" onClick={() => setHowShown((h) => ({ ...h, [i]: true }))}>
+                      Show how
+                    </button>
+                  ) : (
+                    <p>{s.how}</p>
+                  )}
                 </div>
               ))}
           </li>
