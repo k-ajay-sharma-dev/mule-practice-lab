@@ -2,7 +2,6 @@
 // boot() says why it cannot start, jobs run a scheduled flow, handle() answers an HTTP request, consume() takes a message.
 import { parseRaml } from '../raml/parse.js'
 import { LED_PACKAGES } from './platform-led.js'
-import { FAILURE_PACKAGES } from './platform-failure-packages.js'
 import { ENTERPRISE_PACKAGES } from './platform-enterprise-packages.js'
 import { info, line, muleError, needs, warn } from './platform-log.js'
 
@@ -224,4 +223,19 @@ export const PACKAGES = {
   },
 }
 
-export const packageOf = (id) => PACKAGES[id] ?? LED_PACKAGES[id] ?? ENTERPRISE_PACKAGES[id] ?? FAILURE_PACKAGES[id]
+// The sample applications of the guided labs (platform-failure-packages.js) are added here when the guided labs load,
+// so opening the open console does not download them.
+const REGISTERED = {}
+let registered = false
+export function registerPackages(packages) {
+  Object.assign(REGISTERED, packages)
+  registered = true
+}
+// Before they load, an application whose package is not known fails to start with a clear log line instead of
+// crashing the console. Once they load, an unknown package is undefined as before.
+const notLoaded = (id) => {
+  const text = `The application package ${id} is not loaded in this console. It belongs to a guided lab: open that lab in Guided Labs.`
+  const failed = () => ({ ok: false, ms: 1, errorType: 'MULE:UNKNOWN', log: [line('ERROR', text, 'org.mule.runtime.deployment')] })
+  return { note: text, boot: () => text, run: new Proxy({}, { get: () => failed }) }
+}
+export const packageOf = (id) => PACKAGES[id] ?? LED_PACKAGES[id] ?? ENTERPRISE_PACKAGES[id] ?? REGISTERED[id] ?? (registered || !id ? undefined : notLoaded(id))

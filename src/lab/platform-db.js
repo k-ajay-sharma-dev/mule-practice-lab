@@ -255,6 +255,13 @@ const ERR = {
       : fail('DB:QUERY_EXECUTION', oraEx('ORA-00060: deadlock detected while waiting for resource'), { code: 60, deadlock: true }),
   killed: (srv) => (isSql(srv) ? fail('DB:CONNECTIVITY', sqlEx('A severe error occurred on the current command.  The results, if any, should be discarded.'), { code: 0 }) : fail('DB:CONNECTIVITY', oraEx('ORA-00028: your session has been killed'), { code: 28 })),
   snapshot: () => fail('DB:QUERY_EXECUTION', oraEx('ORA-01555: snapshot too old: rollback segment number 12 with name "_SYSSMU12_1849275342$" too small'), { code: 1555 }),
+  // a host or port in the Mule config that is not the server's: no TCP connection
+  unreachable: (srv, host, port, refused) =>
+    isSql(srv)
+      ? fail('DB:CONNECTIVITY', sqlEx(`The TCP/IP connection to the host ${host}, port ${port} has failed. Error: "${refused ? 'Connection refused: connect' : host}. Verify the connection properties. Make sure that an instance of SQL Server is running on the host and accepting TCP/IP connections at the port. Make sure that TCP connections to the port are not blocked by a firewall.".`), { code: 0 })
+      : fail('DB:CONNECTIVITY', oraEx(`IO Error: The Network Adapter could not establish the connection (CONNECTION_ID=${hash(`${host}:${port}`, 16)})`), { code: 17002 }),
+  sid: (srv, sid) => fail('DB:CONNECTIVITY', oraEx(`Listener refused the connection with the following error:\nORA-12505, TNS:listener does not currently know of SID given in connect descriptor (CONNECTION_ID=${hash(sid, 16)})`), { code: 12505 }),
+  noSession: (srv, user) => fail('DB:CONNECTIVITY', oraEx(`ORA-01045: user ${user} lacks CREATE SESSION privilege; logon denied`), { code: 1045 }),
 }
 
 // Messages as the query window shows them, with the code the app sees
@@ -263,7 +270,7 @@ function vendorError(srv, kind, a = {}) {
   const msg = (n, level, state, text) => ({ code: n, text, window: `Msg ${n}, Level ${level}, State ${state}, Line 1\n${text}` })
   const ora = (n, text) => ({ code: n, text: `ORA-${String(n).padStart(5, '0')}: ${text}`, window: `ORA-${String(n).padStart(5, '0')}: ${text}` })
   const map = {
-    syntax: () => (sql ? msg(102, 15, 1, `Incorrect syntax near '${a.near}'.`) : ora(a.code ?? 933, a.code === 923 ? 'FROM keyword not found where expected' : a.code === 900 ? 'invalid SQL statement' : 'SQL command not properly ended')),
+    syntax: () => (sql ? msg(102, 15, 1, `Incorrect syntax near '${a.near}'.`) : ora(a.code ?? 933, { 923: 'FROM keyword not found where expected', 900: 'invalid SQL statement', 901: 'invalid CREATE command', 922: 'missing or invalid option', 990: 'missing or invalid privilege' }[a.code] ?? 'SQL command not properly ended')),
     object: () => (sql ? msg(208, 16, 1, `Invalid object name '${a.name}'.`) : ora(942, 'table or view does not exist')),
     column: () => (sql ? msg(207, 16, 1, `Invalid column name '${a.name}'.`) : ora(904, `"${String(a.name).toUpperCase()}": invalid identifier`)),
     func: () => (sql ? msg(195, 15, 10, `'${a.name}' is not a recognized built-in function name.`) : ora(904, `"${String(a.name).toUpperCase()}": invalid identifier`)),
@@ -301,7 +308,8 @@ function tableKeyOf(srv, raw, schemaHint) {
   return Object.keys(srv.tables).find((k) => k.toLowerCase() === `${schema}.${name}`.toLowerCase()) ?? null
 }
 const colOf = (t, name) => t.columns.find((c) => c.name.toLowerCase() === clean(name).split('.').at(-1).toLowerCase())?.name ?? null
-const rowKey = (t, row) => t.pk.map((c) => row[c]).join('|')
+// a table made with no primary key (a heap) has no key, so the whole row stands for it
+const rowKey = (t, row) => (t.pk.length ? t.pk.map((c) => row[c]).join('|') : JSON.stringify(row))
 
 // splits text on a separator at depth 0 and outside quotes; `sep` is a regex that must match at the cursor
 function splitTop(text, sep) {
@@ -636,6 +644,24 @@ export function parseSql(text, vendor = SQLSERVER) {
   if (/^(exec(ute)? )?sp_who2?$/i.test(sql)) return vendor === ORACLE ? { kind: 'error', near: 'sp_who2', oraCode: 900 } : { kind: 'spwho' }
   if ((m = sql.match(/^alter (login|user) ([\w\\[\]"]+) (enable|disable|account unlock|account lock)$/i))) return { kind: 'alterLogin', name: clean(m[2]), action: m[3].toLowerCase() }
   if ((m = sql.match(/^alter database (\w+) set read_committed_snapshot (on|off)(?: with rollback immediate)?$/i))) return vendor === ORACLE ? { kind: 'error', near: 'database', oraCode: 2231 } : { kind: 'rcsi', on: m[2].toLowerCase() === 'on' }
+  // logins, users, grants and new tables: what a DBA runs to set up an integration
+  const ora = vendor === ORACLE
+  const oraName = (x) => (/^".*"$/.test(x) ? x.slice(1, -1) : x.toUpperCase())
+  const quoted = (x) => x.replace(/^N?'((?:[^']|'')*)'$/s, '$1').replace(/''/g, "'")
+  if ((m = sql.match(/^create login ([\w\\[\]"]+) with password\s*=\s*(N?'(?:[^']|'')*')(.*)$/i))) return ora ? { kind: 'error', near: 'LOGIN', oraCode: 901 } : { kind: 'createLogin', name: clean(m[1]), password: quoted(m[2]), opts: m[3] }
+  if (!ora && (m = sql.match(/^create user ([\w\\[\]"]+)(?: (?:for|from) login ([\w\\[\]"]+))?(?: with default_schema\s*=\s*([\w[\]]+))?$/i))) return { kind: 'createUser', name: clean(m[1]), login: clean(m[2] ?? m[1]), schema: clean(m[3] ?? 'dbo') }
+  if (ora && /^create user /i.test(sql)) {
+    m = sql.match(/^create user ("[^"]+"|[\w$#]+) identified by ("[^"]*"|[\w$#]+)(.*)$/i)
+    if (!m) return { kind: 'error', near: 'USER', oraCode: 922 }
+    return { kind: 'createUser', name: oraName(m[1]), password: m[2].replace(/^"|"$/g, ''), opts: m[3] }
+  }
+  if (!ora && (m = sql.match(/^alter login ([\w\\[\]"]+) with password\s*=\s*(N?'(?:[^']|'')*')(.*)$/i))) return { kind: 'setPassword', name: clean(m[1]), password: quoted(m[2]) }
+  if (ora && (m = sql.match(/^alter user ("[^"]+"|[\w$#]+) identified by ("[^"]*"|[\w$#]+)$/i))) return { kind: 'setPassword', name: oraName(m[1]), password: m[2].replace(/^"|"$/g, '') }
+  if ((m = sql.match(/^(grant|revoke) (.+?) on (?:object::)?([\w.[\]"]+) (?:to|from) ([\w\\[\]"]+)(?: with grant option)?$/i))) return { kind: 'grantObject', revoke: /^revoke$/i.test(m[1]), privs: m[2], from: m[3], grantee: ora ? oraName(m[4]) : clean(m[4]) }
+  if ((m = sql.match(/^(grant|revoke) (.+?) (?:to|from) ([\w\\[\]"]+)(?: with (?:admin|grant) option)?$/i))) return { kind: 'grantSystem', revoke: /^revoke$/i.test(m[1]), privs: m[2], grantee: ora ? oraName(m[3]) : clean(m[3]) }
+  if (!ora && (m = sql.match(/^alter role ([\w[\]]+) (add|drop) member ([\w\\[\]"]+)$/i))) return { kind: 'roleMember', role: clean(m[1]), drop: /^drop$/i.test(m[2]), name: clean(m[3]) }
+  if (!ora && (m = sql.match(/^(?:exec(?:ute)? )?sp_(add|drop)rolemember\s+N?'([\w\\]+)'\s*,\s*N?'([\w\\]+)'$/i))) return { kind: 'roleMember', role: m[2], drop: /^drop$/i.test(m[1]), name: m[3] }
+  if ((m = sql.match(/^create table ([\w.[\]"]+)\s*\((.*)\)$/is))) return { kind: 'createTable', from: m[1], body: m[2] }
   if (/^(create|drop|alter|truncate|merge|exec|execute|declare|with|grant|revoke)\b/i.test(sql)) return { kind: 'unsupported', near: sql.split(' ').slice(0, head === 'create' || head === 'drop' || head === 'alter' ? 2 : 1).join(' ') }
   return { kind: 'error', near: sql.split(' ')[0], oraCode: 900 }
 }
@@ -773,7 +799,11 @@ function virtualRows(srv, name, now) {
     return srv.sessions.map((x) => ({ SID: x.id, 'SERIAL#': x.serial, USERNAME: x.login, STATUS: x.status === 'killed' ? 'KILLED' : x.status === 'suspended' || x.status === 'running' ? 'ACTIVE' : 'INACTIVE', MACHINE: x.host, PROGRAM: x.program, EVENT: x.wait ? x.wait.type : 'SQL*Net message from client', WAIT_CLASS: x.wait ? 'Application' : 'Idle', SECONDS_IN_WAIT: Math.round((now - (x.wait?.since ?? x.lastBatch)) / 1000), BLOCKING_SESSION: x.blockedBy ?? null, BLOCKING_SESSION_STATUS: x.blockedBy ? 'VALID' : 'NO HOLDER', SQL_ID: x.sql ? hash(x.sql, 13) : null }))
   if (/v\$lock$/.test(n))
     return srv.sessions.filter((x) => x.openTran).map((x) => ({ SID: x.id, TYPE: 'TX', LMODE: 6, REQUEST: 0, BLOCK: srv.sessions.some((y) => y.blockedBy === x.id) ? 1 : 0, CTIME: Math.round((now - (x.tranStarted ?? now)) / 1000) })).concat(srv.sessions.filter((x) => x.wait).map((x) => ({ SID: x.id, TYPE: 'TX', LMODE: 0, REQUEST: 6, BLOCK: 0, CTIME: Math.round((now - x.wait.since) / 1000) })))
-  if (/dba_users$/.test(n)) return srv.logins.map((l) => ({ USERNAME: l.name, ACCOUNT_STATUS: l.status, PROFILE: l.profile, DEFAULT_TABLESPACE: 'USERS', CREATED: '2024-02-12' }))
+  if (/dba_users$/.test(n)) return srv.logins.map((l) => ({ USERNAME: l.name, ACCOUNT_STATUS: l.status, PROFILE: l.profile, DEFAULT_TABLESPACE: 'USERS', CREATED: l.created !== undefined ? sqlTime(l.created).slice(0, 10) : '2024-02-12' }))
+  const cols = (list, columns) => Object.assign(list, { columns })
+  if (/dba_tab_privs$/.test(n)) return cols(srv.users.flatMap((u) => Object.entries(u.grants ?? {}).flatMap(([tk, ps]) => ps.map((p) => ({ GRANTEE: u.name, OWNER: tk.split('.')[0], TABLE_NAME: tk.split('.')[1], PRIVILEGE: p, GRANTABLE: 'NO' })))), ['GRANTEE', 'OWNER', 'TABLE_NAME', 'PRIVILEGE', 'GRANTABLE'])
+  if (/dba_sys_privs$/.test(n)) return cols(srv.logins.flatMap((l) => (l.privs ?? []).map((p) => ({ GRANTEE: l.name, PRIVILEGE: p, ADMIN_OPTION: 'NO' }))), ['GRANTEE', 'PRIVILEGE', 'ADMIN_OPTION'])
+  if (/dba_role_privs$/.test(n)) return cols(srv.users.flatMap((u) => u.roles.map((r) => ({ GRANTEE: u.name, GRANTED_ROLE: r, ADMIN_OPTION: 'NO', DEFAULT_ROLE: 'YES' }))), ['GRANTEE', 'GRANTED_ROLE', 'ADMIN_OPTION', 'DEFAULT_ROLE'])
   return null
 }
 
@@ -788,7 +818,8 @@ function execute(srv, sess, st, opts) {
   sess.sql = opts.text ?? sess.sql
   if (st.kind === 'empty') return { ok: true, messages: [] }
   if (st.kind === 'error') return err('syntax', { near: st.near ?? 'SELECT', code: st.oraCode })
-  if (st.kind === 'unsupported') return { ...err('notSupported', { near: st.near }), lab: `The lab query window runs SELECT, INSERT, UPDATE, DELETE, transactions, CREATE INDEX, SET TRANSACTION ISOLATION LEVEL and ${isSql(srv) ? 'KILL' : 'ALTER SYSTEM KILL SESSION'}. ${st.near} is outside that set.` }
+  if (st.kind === 'unsupported') return { ...err('notSupported', { near: st.near }), lab: `The lab query window runs SELECT, INSERT, UPDATE, DELETE, transactions, CREATE TABLE, CREATE INDEX, ${isSql(srv) ? 'CREATE LOGIN, CREATE USER, ALTER ROLE' : 'CREATE USER, ALTER USER'}, GRANT, REVOKE, SET TRANSACTION ISOLATION LEVEL and ${isSql(srv) ? 'KILL' : 'ALTER SYSTEM KILL SESSION'}. ${st.near} is outside that set.` }
+  if (PRINCIPAL_KINDS.includes(st.kind)) return principals(srv, sess, st, now)
   if (st.kind === 'badIsolation') return err('isolation', { near: st.near })
   if (st.kind === 'begin') {
     sess.openTran++
@@ -853,8 +884,15 @@ function execute(srv, sess, st, opts) {
   const { tk, q } = r
   const t = srv.tables[tk]
   const user = srv.users.find((u) => u.login.toLowerCase() === String(sess.login).toLowerCase())
-  const admin = srv.logins.find((l) => l.name.toLowerCase() === String(sess.login).toLowerCase())?.sysadmin
-  const can = (verb) => admin || !user || (isSql(srv) ? user.roles.includes('db_owner') || user.roles.includes(verb === 'SELECT' ? 'db_datareader' : 'db_datawriter') : verb === 'SELECT' || !user.roles.includes('HARBOR_RO'))
+  const login = srv.logins.find((l) => l.name.toLowerCase() === String(sess.login).toLowerCase())
+  const admin = login?.sysadmin
+  const can = (verb) => {
+    if (admin || !user || granted(user, tk, verb)) return true
+    if (isSql(srv)) return user.roles.includes('db_owner') || user.roles.includes(verb === 'SELECT' ? 'db_datareader' : 'db_datawriter')
+    // a user made with CREATE USER has only what was granted to it; the users of the seed keep their roles of old
+    if (user.created !== undefined) return user.roles.includes('DBA') || user.roles.includes('HARBOR_RW') || (verb === 'SELECT' && user.roles.includes('HARBOR_RO')) || (login?.privs ?? []).includes(`${verb} ANY TABLE`)
+    return verb === 'SELECT' || !user.roles.includes('HARBOR_RO')
+  }
   const verb = st.kind.toUpperCase()
   if (!can(verb)) return err('denied', { verb, table: tk })
   const plan = q.kind === 'insert' ? null : planOf(srv, tk, { ...q, fetchSize: opts.fetchSize })
@@ -924,11 +962,16 @@ function execute(srv, sess, st, opts) {
     for (const values of q.rows) {
       const row = Object.fromEntries(t.columns.map((c) => [c.name, null]))
       q.cols.forEach((c, i) => (row[c] = values[i]))
+      // a column the INSERT leaves out gets its IDENTITY value or its DEFAULT
+      for (const c of t.columns.filter((x) => !q.cols.includes(x.name))) {
+        if (c.identity) row[c.name] = t.identityNext = (t.identityNext ?? 0) + 1
+        else if (c.default !== undefined) row[c.name] = valueOf(c.default, { params: null, now, q: 0 }).v ?? null
+      }
       for (const c of t.columns) if (!c.nullable && (row[c.name] === null || row[c.name] === undefined)) return failWrite(err('notNull', { column: c.name, table: tk, verb: 'INSERT' }))
       const k = rowKey(t, row)
       const h = holderOf(srv, sess, tk, k, 'X')
       if (h) return { ok: false, blocked: { holder: h.s, t: tk, k, mode: 'X' }, plan }
-      if ([...t.rows, ...added].some((x) => rowKey(t, x) === k)) return failWrite(err('pk', { constraint: isSql(srv) ? t.pkName : `${t.schema}.${t.pkName}`, table: tk, value: t.pk.map((c) => row[c]).join(', ') }))
+      if (t.pk.length && [...t.rows, ...added].some((x) => rowKey(t, x) === k)) return failWrite(err('pk', { constraint: isSql(srv) ? t.pkName : `${t.schema}.${t.pkName}`, table: tk, value: t.pk.map((c) => row[c]).join(', ') }))
       for (const ix of t.indexes.filter((x) => x.unique)) {
         const same = [...t.rows, ...added].find((x) => ix.columns.every((c) => cmp(x[c], row[c]) === 0))
         if (same) return failWrite(err('unique', { table: tk, index: ix.name, constraint: `${t.schema}.${ix.name}`, value: ix.columns.map((c) => row[c]).join(', ') }))
@@ -1062,7 +1105,7 @@ function prepare(srv, sess, st, ctx) {
 }
 
 function selectVirtual(srv, st, rows, err, fromAtom) {
-  const fake = { columns: Object.keys(rows[0] ?? {}).map((n) => ({ name: n })), pk: [], distinct: {}, spread: {} }
+  const fake = { columns: (rows.columns ?? Object.keys(rows[0] ?? {})).map((n) => ({ name: n })), pk: [], distinct: {}, spread: {} }
   if (!fake.columns.length) fake.columns = [{ name: isSql(srv) ? 'session_id' : 'SID' }]
   const ctx = { params: null, now: 0, q: 0, sql: isSql(srv) }
   const c = parseCols(fake, st.colsText)
@@ -1117,6 +1160,205 @@ function createIndex(srv, sess, st, opts, err) {
   t.indexes.push({ name: st.name, columns: cols, include, unique: st.unique, created: opts.now, online: st.online })
   const ms = Math.round(t.count * 0.0006 + 40) // lab-made: 1.6 million rows a second
   return { ok: true, ms, messages: isSql(srv) ? [] : [`Index ${st.name.toUpperCase()} created.`], index: st.name }
+}
+
+// ---------- logins, users, grants and new tables ----------
+
+const PRINCIPAL_KINDS = ['createLogin', 'createUser', 'setPassword', 'grantObject', 'grantSystem', 'roleMember', 'createTable']
+export const SQL_ROLES = ['db_owner', 'db_datareader', 'db_datawriter', 'db_ddladmin', 'db_securityadmin', 'db_backupoperator', 'db_denydatareader', 'db_denydatawriter']
+export const ORA_ROLES = ['CONNECT', 'RESOURCE', 'DBA', 'HARBOR_RW', 'HARBOR_RO']
+const ORA_SYS_PRIVS = ['CREATE SESSION', 'CREATE TABLE', 'CREATE VIEW', 'CREATE SEQUENCE', 'CREATE PROCEDURE', 'UNLIMITED TABLESPACE', 'SELECT ANY TABLE', 'INSERT ANY TABLE', 'UPDATE ANY TABLE', 'DELETE ANY TABLE', 'DROP ANY TABLE']
+const SQL_DB_PERMS = ['CONNECT', 'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'EXECUTE', 'ALTER', 'CONTROL']
+const OBJECT_PRIVS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'REFERENCES', 'ALTER']
+const ORA_PROFILES = ['DEFAULT', 'APP_USERS']
+// grants on one table, or database wide under '*' (SQL Server GRANT SELECT TO user). CONTROL holds every permission.
+export const granted = (user, tk, verb) => [user?.grants?.[tk], user?.grants?.['*']].some((g) => (g ?? []).includes(verb) || (g ?? []).includes('CONTROL'))
+// the password policy of Windows that CHECK_POLICY = ON applies: 8 characters and three of upper, lower, digit, symbol
+const complexEnough = (pw) => pw.length >= 8 && [/[A-Z]/, /[a-z]/, /\d/, /[^A-Za-z0-9]/].filter((r) => r.test(pw)).length >= 3
+const privsOf = (text) => {
+  const t = text.trim().toUpperCase().replace(/\s+/g, ' ')
+  return /^ALL( PRIVILEGES)?$/.test(t) ? ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] : t.split(/\s*,\s*/)
+}
+
+// CREATE LOGIN, CREATE USER, GRANT, REVOKE, ALTER ROLE and CREATE TABLE in the query window
+function principals(srv, sess, st, now) {
+  const sql = isSql(srv)
+  const msg = (n, level, state, text) => ({ ok: false, code: n, text, window: `Msg ${n}, Level ${level}, State ${state}, Line 1\n${text}` })
+  const ora = (n, text) => {
+    const t = `ORA-${String(n).padStart(5, '0')}: ${text}`
+    return { ok: false, code: n, text: t, window: t }
+  }
+  const done = (oraText) => ({ ok: true, messages: sql ? [] : [oraText] })
+  const same = (a, b) => (sql ? String(a).toLowerCase() === String(b).toLowerCase() : a === b)
+  const loginOf = (name) => srv.logins.find((l) => same(l.name, name))
+  const userOf = (name) => srv.users.find((u) => same(u.name, name))
+  if (!loginOf(sess.login)?.sysadmin) return sql ? msg(15247, 16, 1, 'User does not have permission to perform this action.') : ora(1031, 'insufficient privileges')
+  // Oracle commits the open transaction of the session before and after each DDL statement
+  if (!sql && sess.undo.length) commit(srv, sess)
+  if (st.kind === 'createTable') return createTable(srv, st, now, msg, ora)
+
+  if (st.kind === 'createLogin') {
+    if (loginOf(st.name)) return msg(15025, 16, 2, `The server principal '${st.name}' already exists.`)
+    const policy = !/check_policy\s*=\s*off/i.test(st.opts)
+    if (policy && !complexEnough(st.password)) return msg(15118, 16, 1, 'Password validation failed. The password does not meet the operating system policy requirements because it is not complex enough.')
+    const db = st.opts.match(/default_database\s*=\s*\[?(\w+)\]?/i)?.[1] ?? 'master'
+    srv.logins.push({ name: st.name, type: 'SQL login', password: st.password, disabled: false, defaultDb: db, policy, failed: 0, created: now })
+    return done('')
+  }
+  if (st.kind === 'createUser' && sql) {
+    if (userOf(st.name)) return msg(15023, 16, 1, `User, group, or role '${st.name}' already exists in the current database.`)
+    const login = loginOf(st.login)
+    if (!login) return msg(15007, 16, 1, `'${st.login}' is not a valid login or you do not have permission.`)
+    if (srv.users.some((u) => same(u.login, login.name))) return msg(15063, 16, 1, 'The login already has an account under a different user name.')
+    srv.users.push({ name: st.name, login: login.name, schema: st.schema, roles: [], grants: {}, created: now })
+    return done('')
+  }
+  if (st.kind === 'createUser') {
+    if (loginOf(st.name) || userOf(st.name) || ORA_ROLES.includes(st.name)) return ora(1920, `user name '${st.name}' conflicts with another user or role name`)
+    const opts = st.opts.trim()
+    if (opts && !/^((default|temporary) tablespace \w+|quota (\d+[kmg]?|unlimited) on \w+|profile \w+|account (lock|unlock)|password expire)( ((default|temporary) tablespace \w+|quota (\d+[kmg]?|unlimited) on \w+|profile \w+|account (lock|unlock)|password expire))*$/i.test(opts)) return ora(922, 'missing or invalid option')
+    const profile = (opts.match(/profile (\w+)/i)?.[1] ?? 'DEFAULT').toUpperCase()
+    if (!ORA_PROFILES.includes(profile)) return ora(2380, `profile ${profile} does not exist`)
+    srv.logins.push({ name: st.name, type: 'App user', password: st.password, status: /account lock/i.test(opts) ? 'LOCKED' : 'OPEN', profile, failed: 0, privs: [], created: now })
+    srv.users.push({ name: st.name, login: st.name, schema: st.name, roles: [], grants: {}, created: now })
+    return done('User created.')
+  }
+  if (st.kind === 'setPassword') {
+    const login = loginOf(st.name)
+    if (!login) return sql ? msg(15151, 16, 1, `Cannot alter the login '${st.name}', because it does not exist or you do not have permission.`) : ora(1918, `user '${st.name}' does not exist`)
+    if (sql && login.policy && !complexEnough(st.password)) return msg(15118, 16, 1, 'Password validation failed. The password does not meet the operating system policy requirements because it is not complex enough.')
+    Object.assign(login, { password: st.password, failed: 0 })
+    return done('User altered.')
+  }
+  if (st.kind === 'roleMember') {
+    const role = SQL_ROLES.find((r) => r.toLowerCase() === st.role.toLowerCase())
+    if (!role) return msg(15151, 16, 1, `Cannot alter the role '${st.role}', because it does not exist or you do not have permission.`)
+    const user = userOf(st.name)
+    if (!user) return msg(15151, 16, 1, `Cannot ${st.drop ? 'drop' : 'add'} the principal '${st.name}', because it does not exist or you do not have permission.`)
+    user.roles = st.drop ? user.roles.filter((r) => r !== role) : [...new Set([...user.roles, role])]
+    return done('')
+  }
+  const user = userOf(st.grantee)
+  const noUser = () => (sql ? msg(15151, 16, 1, `Cannot find the user '${st.grantee}', because it does not exist or you do not have permission.`) : ora(1917, `user or role '${st.grantee}' does not exist`))
+  const privs = privsOf(st.privs)
+  if (st.kind === 'grantObject') {
+    const tk = tableKeyOf(srv, st.from)
+    if (!tk) return sql ? msg(15151, 16, 1, `Cannot find the object '${clean(st.from).split('.').at(-1)}', because it does not exist or you do not have permission.`) : ora(942, 'table or view does not exist')
+    const bad = privs.find((p) => !OBJECT_PRIVS.includes(p) && !(sql && p === 'CONTROL'))
+    if (bad) return sql ? msg(102, 15, 1, `Incorrect syntax near '${bad.split(' ')[0]}'.`) : ora(990, 'missing or invalid privilege')
+    if (!user) return noUser()
+    const have = user.grants?.[tk] ?? []
+    if (!sql && st.revoke && !privs.some((p) => have.includes(p))) return ora(1927, 'cannot REVOKE privileges you did not grant')
+    user.grants = { ...user.grants, [tk]: st.revoke ? have.filter((p) => !privs.includes(p)) : [...new Set([...have, ...privs])] }
+    if (!user.grants[tk].length) delete user.grants[tk]
+    return done(st.revoke ? 'Revoke succeeded.' : 'Grant succeeded.')
+  }
+  // grantSystem: database permissions on SQL Server; roles and system privileges on Oracle
+  if (sql) {
+    const bad = privs.find((p) => !SQL_DB_PERMS.includes(p))
+    if (bad) return msg(102, 15, 1, `Incorrect syntax near '${bad.split(' ')[0]}'.`)
+    if (!user) return noUser()
+    const have = user.grants?.['*'] ?? []
+    const next = st.revoke ? have.filter((p) => !privs.includes(p)) : [...new Set([...have, ...privs.filter((p) => p !== 'CONNECT')])]
+    user.grants = { ...user.grants, '*': next }
+    if (!next.length) delete user.grants['*']
+    return done('')
+  }
+  const unknown = privs.find((p) => !ORA_ROLES.includes(p) && !ORA_SYS_PRIVS.includes(p))
+  if (unknown) return /\s/.test(unknown) ? ora(990, 'missing or invalid privilege') : ora(1919, `role '${unknown}' does not exist`)
+  if (!user) return noUser()
+  const login = loginOf(user.login)
+  const roles = privs.filter((p) => ORA_ROLES.includes(p))
+  const sys = privs.filter((p) => ORA_SYS_PRIVS.includes(p))
+  if (st.revoke) {
+    const missingRole = roles.find((r) => !user.roles.includes(r))
+    if (missingRole) return ora(1951, `ROLE '${missingRole}' not granted to '${user.name}'`)
+    if (sys.some((p) => !(login?.privs ?? []).includes(p))) return ora(1952, `system privileges not granted to '${user.name}'`)
+  }
+  user.roles = st.revoke ? user.roles.filter((r) => !roles.includes(r)) : [...new Set([...user.roles, ...roles])]
+  if (login && sys.length) login.privs = st.revoke ? (login.privs ?? []).filter((p) => !sys.includes(p)) : [...new Set([...(login.privs ?? []), ...sys])]
+  return done(st.revoke ? 'Revoke succeeded.' : 'Grant succeeded.')
+}
+
+const SQL_TYPES = ['int', 'bigint', 'smallint', 'tinyint', 'bit', 'decimal', 'numeric', 'money', 'float', 'real', 'date', 'datetime', 'datetime2', 'datetimeoffset', 'time', 'char', 'varchar', 'nchar', 'nvarchar', 'text', 'ntext', 'uniqueidentifier', 'binary', 'varbinary']
+const ORA_TYPES = ['number', 'integer', 'float', 'varchar2', 'nvarchar2', 'varchar', 'char', 'nchar', 'date', 'timestamp', 'clob', 'blob', 'raw']
+// CREATE TABLE with columns (NULL, NOT NULL, PRIMARY KEY, UNIQUE, DEFAULT, IDENTITY, REFERENCES) and table
+// constraints (PRIMARY KEY, UNIQUE, FOREIGN KEY). Lab-made: CHECK constraints and computed columns are not read.
+function createTable(srv, st, now, msg, ora) {
+  const sql = isSql(srv)
+  const parts = clean(st.from).split('.')
+  const name = sql ? parts.at(-1) : parts.at(-1).toUpperCase()
+  const schema = parts.length > 1 ? (sql ? parts.at(-2) : parts.at(-2).toUpperCase()) : sql ? 'dbo' : 'HARBOR'
+  const tk = `${schema}.${name}`
+  if (tableKeyOf(srv, tk)) return sql ? msg(2714, 16, 6, `There is already an object named '${name}' in the database.`) : ora(955, 'name is already used by an existing object')
+  const syntax = (near) => (sql ? msg(102, 15, 1, `Incorrect syntax near '${near}'.`) : ora(922, 'missing or invalid option'))
+  const n = Object.keys(srv.tables).length
+  const sysName = (k) => `SYS_C00${7400 + n * 3 + k}`
+  const columns = []
+  const fks = []
+  const indexes = []
+  let pk = null
+  let pkName = null
+  const ident = (x) => (sql ? clean(x) : clean(x).toUpperCase())
+  const colsIn = (text) => text.split(',').map((x) => ident(x.trim().split(/\s+/)[0]))
+  for (const part of splitTop(st.body, /^,/)) {
+    let m
+    const cname = part.match(/^constraint ([\w[\]"]+) (.+)$/i)
+    const named = cname ? ident(cname[1]) : null
+    const body = cname ? cname[2] : part
+    if ((m = body.match(/^primary key(?: (?:clustered|nonclustered))?\s*\(([^)]*)\)$/i))) {
+      if (pk) return sql ? msg(8110, 16, 0, `Cannot add multiple PRIMARY KEY constraints to table '${name}'.`) : ora(2260, 'table can have only one primary key')
+      pk = colsIn(m[1])
+      pkName = named
+      continue
+    }
+    if ((m = body.match(/^unique(?: (?:clustered|nonclustered))?\s*\(([^)]*)\)$/i))) {
+      indexes.push({ name: named ?? (sql ? `UQ__${name.slice(0, 8)}__${hash(`${tk}u${indexes.length}`, 16).toUpperCase()}` : sysName(indexes.length + 1)), columns: colsIn(m[1]), include: [], unique: true, created: now })
+      continue
+    }
+    if ((m = body.match(/^foreign key\s*\(([^)]*)\)\s*references ([\w.[\]"]+)\s*\(([^)]*)\)$/i))) {
+      fks.push({ name: named ?? (sql ? `FK__${name.slice(0, 8)}__${hash(`${tk}f${fks.length}`, 8).toUpperCase()}` : sysName(fks.length + 5)), column: colsIn(m[1])[0], table: m[2], ref: colsIn(m[3])[0] })
+      continue
+    }
+    m = part.match(/^([\w[\]"]+)\s+([a-z]\w*(?:\s*\(\s*(?:\d+|max)\s*(?:,\s*\d+\s*)?\))?)(.*)$/i)
+    if (!m) return syntax(part.split(/\s+/)[0])
+    const type = m[2].replace(/\s+/g, '')
+    const base = type.split('(')[0].toLowerCase()
+    if (!(sql ? SQL_TYPES : ORA_TYPES).includes(base)) return sql ? msg(2715, 16, 6, `Column, parameter, or variable #${columns.length + 1}: Cannot find data type ${type.split('(')[0]}.`) : ora(902, 'invalid datatype')
+    const c = { name: ident(m[1]), type: sql ? type : type.toUpperCase(), nullable: true }
+    let rest = m[3].trim()
+    // the options of one column, read one at a time
+    const OPTS = [
+      [/^not null\b/i, () => (c.nullable = false)],
+      [/^null\b/i, () => (c.nullable = true)],
+      [/^(?:constraint [\w[\]"]+ )?primary key(?: (?:clustered|nonclustered))?/i, () => (pk ? 'twice' : ((pk = [c.name]), (c.nullable = false)))],
+      [/^(?:constraint [\w[\]"]+ )?unique\b/i, () => indexes.push({ name: sql ? `UQ__${name.slice(0, 8)}__${hash(`${tk}${c.name}`, 16).toUpperCase()}` : sysName(indexes.length + 1), columns: [c.name], include: [], unique: true, created: now })],
+      [/^identity(?:\s*\(\s*\d+\s*,\s*\d+\s*\))?/i, () => (sql ? (c.identity = true) : 'bad')],
+      [/^generated (?:always|by default) as identity/i, () => (sql ? 'bad' : (c.identity = true))],
+      [/^default\s+(N?'(?:[^']|'')*'|-?\d+(?:\.\d+)?|\w+\(\)|sysdate|systimestamp|current_timestamp)/i, (x) => (c.default = x[1])],
+      [/^(?:constraint [\w[\]"]+ )?references ([\w.[\]"]+)\s*\(([^)]*)\)/i, (x) => fks.push({ name: sql ? `FK__${name.slice(0, 8)}__${hash(`${tk}${c.name}f`, 8).toUpperCase()}` : sysName(fks.length + 5), column: c.name, table: x[1], ref: colsIn(x[2])[0] })],
+      [/^with (?:local )?time zone/i, () => null],
+    ]
+    while (rest) {
+      const hit = OPTS.map(([re, fn]) => [rest.match(re), fn]).find(([x]) => x)
+      if (!hit) return syntax(rest.split(/\s+/)[0])
+      const r = hit[1](hit[0])
+      if (r === 'twice') return sql ? msg(8110, 16, 0, `Cannot add multiple PRIMARY KEY constraints to table '${name}'.`) : ora(2260, 'table can have only one primary key')
+      if (r === 'bad') return syntax(hit[0][0].split(/\s+/)[0])
+      rest = rest.slice(hit[0][0].length).trim()
+    }
+    columns.push(c)
+  }
+  if (!columns.length) return syntax(')')
+  for (const k of [...(pk ?? []), ...indexes.flatMap((x) => x.columns), ...fks.map((f) => f.column)]) if (!columns.some((c) => c.name === k)) return sql ? msg(1911, 16, 1, `Column name '${k}' does not exist in the target table or view.`) : ora(904, `"${k}": invalid identifier`)
+  for (const f of fks) {
+    const ref = tableKeyOf(srv, f.table)
+    if (!ref) return sql ? msg(1767, 16, 0, `Foreign key '${f.name}' references invalid table '${clean(f.table)}'.`) : ora(942, 'table or view does not exist')
+    f.table = ref
+  }
+  for (const c of columns) if (pk?.includes(c.name)) c.nullable = false
+  srv.tables[tk] = table(schema, name, { columns, pk: pk ?? [], pkName: pk ? (pkName ?? (sql ? `PK__${name.slice(0, 8)}__${hash(tk, 16).toUpperCase()}` : sysName(0))) : null, clustered: sql && Boolean(pk), fks, indexes, created: now })
+  return { ok: true, messages: sql ? [] : ['Table created.'] }
 }
 
 function xplanText(srv, p) {
@@ -1305,6 +1547,10 @@ export function configOf(cfg = {}) {
     password: String(cfg.password ?? ''),
     database: cfg.database ?? null,
     service: cfg.service ?? null,
+    // host and port of the connection, and an Oracle SID instead of a service name; left out, the lab does not check them
+    host: String(cfg.host ?? '').trim() || null,
+    port: String(cfg.port ?? '').trim() || null,
+    sid: String(cfg.sid ?? '').trim() || null,
     maxPoolSize: Math.max(1, n(cfg.maxPoolSize ?? cfg.poolSize, 5)),
     maxWait: Math.max(0, n(cfg.maxWait, 0)),
     queryTimeout: Math.max(0, n(cfg.queryTimeout, 0)),
@@ -1327,7 +1573,11 @@ function appLog(s, name, env, level, text) {
 // Checks the login and takes a connection from the pool of the app. A free connection is reused; a new one is opened
 // up to maxPoolSize; a full pool waits maxWait seconds (0: with no end).
 function checkout(s, srv, app, c) {
+  if (c.host && c.host.toLowerCase() !== srv.host.toLowerCase()) return ERR.unreachable(srv, c.host, c.port ?? srv.port, false)
+  if (c.port && Number(c.port) !== srv.port) return ERR.unreachable(srv, c.host ?? srv.host, c.port, true)
   if (!srv.up) return ERR.down(srv)
+  // lab-made: the SID of the container database leads to CDB$ROOT, where the local user of the PDB does not exist
+  if (!isSql(srv) && c.sid) return c.sid.toUpperCase() === (srv.sid ?? 'HARBORCDB') ? ERR.login(srv, c.user) : ERR.sid(srv, c.sid)
   if (!isSql(srv) && c.service && c.service.toUpperCase() !== srv.service.toUpperCase()) return ERR.service(srv, c.service)
   if (isSql(srv) && c.database && c.database.toLowerCase() !== srv.database.toLowerCase()) return ERR.database(srv, c.database, c.user)
   const login = srv.logins.find((l) => (isSql(srv) ? l.name.toLowerCase() === c.user.toLowerCase() : l.name === c.user.toUpperCase()))
@@ -1342,6 +1592,9 @@ function checkout(s, srv, app, c) {
     return ERR.login(srv, c.user)
   }
   login.failed = 0
+  // SQL Server: a login with no user in the database cannot open it. Oracle: a new user needs CREATE SESSION.
+  if (isSql(srv) && !login.sysadmin && !srv.users.some((u) => u.login.toLowerCase() === login.name.toLowerCase())) return ERR.database(srv, c.database ?? srv.database, c.user)
+  if (!isSql(srv) && login.created !== undefined && !login.sysadmin && !(login.privs ?? []).includes('CREATE SESSION') && !srv.users.find((u) => u.login === login.name)?.roles.some((r) => r === 'CONNECT' || r === 'DBA')) return ERR.noSession(srv, login.name)
   const name = app?.name ?? 'unknown'
   const pool = (srv.pools[name] ??= { app: name, env: app?.env ?? 'Sandbox', sessions: [], timeouts: 0, waits: 0, lastError: null, cfg: null })
   pool.cfg = { ...c, password: c.password ? '********' : '' }
@@ -1608,6 +1861,9 @@ export function runSql(state, name, text, { actualPlan = false } = {}) {
       break
     }
     if (r.grid) out.grids.push(r.grid)
+    // when a table was last read in the query window, for a lab that asks the learner to look at what an app wrote
+    const read = st.kind === 'select' && !virtualRows(srv, st.from, s.clock) && tableKeyOf(srv, st.from)
+    if (read) s.seen = { ...s.seen, [`db-select:${name}:${read}`]: s.clock }
     if (r.index) out.messages.push(isSql(srv) ? `Index ${r.index} created on ${clean(st.from)} in ${(r.ms / 1000).toFixed(1)} s.` : '')
     out.messages.push(...r.messages.filter(Boolean))
     if (isSql(srv) && !r.grid && !r.messages.length && !r.index) out.messages.push('Commands completed successfully.')

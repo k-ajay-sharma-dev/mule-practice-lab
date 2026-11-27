@@ -15,7 +15,7 @@ const CH2 = 'https://docs.mulesoft.com/cloudhub-2/'
 const MON = 'https://docs.mulesoft.com/monitoring/'
 const APIM = 'https://docs.mulesoft.com/api-manager/latest/'
 
-export const GROUPS = ['Full life cycle', 'API-led project', 'Failed jobs', 'API operations', 'More production failures', 'API-led failures', 'Versioning without breaking consumers', 'Your own servers', 'Files, SFTP and batch', 'Databases and queues', 'ActiveMQ', 'Kafka', 'Azure Service Bus', 'Email', 'Networking', 'Security', 'Mule XML', 'Chained incidents']
+export const GROUPS = ['Full life cycle', 'API-led project', 'Failed jobs', 'API operations', 'More production failures', 'API-led failures', 'Versioning without breaking consumers', 'Your own servers', 'Files, SFTP and batch', 'Databases and queues', 'ActiveMQ', 'Kafka', 'Azure Service Bus', 'Email', 'Networking', 'Security', 'Mule XML', 'Chained incidents', 'Salesforce and SAP', 'B2B and EDI', 'Runtime Fabric and gateways', 'Scaling and release', 'Governance and access', 'Observability', 'Epic and healthcare', 'HR, ITSM and CRM', 'Data and cloud']
 
 // ---------- helpers ----------
 

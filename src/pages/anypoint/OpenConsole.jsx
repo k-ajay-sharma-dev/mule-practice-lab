@@ -8,12 +8,29 @@ import { defaultMailServer } from '../../lab/platform-mailserver.js'
 import { defaultServiceBus } from '../../lab/platform-servicebus.js'
 import { defaultJms } from '../../lab/platform-jms.js'
 import { defaultNetwork } from '../../lab/platform-network.js'
+import { defaultSalesforce } from '../../lab/platform-salesforce.js'
+import { defaultSap } from '../../lab/platform-sap.js'
+import { defaultRtf } from '../../lab/platform-rtf.js'
+import { defaultFlex } from '../../lab/platform-flex.js'
+import { defaultB2b } from '../../lab/platform-b2b.js'
+import { defaultGovernance } from '../../lab/platform-governance.js'
+import { defaultAccess } from '../../lab/platform-access.js'
+import { defaultObservability } from '../../lab/platform-observability.js'
+import { defaultRelease } from '../../lab/platform-release.js'
+import { defaultEpic } from '../../lab/platform-epic.js'
+import { defaultHl7 } from '../../lab/platform-hl7.js'
+import { defaultWorkday } from '../../lab/platform-workday.js'
+import { defaultServicenow } from '../../lab/platform-servicenow.js'
+import { defaultSnowflake } from '../../lab/platform-snowflake.js'
+import { defaultAws } from '../../lab/platform-aws.js'
+import { defaultMsgraph } from '../../lab/platform-msgraph.js'
+import { defaultShopify } from '../../lab/platform-shopify.js'
 import { addEnterprise, enterpriseProjects, welcomeMail } from '../../lab/platform-enterprise.js'
 import AnypointConsole from './AnypointConsole.jsx'
 import { isState, read, useSaved } from './console-save.js'
 
 // parts of the console added later, filled in for older saves
-const LATER = { databases: defaultDatabases, mailServer: defaultMailServer, serviceBus: defaultServiceBus, jms: defaultJms, network: defaultNetwork }
+const LATER = { databases: defaultDatabases, mailServer: defaultMailServer, serviceBus: defaultServiceBus, jms: defaultJms, network: defaultNetwork, salesforce: defaultSalesforce, sap: defaultSap, rtf: defaultRtf, flex: defaultFlex, b2b: defaultB2b, governance: defaultGovernance, access: defaultAccess, observability: defaultObservability, release: defaultRelease, epic: defaultEpic, hl7: defaultHl7, workday: defaultWorkday, servicenow: defaultServicenow, snowflake: defaultSnowflake, aws: defaultAws, msgraph: defaultMsgraph, shopify: defaultShopify }
 const OPEN_KEY = 'pl.lab.anypoint2'
 const OLD_KEY = 'pl.lab.anypoint' // the console before it had the API-led project
 

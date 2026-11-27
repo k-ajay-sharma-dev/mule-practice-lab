@@ -5,7 +5,7 @@ import { newRuntime, newTopology, send } from './engine.js'
 import { defaultSettings } from './policies.js'
 import { BACKENDS } from './platform-led.js'
 import { info, line as logLine, muleError, warn } from './platform-log.js'
-import { attemptsOf, deliverable, expire } from './platform-mq.js'
+import { attemptsOf, clientApps, deliverable, expire } from './platform-mq.js'
 import { packageOf, routeOf } from './platform-packages.js'
 import { systemsCtx } from './platform-systems.js'
 import { kafkaCtx, kafkaTick } from './platform-kafka.js'
@@ -14,8 +14,25 @@ import { mailboxCtx, mailServerTick } from './platform-mailserver.js'
 import { serviceBusCtx, serviceBusTick } from './platform-servicebus.js'
 import { jmsCtx, jmsTick } from './platform-jms.js'
 import { networkCtx, networkTick } from './platform-network.js'
+import { salesforceCtx, salesforceTick } from './platform-salesforce.js'
+import { sapCtx, sapTick } from './platform-sap.js'
+import { rtfDeploy, rtfDeployErrors, rtfEndpoint, rtfTick } from './platform-rtf.js'
+import { flexApiStatus, flexTick, FLEX_RUNTIME } from './platform-flex.js'
+import { b2bCtx, b2bTick } from './platform-b2b.js'
+import { answered, observabilityTick, spanStart } from './platform-observability.js'
+import { publishGate } from './platform-governance.js'
+import { releaseGateError, releaseTick, routerTarget } from './platform-release.js'
+import { epicCtx, epicTick } from './platform-epic.js'
+import { hl7Ctx, hl7Tick } from './platform-hl7.js'
+import { workdayCtx, workdayTick } from './platform-workday.js'
+import { servicenowCtx, servicenowTick } from './platform-servicenow.js'
+import { snowflakeCtx, snowflakeTick } from './platform-snowflake.js'
+import { awsCtx, awsTick } from './platform-aws.js'
+import { msgraphCtx, msgraphTick } from './platform-msgraph.js'
+import { shopifyCtx, shopifyTick } from './platform-shopify.js'
 import { deployProblems, parseMule, problemText } from './platform-xml.js'
 import { addInstance, batchInstanceOf, stopInstance } from './platform-batch.js'
+import { replicaIds } from './platform-capacity.js'
 
 export const MINUTE = 60000
 export const HOUR = 60 * MINUTE
@@ -26,7 +43,8 @@ const MAX_LOGS = 120
 const MAX_STEP = 8 * DAY
 
 export const ENVS = ['Sandbox', 'Production']
-export const REPLICA_SIZES = [0.1, 0.2, 0.5, 1, 1.5, 2]
+// the replica sizes of CloudHub 2.0 in vCores; their memory is in platform-capacity.js
+export const REPLICA_SIZES = [0.1, 0.2, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4]
 export const RUNTIME_VERSIONS = { Edge: ['4.10', '4.9'], LTS: ['4.9', '4.6'] } // sample versions
 export const TIME_ZONES = { UTC: 0, 'America/New_York': -300, 'Europe/London': 0, 'Asia/Kolkata': 330 } // offsets of November
 export const LOG_LEVELS = ['FATAL', 'ERROR', 'WARN', 'INFO', 'DEBUG']
@@ -112,13 +130,31 @@ export const newApp = (name, extra = {}) => ({
   schedules: schedulesOf(extra.pkg ?? name, 0),
   ...extra,
 })
-export const replicaName = (app) => `${app.name.slice(0, 18)}-${(app.name.length * 7919 + app.config * 31).toString(16).slice(0, 5)}-x2k9p`
+// The replicas keep their names when only their number changes: app.podConfig is the configuration they started with,
+// kept by an update that only scales. Any other update starts new replicas with new names.
+export const podConfigOf = (app) => app.podConfig ?? app.config
+export const replicaName = (app) => `${app.name.slice(0, 18)}-${(app.name.length * 7919 + podConfigOf(app) * 31).toString(16).slice(0, 5)}-x2k9p`
 // An application on the company's own servers is reached through the company's own load balancer
 const dcOf = (app) => `https://${app.name}-lab1a2.dc-${app.env === 'Sandbox' ? 'sbx' : 'prd'}.harbor.lab`
-export const endpointOf = (app) => (app.targetType ? dcOf(app) : `https://${app.name}-lab1a2.${app.env === 'Sandbox' ? 'sbx' : 'prd'}.usa-e2.cloudhub.example`)
+export const endpointOf = (app) => (app.targetType ? dcOf(app) : app.rtf ? rtfEndpoint(app) : `https://${app.name}-lab1a2.${app.env === 'Sandbox' ? 'sbx' : 'prd'}.usa-e2.cloudhub.example`)
 // Each application also has an address that only other applications of the network reach
 export const internalOf = (app) => (app.targetType ? `${dcOf(app)}/api` : `https://${app.name}-lab1a2.internal-${app.env === 'Sandbox' ? 'sbx' : 'prd'}.usa-e2.cloudhub.example/api`)
 export const propsOf = (app) => ({ ...app.props, ...app.secrets })
+// The memory of one CloudHub 2.0 replica (app.mem[replica]): an in-memory cache, an object store with persistent false,
+// a VM queue that is not persistent. Each replica has its own, and a restart or redeploy of the replica empties it. In
+// Runtime Cluster Mode the replicas share it, the way a Mule cluster shares its in-memory stores; a redeploy still
+// empties it. A persistent object store with Object Store V2 is app.store, shared by every replica.
+export const replicaMemory = (app, r = 1) => ((app.mem ??= {})[app.cluster ? 'cluster' : r] ??= {})
+// The platform restarts one replica, for example after a node of the shared space was replaced
+export const restartReplica = (state, name, r = 1, why = 'The node of the replica was replaced.') =>
+  edit(state, (s) => {
+    const app = appNamed(s, name)
+    if (!app || app.status !== 'Running' || app.targetType) return
+    const id = replicaIds(replicaName(app), app.replicas)[r - 1] ?? replicaName(app)
+    if (app.mem && !(app.cluster && app.replicas > 1)) delete app.mem[app.cluster ? 'cluster' : r]
+    log(s, app, [line('WARN', `Replica ${id} restarted. ${why}`), info(`Starting replica ${id}`), info(`Application ${app.name} started`)])
+    app.restarts = (app.restarts ?? 0) + 1
+  })
 // `store` is what the application keeps between runs, such as a watermark. A package says with volatileStore() when
 // that store lives in memory, so a restart or redeploy empties it.
 // every database call of an app is drawn in Visualizer as a link from the app to that database
@@ -139,7 +175,7 @@ function linkedDb(s, app) {
 
 const ctxOf = (s, app, extra = {}) => {
   const network = networkCtx(s, app)
-  return { app, props: propsOf(app), now: s.clock, store: app.store ?? {}, systems: systemsCtx(s, s.network ? { ...app, outboundIp: network.egress } : app), kafka: kafkaCtx(s, app, extra.node), db: linkedDb(s, app), mailbox: mailboxCtx(s, app), serviceBus: serviceBusCtx(s, app), jms: jmsCtx(s, app), network, xml: app.xml ? parseMule(app.xml) : null, ...extra }
+  return { app, props: propsOf(app), now: s.clock, store: app.store ?? {}, systems: systemsCtx(s, s.network ? { ...app, outboundIp: network.egress } : app), kafka: kafkaCtx(s, app, extra.node), db: linkedDb(s, app), mailbox: mailboxCtx(s, app), serviceBus: serviceBusCtx(s, app), jms: jmsCtx(s, app), network, xml: app.xml ? parseMule(app.xml) : null, salesforce: salesforceCtx(s, app), sap: sapCtx(s, app), b2b: b2bCtx(s, app), epic: epicCtx(s, app), hl7: hl7Ctx(s, app), workday: workdayCtx(s, app), servicenow: servicenowCtx(s, app), snowflake: snowflakeCtx(s, app), aws: awsCtx(s, app), msgraph: msgraphCtx(s, app), shopify: shopifyCtx(s, app), ...extra }
 }
 
 function schedulesOf(pkg, now) {
@@ -217,8 +253,11 @@ function runJob(s, app, schedule, manual = false, node) {
     recordBatch(s, app, batchInstanceOf(result.batch, { app, flow: schedule.flow, now, ms: result.ms, ok: result.ok, taken: app.batches ?? [] }))
   }
   if (result.store) app.store = { ...app.store, ...result.store }
-  if (result.send) for (const body of result.send.bodies) put(s, result.send.queue, body)
-  if (result.move) {
+  // the broker refuses a publish with credentials that match no client app: nothing is sent or moved
+  const mqDenied = (result.send || result.move) && mqAuthError(s, app)
+  if (mqDenied) log(s, app, [line('ERROR', `Publish to queue ${result.send?.queue ?? result.move.to} failed. ${mqDenied}`, 'org.mule.extension.mq.internal.AnypointMqPublisher')], s.clock, node)
+  else if (result.send) for (const body of result.send.bodies) put(s, result.send.queue, body)
+  if (result.move && !mqDenied) {
     const from = s.queues.find((q) => q.name === result.move.from)
     for (const m of from?.messages.splice(0) ?? []) put(s, result.move.to, m.body)
   }
@@ -226,6 +265,7 @@ function runJob(s, app, schedule, manual = false, node) {
   if (result.restart) {
     log(s, app, [line('FATAL', 'JVM exited after OutOfMemoryError. The replica is restarted.'), info(`Application ${app.name} started`)])
     app.restarts = (app.restarts ?? 0) + 1
+    if (app.mem && !(app.cluster && app.replicas > 1)) delete app.mem[app.cluster ? 'cluster' : (result.replica ?? 1)]
   }
 }
 const line = (level, text, logger = 'com.mulesoft.cloudhub.runtime') => logLine(level, text, logger)
@@ -265,10 +305,46 @@ function put(s, queue, body) {
   if (q) q.messages.push({ id: idOf(s, 'm-'), body, deliveries: 0, t: s.clock })
 }
 
+// Anypoint MQ: the connector gets an access token with the client ID and secret of a client app of its environment
+// before it publishes or consumes. An app that names no client ID (mq.clientId) is not checked, so the older labs that
+// set none keep working. Returns the error text, or null when the credentials match a client app.
+// lab made: the wording of the 401 the broker answers.
+const MQ_ERROR = 'ANYPOINT-MQ:CONNECTIVITY'
+export function mqAuthError(s, app) {
+  const p = propsOf(app)
+  const id = String(p['mq.clientId'] ?? '').trim()
+  if (!id) return null
+  const secret = String(p['mq.clientSecret'] ?? '').trim()
+  const c = clientApps(s, app.env).find((x) => x.clientId === id)
+  if (c && c.clientSecret === secret) return null
+  const url = String(p['mq.url'] ?? 'https://mq-us-east-1.anypoint.mulesoft.com/api/v1').trim().replace(/\/$/, '')
+  return `${MQ_ERROR}: Unable to get an access token from ${url}/authorize: 401 Unauthorized. {"error":"invalid_client","error_description":"Client authentication failed: ${c ? 'the client secret is not valid' : `no client app with the client ID ${id.slice(0, 4)}... in environment ${app.env}`}"}`
+}
+// a publish that the broker refuses raises the error in the flow
+class MqDenied extends Error {}
+const mqPut = (s, app, queue, body) => {
+  const gone = mqAuthError(s, app)
+  if (gone) {
+    linked(s, app.name, queue, app.env, 401, 5)
+    throw new MqDenied(gone)
+  }
+  put(s, queue, body)
+  linked(s, app.name, queue, app.env, 200, 5)
+}
+
 function consumeQueues(s) {
   for (const app of s.apps.filter((a) => a.status === 'Running' && packageOf(a.pkg)?.consume && (!a.targetType || liveNodes(s, a).length > 0))) {
     const pkg = packageOf(app.pkg)
     const q = s.queues.find((x) => x.name === propsOf(app)[pkg.consumes])
+    // the Subscriber cannot connect with credentials the broker refuses: it takes nothing, and says so once
+    const denied = q ? mqAuthError(s, app) : null
+    if (denied) {
+      const key = `${app.config}|${denied}`
+      if (app.mqDenied !== key) log(s, app, [line('ERROR', `Subscriber of queue ${q.name} cannot connect. ${denied}`, 'org.mule.extension.mq.internal.AnypointMqSubscriber')])
+      app.mqDenied = key
+      continue
+    }
+    delete app.mqDenied
     if (!q?.messages.length) continue
     // a package with a rate takes that many messages a minute per replica, and the rest waits
     // locked (in flight) messages are skipped; a FIFO group waits behind its in-flight message
@@ -280,10 +356,7 @@ function consumeQueues(s) {
     const ctx = () =>
       ctxOf(s, app, {
         backend: (id) => backendOf(s, app, id),
-        put(queue, body) {
-          put(s, queue, body)
-          linked(s, app.name, queue, app.env, 200, 5)
-        },
+        put: (queue, body) => mqPut(s, app, queue, body),
       })
     const back = []
     for (const m of now) {
@@ -338,6 +411,7 @@ export function pairing(s, app) {
 }
 
 export function apiStatus(s, api) {
+  if (api.runtime === FLEX_RUNTIME) return flexApiStatus(s, api)
   const live = s.apps.some((a) => a.env === api.env && servingOf(a) && pairing(s, servingOf(a)).api?.id === api.id)
   return live ? 'Active' : api.seen ? 'Inactive' : 'Unregistered'
 }
@@ -391,10 +465,16 @@ const newCid = (s) => `${((s.nextId++ * 2654435761) >>> 0).toString(16).padStart
 function callApp(s, target, req) {
   // during a rolling update the replicas of the previous configuration answer
   const app = servingOf(target) ?? target
+  // servingOf gives a copy during a rolling update: the round robin counter and the replica memory live on the real
+  // replicas, which are app.serving then
+  const real = app && app !== target && target.serving ? target.serving : app
   const pkg = app && packageOf(app.pkg)
   const cid = pkg?.traced ? (req.cid ?? newCid(s)) : undefined
   if (app && !req.inside && !app.publicEndpoint) return { status: 0, ms: 0, body: 'Connection refused. This application has no public endpoint.', policy: null, trace: [], headers: [], api: null }
+  // observability: the span of this request for the traces, and the time a blocking log appender adds
+  const span = spanStart(s, app, req, cid)
   const done = (r) => {
+    r = { ...r, ms: (r.ms ?? 5) + answered(s, span, app, r) }
     const api = pairing(s, app).api
     event(s, { k: 'in', app: app?.name, env: app?.env, api: api?.id, m: req.method, p: req.path, s: r.status, ms: r.ms ?? 5, c: req.client ?? '', e: r.error, pol: r.policy, fl: r.flow })
     return { status: r.status, ms: r.ms ?? 5, body: r.body ?? '', policy: r.policy ?? null, trace: r.trace ?? [], headers: [...(r.headers ?? []), ...(cid ? [['X-Correlation-ID', cid]] : [])], api: api?.id ?? null, cid }
@@ -405,8 +485,14 @@ function callApp(s, target, req) {
   if (app.targetType) {
     const live = liveNodes(s, app)
     if (live.length === 0) return done({ status: 503, body: '{"error":"Service Unavailable. No server behind the load balancer answers."}', error: 'NO_SERVER' })
-    app.rr = ((app.rr ?? -1) + 1) % live.length
-    node = live[app.rr].agent.name
+    real.rr = ((real.rr ?? -1) + 1) % live.length
+    node = live[real.rr].agent.name
+  }
+  // CloudHub 2.0: the ingress spreads requests round robin over the replicas. Source: cloudhub-2/ch2-architecture.
+  let replica = 1
+  if (!app.targetType && app.replicas > 1) {
+    real.rr = ((real.rr ?? -1) + 1) % app.replicas
+    replica = real.rr + 1
   }
   const pair = pairing(s, app)
   if (pair.state === 'credentials' || pair.state === 'unknown') return done({ status: 503, body: '{"error":"API is not available. The gateway is waiting for its policies."}', error: 'GATEKEEPER' })
@@ -427,23 +513,31 @@ function callApp(s, target, req) {
   const ctx = ctxOf(s, app, {
     node,
     perMinute,
+    replica,
+    memory: () => replicaMemory(real, replica),
     say,
     backend: (id) => backendOf(s, app, id),
-    put(queue, body) {
-      put(s, queue, body)
-      linked(s, app.name, queue, app.env, 200, 5)
-    },
+    put: (queue, body) => mqPut(s, app, queue, body),
     call(key, call, timeout) {
       const a = invoke(s, app, key, { ...call, traced: req.traced, offset: req.offset }, timeout, cid)
       say(`Called ${a.url}${a.path}, ${a.error ?? a.status} in ${a.ms} ms`)
       return a
     },
   })
-  const r = pkg.handle?.(ctx, req) ?? { status: 404, ms: 3, body: '' }
+  let r
+  try {
+    r = pkg.handle?.(ctx, req) ?? { status: 404, ms: 3, body: '' }
+  } catch (e) {
+    if (!(e instanceof MqDenied)) throw e
+    // the flow has no error handler for it, so the default one answers 500 with the error description
+    r = { status: 500, ms: 180, body: e.message, error: MQ_ERROR, log: [line('ERROR', `Message: ${e.message}\nError type: ${MQ_ERROR}\nElement: anypoint-mq:publish`, 'org.mule.runtime.core.internal.exception.OnErrorPropagateHandler')] }
+  }
   say(`Answered ${r.status} in ${r.ms} ms`)
   // steady traffic that works would fill the log, so its lines are written for failures and for calls of the API client
-  if (pkg.traced && (req.traced || r.status >= 500)) log(s, app, lines, s.clock, node)
-  if (r.log) log(s, app, pkg.traced ? r.log.map((l) => ({ ...l, text: `event:${cid} ${l.text}` })) : r.log, s.clock, node)
+  // a line of one replica of several carries the name of that replica
+  const where = node ?? (replica > 1 || app.replicas > 1 ? replicaIds(replicaName(app), app.replicas)[replica - 1] : undefined)
+  if (pkg.traced && (req.traced || r.status >= 500)) log(s, app, lines, s.clock, where)
+  if (r.log) log(s, app, pkg.traced ? r.log.map((l) => ({ ...l, text: `event:${cid} ${l.text}` })) : r.log, s.clock, where)
   return done({ ...r, ...extra, ...(node && { headers: [...(extra.headers ?? r.headers ?? []), ['X-Lab-Server', node]] }) })
 }
 
@@ -468,9 +562,13 @@ export function deployErrors(state, form, existing) {
   if (!NAME_RULE.test(form.name)) errors.push('An application name has 3 to 42 letters, digits and dashes.')
   if (!existing && appNamed(state, form.name)) errors.push(`The name ${form.name} is already in use in ${state.env}.`)
   if (!form.pkg) errors.push('Choose an application file.')
+  // the release gate of a lab with state.release.gate on: a Production deploy needs an approved change in its window
+  const gate = releaseGateError(state, form)
+  if (gate) errors.push(gate)
   if (form.targetType) {
     if (!hybridTargets(state, state.env).some((t) => t.name === form.target && t.type === form.targetType)) errors.push(`There is no ${form.targetType.toLowerCase()} named ${form.target} in ${state.env}.`)
   } else if (!(form.replicas >= 1 && form.replicas <= 8)) errors.push('The replica count is 1 to 8.')
+  if (form.rtf) errors.push(...rtfDeployErrors(state, form))
   return errors
 }
 
@@ -505,6 +603,9 @@ function boot(s, app) {
   // A rolling update whose new configuration cannot start: CloudHub 2.0 keeps the last configuration that was deployed
   // with success until the new one deploys, and goes back to it. Source: cloudhub-2/ch2-update-apps. The lab models
   // the console status as Running with a note that the update failed, so the old replicas keep serving.
+  // The scale flag belongs to this boot only, also when the update fails below.
+  const scaled = app.scaled
+  delete app.scaled
   const prev = app.serving
   delete app.serving
   delete app.updateFailed
@@ -521,7 +622,16 @@ function boot(s, app) {
       return
     }
   }
-  if (packageOf(app.pkg).volatileStore?.(ctxOf(s, app))) app.store = {}
+  // a change of the replica count alone adds or removes replicas, and the running ones keep their memory. Anything else
+  // starts new replicas, so the memory of every replica is gone.
+  if (scaled) {
+    // the replicas that served during the update are the ones that keep running, with what they hold now
+    if (prev?.mem) app.mem = prev.mem
+    for (const r of Object.keys(app.mem ?? {})) Number(r) > app.replicas && delete app.mem[r]
+  } else {
+    delete app.mem
+    if (packageOf(app.pkg).volatileStore?.(ctxOf(s, app))) app.store = {}
+  }
   if (app.targetType) {
     app.nodes = {}
     app.behind = {}
@@ -542,6 +652,8 @@ function boot(s, app) {
     else log(s, app, [info(`Started app '${app.name}'`, 'org.mule.runtime.deployment')])
     app.status = gone ? 'Failed' : 'Running'
     app.error = gone
+    // on Runtime Fabric the status comes from the pods: Pending, OOMKilled or CrashLoopBackOff make it Failed
+    if (app.rtf) rtfDeploy(s, app)
   }
   if (app.status === 'Running') {
     const pair = pairing(s, app)
@@ -602,7 +714,16 @@ export function deployApp(state, form) {
       // an application that a lab put in place has no history yet, so its current configuration is the first entry
       if (!app.history?.length) app.history = [{ ...historyEntry(app, app.updated), ...(wasRunning && { result: 'Applied' }) }]
       const serving = rolling ? (wasRunning ? snapshotOf(app) : app.status === 'Starting' ? app.serving : null) : null
+      // horizontal scaling: a change of the replica count alone adds or removes replicas and restarts none of them
+      const scaled = rolling && wasRunning && Number(fields.replicas) !== app.replicas && Object.entries(fields).every(([k, v]) => k === 'replicas' || k === 'project' || v === undefined || JSON.stringify(v) === JSON.stringify(app[k]))
+      const pods = podConfigOf(app)
       Object.assign(app, fields, { config: nextConfig(app), updated: s.clock, status: 'Starting' })
+      // the scale flag and the replica names follow only this update: a scale keeps both, anything else starts afresh
+      if (scaled) Object.assign(app, { scaled: true, podConfig: pods })
+      else {
+        delete app.scaled
+        delete app.podConfig
+      }
       if (serving) app.serving = serving
       else delete app.serving
       if (serving) log(s, app, [info(`Rolling update: the replicas of config ${serving.config} keep serving until config ${app.config} is ready.`)])
@@ -684,7 +805,7 @@ export function deployXml(state, name, xmlText) {
     if (!a.history?.length) a.history = [{ ...historyEntry(a, a.updated), ...(running && { result: 'Applied' }) }]
     a.history = [...a.history, { ...historyEntry(a, s.clock), config: failed, xml: xmlText, result: 'Failed' }].slice(-20)
     if (running) log(s, a, [info(`Rolling update: the replicas of config ${a.config} keep serving until config ${failed} is ready.`)])
-    log(s, a, [info(`Starting replica ${replicaName({ ...a, config: failed })}`, 'com.mulesoft.cloudhub.runtime'), info(`Initializing app '${a.name}'`, 'org.mule.runtime.deployment'), line('ERROR', `Failed to deploy artifact [${a.name}]\norg.mule.runtime.deployment.model.api.DeploymentInitException: ConfigurationException: ${gone}`, 'org.mule.runtime.module.deployment')])
+    log(s, a, [info(`Starting replica ${replicaName({ ...a, config: failed, podConfig: undefined })}`, 'com.mulesoft.cloudhub.runtime'), info(`Initializing app '${a.name}'`, 'org.mule.runtime.deployment'), line('ERROR', `Failed to deploy artifact [${a.name}]\norg.mule.runtime.deployment.model.api.DeploymentInitException: ConfigurationException: ${gone}`, 'org.mule.runtime.module.deployment')])
     a.xmlFailed = { config: failed, t: s.clock, problems }
     if (running) {
       log(s, a, [line('WARN', `Update failed. Config ${failed} did not start. The replicas of config ${a.config} keep running.`)])
@@ -692,6 +813,7 @@ export function deployXml(state, name, xmlText) {
       deployAlerts(s, a, 'Deployment failure', `Update to config ${failed} failed. ${problemText(problems[0])} Config ${a.config} keeps running.`)
     } else {
       Object.assign(a, { config: failed, status: 'Failed', error: problemText(problems[0]), updated: s.clock })
+      delete a.podConfig
       deployAlerts(s, a, 'Deployment failure', a.error)
     }
     s.clock += 1000
@@ -754,7 +876,7 @@ export function advance(state, ms) {
         // a flow with `every` sends only in every n-th minute
         if (f.every && (t / MINUTE) % f.every !== 0) continue
         const client = s.clients.find((c) => c.name === f.client)
-        for (let i = 0; i < f.perMinute; i++) callApp(s, appNamed(s, f.app, f.env), { method: f.method ?? 'GET', path: f.path, body: f.body, ip: f.ip, client: f.client, clientId: f.clientId ?? client?.clientId, clientSecret: f.clientSecret ?? client?.clientSecret, headers: f.headers, token: f.token, scopes: f.scopes, authServer: f.authServer, offset: Math.floor((i * MINUTE) / f.perMinute) })
+        for (let i = 0; i < f.perMinute; i++) callApp(s, appNamed(s, f.router ? routerTarget(s, f) : f.app, f.env), { method: f.method ?? 'GET', path: f.path, body: f.body, ip: f.ip, client: f.client, clientId: f.clientId ?? client?.clientId, clientSecret: f.clientSecret ?? client?.clientSecret, headers: f.headers, token: f.token, scopes: f.scopes, authServer: f.authServer, offset: Math.floor((i * MINUTE) / f.perMinute) })
       }
       for (const f of s.queueTraffic ?? []) if (t % (f.everyMinutes * MINUTE) === 0) put(s, f.queue, JSON.stringify({ order: `O-${1000 + s.nextId}`, total: 42 }))
       expire(s)
@@ -765,6 +887,21 @@ export function advance(state, ms) {
       if (s.serviceBus) serviceBusTick(s)
       if (s.jms) jmsTick(s)
       if (s.network) networkTick(s)
+      if (s.salesforce) salesforceTick(s)
+      if (s.sap) sapTick(s)
+      if (s.rtf) rtfTick(s)
+      if (s.flex) flexTick(s, send)
+      if (s.b2b) b2bTick(s)
+      if (s.observability) observabilityTick(s)
+      if (s.release) releaseTick(s)
+      if (s.epic) epicTick(s)
+      if (s.hl7) hl7Tick(s)
+      if (s.workday) workdayTick(s)
+      if (s.servicenow) servicenowTick(s)
+      if (s.snowflake) snowflakeTick(s)
+      if (s.aws) awsTick(s)
+      if (s.msgraph) msgraphTick(s)
+      if (s.shopify) shopifyTick(s)
       checkAlerts(s)
     }
     s.clock = Math.max(end, s.clock)
@@ -790,10 +927,16 @@ export function cpuOf(s, app, from, to) {
   // the event list is short, so a steady flow of traffic is read from the traffic itself
   const steady = s.traffic.filter((x) => x.app === app.name && x.env === app.env).reduce((n, x) => n + x.perMinute, 0)
   const per = packageOf(app.pkg).cpu ? Math.max(seen, steady) : seen / 8
+  // a package with a load model (see platform-capacity.js) says what its replicas use at this many calls a minute
+  if (packageOf(app.pkg).load) return packageOf(app.pkg).load(app, Math.max(seen, steady)).cpu
   return Math.min(99, Math.round(4 + (per / (app.replicas * app.vCores * 60)) * 72))
 }
 export function heapOf(s, app, from, to) {
   if (app.status !== 'Running') return 0
+  if (packageOf(app.pkg).load) {
+    const seen = eventsOf(s, { app: app.name, env: app.env }, from, to).filter((e) => e.k === 'in').length / Math.max(1, (to - from) / MINUTE)
+    return packageOf(app.pkg).load(app, Math.max(seen, s.traffic.filter((x) => x.app === app.name && x.env === app.env).reduce((n, x) => n + x.perMinute, 0))).heapPct
+  }
   const jobs = eventsOf(s, { app: app.name, env: app.env }, from, to).filter((e) => e.hp)
   return jobs.length ? Math.max(...jobs.map((e) => e.hp)) : 34
 }
@@ -919,6 +1062,8 @@ export function publish(state, projectId, form) {
   if (!SEMVER.test(form.version)) errors.push('The asset version needs the form 1.0.0.')
   if (!form.apiVersion.trim()) errors.push('Give the API version, such as v1.')
   if (state.assets.some((a) => a.assetId === form.assetId && a.version === form.version)) errors.push(`Version ${form.version} of ${form.assetId} exists already. A published version cannot be changed.`)
+  // API Governance: a profile set to block publishing (a lab option) refuses a spec that breaks its error rules
+  if (!lint.length) errors.push(...publishGate(state, form, parseRaml(raml).model))
   if (errors.length) return { state, errors }
   return {
     errors,

@@ -61,6 +61,42 @@ const ERR = {
   noOffset: (topic, p) => fail('NO_OFFSET', `org.apache.kafka.clients.consumer.NoOffsetForPartitionException: Undefined offset with no reset policy for partitions: [${topic}-${p}]`, 'KAFKA:INVALID_OFFSET'),
   group: (gid) => fail('GROUP_ID_NOT_FOUND', `The group ${gid} does not exist.`, 'KAFKA:NOT_FOUND'),
   commit: () => fail('COMMIT_FAILED', 'org.apache.kafka.clients.consumer.CommitFailedException: Commit cannot be completed since the group has already rebalanced and assigned the partitions to another member.', 'KAFKA:RETRY_EXHAUSTED'),
+  topicAuth: (topic) => fail('TOPIC_AUTHORIZATION_FAILED', `org.apache.kafka.common.errors.TopicAuthorizationException: Not authorized to access topics: [${topic}]`, 'KAFKA:NOT_AUTHORIZED'),
+  groupAuth: (gid) => fail('GROUP_AUTHORIZATION_FAILED', `org.apache.kafka.common.errors.GroupAuthorizationException: Not authorized to access group: ${gid}`, 'KAFKA:NOT_AUTHORIZED'),
+  sasl: () => fail('SASL_AUTHENTICATION_FAILED', 'org.apache.kafka.common.errors.SaslAuthenticationException: Authentication failed during authentication due to invalid credentials with SASL mechanism SCRAM-SHA-512', 'KAFKA:CONNECTIVITY'),
+}
+
+// ---------- authentication and ACLs ----------
+
+// A cluster with `authorizer` on runs the StandardAuthorizer with allow.everyone.if.no.acl.found=false: a principal may
+// do only what an ALLOW ACL gives it, and a DENY wins. A cluster with `scram` users checks SASL/SCRAM-SHA-512 logins.
+// The console (the Kafka UI) acts as a super user. lab-made: the lab keeps the SCRAM passwords in plain text; a real
+// broker stores salted hashes.
+export const ACL_RESOURCES = ['TOPIC', 'GROUP', 'CLUSTER', 'TRANSACTIONAL_ID']
+export const ACL_OPERATIONS = ['ALL', 'READ', 'WRITE', 'CREATE', 'DELETE', 'ALTER', 'DESCRIBE', 'DESCRIBE_CONFIGS', 'ALTER_CONFIGS', 'IDEMPOTENT_WRITE']
+export const ACL_PATTERNS = ['LITERAL', 'PREFIXED']
+// READ, WRITE, DELETE and ALTER on a resource imply DESCRIBE on it (Kafka authorization docs)
+const IMPLY_DESCRIBE = ['READ', 'WRITE', 'DELETE', 'ALTER']
+function aclMatches(a, principal, resource, name, op) {
+  if ((a.principal !== principal && a.principal !== 'User:*') || a.resource !== resource) return false
+  const named = a.pattern === 'PREFIXED' ? String(name).startsWith(a.name) : a.name === '*' || a.name === name
+  if (!named || (a.host && a.host !== '*')) return false
+  return a.operation === 'ALL' || a.operation === op || (op === 'DESCRIBE' && IMPLY_DESCRIBE.includes(a.operation))
+}
+// `principal` null is the console
+export function authorized(c, principal, resource, name, op) {
+  if (!c.authorizer || principal === null) return true
+  const list = (c.acls ?? []).filter((a) => aclMatches(a, principal, resource, name, op))
+  return !list.some((a) => a.permission === 'DENY') && list.some((a) => a.permission === 'ALLOW')
+}
+// The principal of an app call: { ok, principal } or a SASL error. `auth` is { user, password } from the app.
+function principalOf(c, auth) {
+  if (!c.authorizer && !c.scram) return { ok: true, principal: null }
+  const user = String(auth?.user ?? '').trim()
+  if (c.scram) {
+    if (!user || c.scram[user] === undefined || c.scram[user] !== String(auth?.password ?? '')) return ERR.sasl()
+  }
+  return { ok: true, principal: user ? `User:${user}` : 'User:ANONYMOUS' }
 }
 
 // ---------- state ----------
@@ -233,10 +269,11 @@ export const partitionFor = (key, count) => (murmur2(enc.encode(key)) & 0x7fffff
 
 const ACKS = { all: 'all', '-1': 'all', ALL: 'all', 1: '1', LEADER_ONLY: '1', 0: '0', NONE: '0' }
 
-function produceOn(s, c, topic, record = {}) {
+function produceOn(s, c, topic, record = {}, principal = null) {
   heal(c)
   tidy(c, s.clock ?? 0)
   if (!c.brokers.some((b) => b.up)) return ERR.down(c)
+  if (!authorized(c, principal, 'TOPIC', topic, 'WRITE')) return ERR.topicAuth(topic)
   let t = c.topics[topic]
   if (!t) {
     if (c.config['auto.create.topics.enable'] !== 'true') return ERR.topic(topic)
@@ -280,11 +317,14 @@ function produceOn(s, c, topic, record = {}) {
 const RESETS = { earliest: 'earliest', latest: 'latest', none: 'none', error: 'none' }
 const ownerOf = (g, topic, partition) => g.members.find((m) => m.partitions.some((x) => x.topic === topic && x.partition === partition))
 
-function pollOn(s, c, topic, gid, max, opts, app, node) {
+function pollOn(s, c, topic, gid, max, opts, app, node, principal = null) {
   heal(c)
   tidy(c, s.clock ?? 0)
   syncGroups(s, c)
   if (!c.brokers.some((b) => b.up)) return ERR.down(c)
+  // the consumer joins its group first, then fetches: each needs READ
+  if (!authorized(c, principal, 'GROUP', gid, 'READ')) return ERR.groupAuth(gid)
+  if (!authorized(c, principal, 'TOPIC', topic, 'READ')) return ERR.topicAuth(topic)
   const t = c.topics[topic]
   if (!t) return ERR.consumerTopic(topic)
   const g = (c.groups[gid] ??= newGroup())
@@ -359,8 +399,9 @@ function pollOn(s, c, topic, gid, max, opts, app, node) {
   return { ok: true, records, assigned, rebalanced, generation: g.generation, members: mine.map((m) => m.client), notes }
 }
 
-function commitOn(s, c, topic, gid, partition, offset, app) {
+function commitOn(s, c, topic, gid, partition, offset, app, principal = null) {
   if (!c.brokers.some((b) => b.up)) return ERR.down(c)
+  if (!authorized(c, principal, 'GROUP', gid, 'READ')) return ERR.groupAuth(gid)
   const t = c.topics[topic]
   if (!t) return ERR.consumerTopic(topic)
   if (!t.partitions[partition]) return ERR.partition(topic, partition)
@@ -393,19 +434,35 @@ export function kafkaCtx(s, app, node) {
     const c = clusterOf(s, cluster)
     return c ? fn(c) : ERR.noCluster(cluster)
   }
-  const commit = (cluster, topic, groupId, partition, offset) => on(cluster, (c) => commitOn(s, c, topic, groupId, partition, offset, app))
+  // `auth` is { user, password }: the SASL login of the app, needed on a cluster with SCRAM users or ACLs
+  const as = (cluster, auth, fn) =>
+    on(cluster, (c) => {
+      const p = principalOf(c, auth)
+      return p.ok ? fn(c, p.principal) : p
+    })
+  const commit = (cluster, topic, groupId, partition, offset, auth) => as(cluster, auth, (c, who) => commitOn(s, c, topic, groupId, partition, offset, app, who))
   return {
-    produce: (cluster, topic, record) => on(cluster, (c) => produceOn(s, c, topic, record)),
-    poll: (cluster, topic, groupId, max = 500, opts = {}) => on(cluster, (c) => pollOn(s, c, topic, groupId, max, opts, app, node)),
+    produce: (cluster, topic, record = {}) => as(cluster, record.auth, (c, who) => produceOn(s, c, topic, record, who)),
+    poll: (cluster, topic, groupId, max = 500, opts = {}) => as(cluster, opts.auth, (c, who) => pollOn(s, c, topic, groupId, max, opts, app, node, who)),
+    // the metadata of a topic, as a health check reads it: needs DESCRIBE, which READ and WRITE imply
+    describe: (cluster, topic, opts = {}) =>
+      as(cluster, opts.auth, (c, who) => {
+        if (!c.brokers.some((b) => b.up)) return ERR.down(c)
+        if (!authorized(c, who, 'TOPIC', topic, 'DESCRIBE')) return ERR.topicAuth(topic)
+        const t = c.topics[topic]
+        if (!t) return ERR.consumerTopic(topic)
+        heal(c)
+        return { ok: true, topic, partitions: t.partitions.length, replicationFactor: t.partitions[0]?.replicas.length ?? 0, leaders: t.partitions.filter((p) => p.leader !== -1).length, minIsr: num(t, 'min.insync.replicas') }
+      }),
     // `offset` is the next offset to read, as in Kafka: the offset of the last record handled plus one
     commit,
     // commits the records of one poll: per partition, the last offset plus one
-    commitRecords(cluster, groupId, records) {
+    commitRecords(cluster, groupId, records, auth) {
       const last = {}
       for (const r of records) last[`${r.topic}\u0000${r.partition}`] = Math.max(last[`${r.topic}\u0000${r.partition}`] ?? -1, r.offset)
       for (const [k, o] of Object.entries(last)) {
         const [topic, partition] = k.split('\u0000')
-        const r = commit(cluster, topic, groupId, Number(partition), o + 1)
+        const r = commit(cluster, topic, groupId, Number(partition), o + 1, auth)
         if (!r.ok) return r
       }
       return { ok: true }
@@ -566,6 +623,30 @@ export const startBroker = (state, cluster, id) =>
     if (!b) return fail('BROKER_NOT_FOUND', `There is no broker ${id}.`)
     b.up = true
     heal(c)
+  })
+
+// Like kafka-acls --add. `acl`: { principal, resource, name, pattern, operation, permission, host }
+export function aclErrors(c, acl) {
+  const e = []
+  if (!/^User:[A-Za-z0-9._@*-]+$/.test(String(acl.principal ?? '').trim())) e.push('The principal is User: and a name, for example User:orders-producer.')
+  if (!ACL_RESOURCES.includes(acl.resource)) e.push(`The resource type is one of ${ACL_RESOURCES.join(', ')}.`)
+  if (!String(acl.name ?? '').trim()) e.push('Give the resource name, or * for every resource of that type.')
+  if (!ACL_PATTERNS.includes(acl.pattern)) e.push('The pattern type is LITERAL or PREFIXED.')
+  if (!ACL_OPERATIONS.includes(acl.operation)) e.push(`The operation is one of ${ACL_OPERATIONS.join(', ')}.`)
+  if (!['ALLOW', 'DENY'].includes(acl.permission)) e.push('The permission is ALLOW or DENY.')
+  if (!e.length && (c?.acls ?? []).some((a) => ['principal', 'resource', 'name', 'pattern', 'operation', 'permission'].every((k) => a[k] === String(acl[k]).trim()))) e.push('This ACL exists already.')
+  return e
+}
+export const addAcl = (state, cluster, acl) =>
+  act(state, cluster, (c) => {
+    const e = aclErrors(c, acl)
+    if (e.length) return fail('INVALID_REQUEST', e.join(' '))
+    c.acls = [...(c.acls ?? []), { principal: acl.principal.trim(), resource: acl.resource, name: acl.name.trim(), pattern: acl.pattern, operation: acl.operation, permission: acl.permission, host: String(acl.host ?? '*').trim() || '*' }]
+  })
+export const removeAcl = (state, cluster, index) =>
+  act(state, cluster, (c) => {
+    if (!c.acls?.[index]) return fail('INVALID_REQUEST', 'There is no such ACL.')
+    c.acls = c.acls.filter((_, i) => i !== Number(index))
   })
 
 // ---------- Schema Registry ----------

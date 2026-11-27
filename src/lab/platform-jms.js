@@ -208,11 +208,19 @@ export function policyOf(b, name) {
   const list = (b.config.addressSettings ?? []).filter((p) => matches(ARTEMIS, p.match, name))
   return list.sort((x, y) => (x.match === '#' ? 1 : 0) - (y.match === '#' ? 1 : 0) || y.match.length - x.match.length)[0] ?? {}
 }
-export const dlqNameOf = (b, name) => (b.kind === CLASSIC ? policyOf(b, name).deadLetterQueue || CLASSIC_DEFAULTS.deadLetterQueue : (policyOf(b, name).deadLetterAddress ?? ''))
+// Classic dead letter strategies: sharedDeadLetterStrategy sends to one queue (ActiveMQ.DLQ unless set);
+// individualDeadLetterStrategy gives each queue its own, the queuePrefix and the queue name, ActiveMQ.DLQ.Queue. by default
+export const INDIVIDUAL_PREFIX = 'ActiveMQ.DLQ.Queue.'
+export function dlqNameOf(b, name) {
+  if (b.kind !== CLASSIC) return policyOf(b, name).deadLetterAddress ?? ''
+  const p = policyOf(b, name)
+  if (p.strategy === 'individual') return `${p.queuePrefix ?? INDIVIDUAL_PREFIX}${name}`
+  return p.deadLetterQueue || CLASSIC_DEFAULTS.deadLetterQueue
+}
 export const expiryNameOf = (b, name) => (b.kind === ARTEMIS ? (policyOf(b, name).expiryAddress ?? '') : dlqNameOf(b, name))
 export const maxDeliveryOf = (b, name) => (b.kind === ARTEMIS ? (policyOf(b, name).maxDeliveryAttempts ?? ARTEMIS_DEFAULTS.maxDeliveryAttempts) : null)
 export function isDlq(b, name) {
-  if (b.kind === CLASSIC) return name === CLASSIC_DEFAULTS.deadLetterQueue || (b.config.policies ?? []).some((p) => p.deadLetterQueue === name)
+  if (b.kind === CLASSIC) return name === CLASSIC_DEFAULTS.deadLetterQueue || (b.config.policies ?? []).some((p) => (p.strategy === 'individual' ? name.startsWith(p.queuePrefix ?? INDIVIDUAL_PREFIX) : p.deadLetterQueue === name))
   return (b.config.addressSettings ?? []).some((p) => p.deadLetterAddress === name || p.expiryAddress === name)
 }
 
@@ -479,7 +487,11 @@ function takeOver(s, b, n) {
   n.role = b.kind === CLASSIC ? 'master' : 'live'
   n.since = s.clock
   if (b.pending) {
-    b.config = { ...b.config, ...b.pending }
+    // users and authorization entries live beside the config, in the same activemq.xml
+    const { users, auth, ...rest } = b.pending
+    b.config = { ...b.config, ...rest }
+    if (users) b.users = users
+    if (auth) b.auth = auth
     b.pending = null
     note(s, b, `${n.name} read the changed configuration.`)
   }
@@ -985,6 +997,12 @@ export function jmsCtx(s, app) {
       }
       return { ok: false, committed: false, rolledBack: true, results: rollback(s, tx), value, muleType: value.muleType, text: value.text ?? value.error }
     },
+    // opens the connection only, as a health check does: { ok, node, connectionId, failover, url } or the error
+    connect(cfg) {
+      const r = open(s, app, cfg, false)
+      if (!r.ok) return r
+      return { ok: true, node: r.c.node, host: r.b.nodes.find((n) => n.name === r.c.node)?.host, connectionId: r.c.id, failover: r.c.failover, broker: r.b.name }
+    },
     // queue statistics, the way a monitor reads them over Jolokia: QueueSize, ConsumerCount, EnqueueCount, DequeueCount
     stats(cfg, name) {
       const b = brokerAt(s, parseUrl(cfg.url))
@@ -1148,6 +1166,67 @@ export const setConfig = (state, name, patch) =>
     return { ok: true, text: 'Saved. The broker reads the file when it starts, so restart it to apply the change.' }
   })
 export const configOf = (b) => ({ ...b.config, ...(b.pending ?? {}) })
+// what the broker will have after the next restart: Classic reads users, authorization and policies from activemq.xml
+// at start. Artemis reloads artemis-users.properties and the security settings while it runs.
+export const usersOf = (b) => b.pending?.users ?? b.users
+export const authOf = (b) => b.pending?.auth ?? b.auth
+const later = (b, patch) => {
+  if (b.kind === CLASSIC) {
+    b.pending = { ...(b.pending ?? {}), ...patch }
+    return 'Saved in activemq.xml. The broker reads it when it starts: restart it (Home, Nodes) to apply the change.'
+  }
+  if (patch.users) b.users = patch.users
+  if (patch.auth) b.auth = patch.auth
+  return 'AMQ221056: Reloading configuration: security.'
+}
+const GROUP = /^[A-Za-z0-9._-]+$/
+const groupList = (v) => String(v ?? '').split(',').map((g) => g.trim()).filter(Boolean)
+// Users page (lab): a user with a password and groups. f: { name, password, groups }
+export const addUser = (state, name, f) =>
+  act(state, name, (b) => {
+    const user = clean(f.name)
+    const groups = groupList(f.groups)
+    if (!/^[A-Za-z0-9._@-]{1,64}$/.test(user)) return { ok: false, text: 'A user name has letters, digits, dots, dashes, @ and underscores.' }
+    if (usersOf(b)[user]) return { ok: false, text: `The user ${user} exists already.` }
+    if (String(f.password ?? '').length < 8) return { ok: false, text: 'Give a password of at least 8 characters.' }
+    if (!groups.length || !groups.every((g) => GROUP.test(g))) return { ok: false, text: 'Give one or more groups, separated by commas.' }
+    return { ok: true, text: later(b, { users: { ...usersOf(b), [user]: { password: String(f.password), groups } } }) }
+  })
+export const removeUser = (state, name, user) =>
+  act(state, name, (b) => {
+    if (!usersOf(b)[user] || user === 'admin') return { ok: false, text: 'This user cannot be removed.' }
+    const { [user]: _gone, ...rest } = usersOf(b)
+    return { ok: true, text: later(b, { users: rest }) }
+  })
+// an authorizationEntry (Classic) or a security-setting (Artemis). f: { type, match, read, write, admin }
+export const addAuthEntry = (state, name, f) =>
+  act(state, name, (b) => {
+    const match = clean(f.match)
+    const type = b.kind === ARTEMIS ? 'any' : f.type === 'topic' ? 'topic' : 'queue'
+    if (!/^[A-Za-z0-9._\-:*>#]{1,200}$/.test(match)) return { ok: false, text: 'Give the destination, with wildcards if you need them.' }
+    const entry = { type, match, read: groupList(f.read).join(','), write: groupList(f.write).join(','), admin: groupList(f.admin).join(',') }
+    if (!entry.read && !entry.write && !entry.admin) return { ok: false, text: 'Name a group for read, write or admin.' }
+    if ([entry.read, entry.write, entry.admin].some((x) => x && !groupList(x).every((g) => GROUP.test(g)))) return { ok: false, text: 'Groups are names separated by commas.' }
+    return { ok: true, text: later(b, { auth: [...authOf(b).filter((e) => !(e.type === type && e.match === match)), entry] }) }
+  })
+export const removeAuthEntry = (state, name, index) =>
+  act(state, name, (b) => {
+    const list = authOf(b)
+    if (!list[index] || (list[index].match === '>' && list[index].read === 'admins') || list[index].match === '#') return { ok: false, text: 'This entry cannot be removed.' }
+    return { ok: true, text: later(b, { auth: list.filter((_, i) => i !== Number(index)) }) }
+  })
+// Classic policyEntry with a dead letter strategy. f: { match, strategy: 'individual' | 'shared', queuePrefix, deadLetterQueue }
+export const addPolicyEntry = (state, name, f) =>
+  act(state, name, (b) => {
+    if (b.kind !== CLASSIC) return { ok: false, text: 'Artemis uses address settings for this.' }
+    const match = clean(f.match)
+    if (!/^[A-Za-z0-9._\-:*>]{1,200}$/.test(match)) return { ok: false, text: 'Give the queue, with wildcards if you need them, for example RETURNS.>' }
+    const individual = f.strategy === 'individual'
+    const entry = individual ? { match, strategy: 'individual', queuePrefix: clean(f.queuePrefix) || INDIVIDUAL_PREFIX, useQueueForQueueMessages: true, memoryLimit: 0 } : { match, strategy: 'shared', deadLetterQueue: clean(f.deadLetterQueue) || CLASSIC_DEFAULTS.deadLetterQueue, memoryLimit: 0 }
+    const policies = [...(configOf(b).policies ?? []).filter((p) => p.match !== match), entry]
+    b.pending = { ...(b.pending ?? {}), policies }
+    return { ok: true, text: 'Saved in activemq.xml. The broker reads it when it starts: restart it (Home, Nodes) to apply the change.' }
+  })
 
 // ---------- what the console pages show ----------
 

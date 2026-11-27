@@ -30,6 +30,25 @@ const PrivateSpaces = page(() => import('./PrivateSpaces.jsx'))
 const FlowEditor = page(() => import('./FlowEditor.jsx'))
 const BatchMonitor = page(() => import('./BatchMonitor.jsx'))
 const Visualizer = page(() => import('./Visualizer.jsx'))
+const Salesforce = page(() => import('./Salesforce.jsx'))
+const SapGui = page(() => import('./SapGui.jsx'))
+const Splunk = page(() => import('./Splunk.jsx'))
+const RuntimeFabric = page(() => import('./RuntimeFabric.jsx'))
+const FlexGateway = page(() => import('./FlexGateway.jsx'))
+const PartnerManager = page(() => import('./PartnerManager.jsx'))
+const Governance = page(() => import('./Governance.jsx'))
+const AccessManagement = page(() => import('./AccessManagement.jsx'))
+const ReleaseBoard = page(() => import('./ReleaseBoard.jsx'))
+const SecureProps = page(() => import('./SecureProps.jsx'))
+const CapacityPlanner = page(() => import('./CapacityPlanner.jsx'))
+const EpicFhir = page(() => import('./EpicFhir.jsx'))
+const Hl7Engine = page(() => import('./Hl7Engine.jsx'))
+const Workday = page(() => import('./Workday.jsx'))
+const ServiceNow = page(() => import('./ServiceNow.jsx'))
+const Snowflake = page(() => import('./Snowflake.jsx'))
+const AwsConsole = page(() => import('./AwsConsole.jsx'))
+const Dynamics = page(() => import('./Dynamics.jsx'))
+const Shopify = page(() => import('./Shopify.jsx'))
 const ApiManagerScreen = page(() => import('../lab/ApiManagerScreen.jsx'))
 const ExchangeScreen = page(() => import('../lab/ExchangeScreen.jsx'))
 const RuntimeManagerScreen = page(() => import('../lab/RuntimeManagerScreen.jsx'))
@@ -77,15 +96,35 @@ const PRODUCTS = {
   'Private spaces': PrivateSpaces,
   'Flow editor': FlowEditor,
   'Batch jobs': BatchMonitor,
+  Salesforce: Salesforce,
+  SAP: SapGui,
+  Splunk: Splunk,
+  'Runtime Fabric': RuntimeFabric,
+  'Flex Gateway': FlexGateway,
+  'Partner Manager': PartnerManager,
+  'API Governance': Governance,
+  'Access Management': AccessManagement,
+  'Change and release': ReleaseBoard,
+  'Secure properties tool': SecureProps,
+  'Capacity planner': CapacityPlanner,
+  'Epic (FHIR)': EpicFhir,
+  'HL7 interfaces': Hl7Engine,
+  Workday: Workday,
+  ServiceNow: ServiceNow,
+  Snowflake: Snowflake,
+  AWS: AwsConsole,
+  'Dynamics and SharePoint': Dynamics,
+  Shopify: Shopify,
   'Policy test bench': drill(ApiManagerScreen, 'Apply policies in order, then send requests and see which policy decides.'),
   'Deployment drill': drill(RuntimeManagerScreen, 'Deploy with properties, scale, read the logs and roll back.'),
   'Exchange versioning': drill(ExchangeScreen, 'Publish versions, change their lifecycle and see which numbers stay reserved.'),
 }
 const MENU = [
-  ['APIs', [['Design Center', 'Design, mock and publish API specifications.'], ['Exchange', 'Discover and share assets.'], ['API Manager', 'Manage, secure and watch API instances.']]],
-  ['Runtimes', [['Runtime Manager', 'Deploy and manage applications.'], ['ActiveMQ', 'Apache ActiveMQ Classic and Artemis brokers for JMS: queues, topics, durable subscribers.'], ['MQ', 'Anypoint MQ: queues, exchanges and client apps.'], ['Batch jobs', 'Batch job instances, steps and failed records.'], ['Private spaces', 'CloudHub 2.0 networking: static IPs, VPN, DNS and firewall.'], ['Monitoring', 'Dashboards, alerts and logs.'], ['Visualizer', 'The map of your applications.']]],
-  ['Systems', [['Kafka', 'Apache Kafka: brokers, topics, consumer groups and schemas.'], ['SFTP and FTP', 'A file transfer client on the SFTP and FTP servers.'], ['Azure Blob Storage', 'Containers, blobs, SAS tokens and access keys.'], ['Azure Files', 'File shares of the storage account.'], ['Azure Key Vault', 'Secrets, versions and access policies.'], ['Azure Service Bus', 'Queues, topics, subscriptions and sessions.'], ['Databases', 'SQL Server and Oracle: query, sessions, locks, plans.'], ['Mail server', 'SMTP and IMAP mailboxes.']]],
-  ['Lab tools', [['Anypoint Studio', 'The steps that link an app to an API.'], ['Flow editor', 'The Mule configuration XML of an app.'], ['API client', 'Send requests.'], ['Backends', 'Stop or slow a system.'], ['Data center', 'Your Windows servers: files, PowerShell and the link to Anypoint.'], ['Inbox', 'Mail that alerts send.']]],
+  ['APIs', [['Design Center', 'Design, mock and publish API specifications.'], ['Exchange', 'Discover and share assets.'], ['API Manager', 'Manage, secure and watch API instances.'], ['Partner Manager', 'B2B partners, AS2 and EDI message tracking.'], ['API Governance', 'Rulesets, profiles and API conformance.']]],
+  ['Runtimes', [['Runtime Manager', 'Deploy and manage applications.'], ['ActiveMQ', 'Apache ActiveMQ Classic and Artemis brokers for JMS: queues, topics, durable subscribers.'], ['MQ', 'Anypoint MQ: queues, exchanges and client apps.'], ['Batch jobs', 'Batch job instances, steps and failed records.'], ['Private spaces', 'CloudHub 2.0 networking: static IPs, VPN, DNS and firewall.'], ['Runtime Fabric', 'Runtime Fabric clusters: nodes, pods and events.'], ['Flex Gateway', 'Self-managed gateways in front of APIs.'], ['Monitoring', 'Dashboards, alerts and logs.'], ['Visualizer', 'The map of your applications.']]],
+  ['Systems', [['Kafka', 'Apache Kafka: brokers, topics, consumer groups and schemas.'], ['SFTP and FTP', 'A file transfer client on the SFTP and FTP servers.'], ['Azure Blob Storage', 'Containers, blobs, SAS tokens and access keys.'], ['Azure Files', 'File shares of the storage account.'], ['Azure Key Vault', 'Secrets, versions and access policies.'], ['Azure Service Bus', 'Queues, topics, subscriptions and sessions.'], ['Databases', 'SQL Server and Oracle: query, sessions, locks, plans.'], ['Mail server', 'SMTP and IMAP mailboxes.'], ['Salesforce', 'Salesforce Setup, objects, API usage, Bulk jobs and events.'], ['SAP', 'SAP GUI: IDocs, BAPIs and RFC destinations.'], ['Splunk', 'Search the logs that apps forward.'], ['Epic (FHIR)', 'Bayview Health Epic: FHIR R4 resources and backend apps.'], ['HL7 interfaces', 'HL7 v2 over MLLP: connections, messages, ACKs.'], ['Workday', 'Workers, business processes, reports and integration users.'], ['ServiceNow', 'Incidents, the Table API, users and ACLs.'], ['Snowflake', 'Warehouses, stages, loads and queries.'], ['AWS', 'S3, SQS, SNS and IAM.'], ['Dynamics and SharePoint', 'Dataverse tables, SharePoint sites and Entra app registrations.'], ['Shopify', 'Store admin, webhooks, apps and API limits.']]],
+  ['Management', [['Access Management', 'Business groups, users, roles and connected apps.'], ['Change and release', 'Change tickets, approvals and release plans.']]],
+  ['Lab tools', [['Secure properties tool', 'Encrypt and decrypt property values with a key.'], ['Capacity planner', 'Pick vCores and replicas for a load and a budget.'], ['Anypoint Studio', 'The steps that link an app to an API.'], ['Flow editor', 'The Mule configuration XML of an app.'], ['API client', 'Send requests.'], ['Backends', 'Stop or slow a system.'], ['Data center', 'Your Windows servers: files, PowerShell and the link to Anypoint.'], ['Inbox', 'Mail that alerts send.']]],
   ['Practice drills', [['Policy test bench', 'Policy order, quotas and the headers a request gets.'], ['Deployment drill', 'Properties, replicas, logs and rollback.'], ['Exchange versioning', 'Versions, lifecycle and reserved numbers.']]],
 ]
 const COLOR = {
@@ -103,6 +142,25 @@ const COLOR = {
   'Private spaces': '#1f4e79',
   'Flow editor': '#3d4f6b',
   'Batch jobs': '#6b4fa3',
+  Salesforce: '#00a1e0',
+  SAP: '#0a6ed1',
+  Splunk: '#65a637',
+  'Runtime Fabric': '#326ce5',
+  'Flex Gateway': '#0b827c',
+  'Partner Manager': '#7a3e9d',
+  'API Governance': '#5a4fcf',
+  'Access Management': '#3d4f6b',
+  'Change and release': '#9b4d00',
+  'Secure properties tool': '#525f7f',
+  'Capacity planner': '#2e5bba',
+  'Epic (FHIR)': '#c8102e',
+  'HL7 interfaces': '#a4343a',
+  Workday: '#f38b00',
+  ServiceNow: '#62d84e',
+  Snowflake: '#29b5e8',
+  AWS: '#ff9900',
+  'Dynamics and SharePoint': '#0078d4',
+  Shopify: '#5e8e3e',
   'Exchange versioning': '#0176d3', 'Design Center': '#0b5cab', Exchange: '#0176d3', 'API Manager': '#0b827c', 'Runtime Manager': '#2e5bba', MQ: '#7f56d9', Monitoring: '#1b6fd0', Visualizer: '#0f6e84', Backends: '#8a4b08', 'Data center': '#00539b', 'Anypoint Studio': '#525f7f', 'API client': '#b86e00', Inbox: '#525f7f' }
 const Badge = ({ name }) => (
   <span className="pc-badge" style={{ background: COLOR[name] ?? '#0176d3' }} aria-hidden="true">

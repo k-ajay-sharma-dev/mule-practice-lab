@@ -599,6 +599,10 @@ function Graph({ srv, d }) {
 
 // ---------- logins, users, tables, Mule ----------
 
+const grantText = (u) =>
+  Object.entries(u.grants ?? {})
+    .map(([tk, ps]) => `${ps.join(', ')} on ${tk === '*' ? 'the whole database' : tk}`)
+    .join('; ')
 function Security({ srv }) {
   const ora = srv.vendor === ORACLE
   return (
@@ -608,9 +612,20 @@ function Security({ srv }) {
         heads={ora ? ['USERNAME', 'ACCOUNT_STATUS', 'PROFILE', 'Kind', 'Failed logins'] : ['Login name', 'Type', 'Default database', 'Disabled', 'Enforce password policy', 'Failed logins']}
         rows={loginsOf(srv).map((l) => (ora ? [l.name, l.status, l.profile, l.type, l.failed] : [l.name, l.type, l.defaultDb, l.disabled ? 'Yes' : 'No', l.policy ? 'Yes' : 'No', l.failed]))}
       />
-      <h3>{ora ? 'Granted roles (DBA_ROLE_PRIVS)' : `${srv.database}, Security, Users`}</h3>
-      <Grid heads={ora ? ['GRANTEE', 'GRANTED_ROLE', 'DEFAULT_SCHEMA'] : ['User', 'Login', 'Default schema', 'Database roles']} rows={usersOf(srv).map((u) => (ora ? [u.name, u.roles.join(', '), u.schema] : [u.name, u.login, u.schema, u.roles.join(', ')]))} />
-      <p className="db-hint">{ora ? 'ALTER USER name ACCOUNT UNLOCK in the worksheet opens a locked account.' : 'ALTER LOGIN name ENABLE in a query window turns a disabled login on.'}</p>
+      <h3>{ora ? 'Granted roles and privileges (DBA_ROLE_PRIVS, DBA_SYS_PRIVS, DBA_TAB_PRIVS)' : `${srv.database}, Security, Users`}</h3>
+      <Grid
+        heads={ora ? ['GRANTEE', 'GRANTED_ROLE', 'System privileges', 'Object privileges', 'DEFAULT_SCHEMA'] : ['User', 'Login', 'Default schema', 'Database roles', 'Permissions']}
+        rows={usersOf(srv).map((u) => {
+          const objects = grantText(u)
+          const sys = (loginsOf(srv).find((l) => l.name === u.login)?.privs ?? []).join(', ')
+          return ora ? [u.name, u.roles.join(', '), sys, objects, u.schema] : [u.name, u.login, u.schema, u.roles.join(', '), objects]
+        })}
+      />
+      <p className="db-hint">
+        {ora
+          ? 'CREATE USER name IDENTIFIED BY "password" PROFILE APP_USERS makes a user. GRANT CREATE SESSION TO name lets it log in, and GRANT SELECT, INSERT ON HARBOR.TABLE TO name gives it one table. ALTER USER name ACCOUNT UNLOCK opens a locked account.'
+          : 'CREATE LOGIN name WITH PASSWORD = \'...\' makes a server login, CREATE USER name FOR LOGIN name maps it into the database, and GRANT SELECT, INSERT ON dbo.table TO name gives it one table. ALTER LOGIN name ENABLE turns a disabled login on.'}
+      </p>
       {srv.errorlog.length > 0 && (
         <>
           <h3>{ora ? 'Alert log' : 'SQL Server error log'}</h3>

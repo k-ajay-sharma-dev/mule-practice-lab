@@ -571,6 +571,24 @@ export const setMailAccount = (state, address, patch) =>
     Object.assign(y.accounts[address], patch)
     logLine(y, now, 'ADMIN', 'you', '', `account ${address}: ${Object.keys(patch).join(', ')} changed`)
   })
+// A new mailbox from the admin page, as postfixadmin makes one: an address of a local domain, a display name and a
+// password. It starts with INBOX, Sent and Junk only; folders such as Processed are made in the webmail or by IMAP CREATE.
+export const NEW_ACCOUNT_FOLDERS = ['INBOX', 'Sent', 'Junk']
+export function accountError(y, address, password) {
+  const a = String(address ?? '').trim().toLowerCase()
+  if (!/^[a-z0-9][a-z0-9._-]*@[a-z0-9.-]+$/.test(a)) return 'Enter a mail address such as name@harbor.example.'
+  if (!(y?.domains ?? [LOCAL_DOMAIN]).includes(domainOf(a))) return `${domainOf(a)} is not a local domain of this server.`
+  if (y?.accounts?.[a]) return `${a} exists already.`
+  if (String(password ?? '').length < 10) return 'The password needs at least 10 characters.'
+  return null
+}
+export const addMailAccount = (state, address, name, password) =>
+  edit(state, (s, y, now) => {
+    const a = String(address ?? '').trim().toLowerCase()
+    if (accountError(y, a, password)) return
+    y.accounts[a] = newAccount(String(name ?? '').trim() || a, String(password), { folders: Object.fromEntries(NEW_ACCOUNT_FOLDERS.map((f) => [f, []])) })
+    logLine(y, now, 'ADMIN', 'you', '', `account ${a} created`)
+  })
 // a new app password, shown once in the admin page. Lab made: the value is derived from a counter, so labs replay.
 export const addAppPassword = (state, address, name) =>
   edit(state, (s, y, now) => {

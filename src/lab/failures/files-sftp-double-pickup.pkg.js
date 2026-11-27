@@ -5,7 +5,7 @@ export const APP = 'stock-receipts-poll'
 export const FLOW = 'stock-receipts-flow'
 const SUFFIXES = ['x2k9p', 'm7q4d', 'c8v1n', 'r3t6w', 'h5j2s', 'p9b4k', 'f1z8g', 'w6y3e']
 // the first name is the one the platform writes when the replica starts
-export const replicaOf = (app, i) => `${app.name.slice(0, 18)}-${(app.name.length * 7919 + app.config * 31).toString(16).slice(0, 5)}-${SUFFIXES[i % SUFFIXES.length]}`
+export const replicaOf = (app, i) => `${app.name.slice(0, 18)}-${(app.name.length * 7919 + (app.podConfig ?? app.config) * 31).toString(16).slice(0, 5)}-${SUFFIXES[i % SUFFIXES.length]}`
 const keep = (list, items) => [...(list ?? []), ...items].slice(-30)
 const yes = (v) => String(v ?? '').trim().toLowerCase() === 'true'
 const dirOf = (props, key) => String(props[key] ?? '').trim()

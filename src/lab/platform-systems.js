@@ -9,6 +9,9 @@
 //   systems.vaults[name]     an Azure Key Vault (newVault)
 //   systems.local            the learner's own computer in the SFTP client (files the client uploads and downloads)
 //   systems.transfers        the transfer queue of the SFTP client
+//   systems.principals       optional: names of identities that exist in Microsoft Entra ID before their app is deployed
+//                            (lab made: an app registration named after the app). The portal offers them for access
+//                            policies and role assignments next to the names of the deployed apps.
 //
 // Targets name a place that holds files, the same way everywhere:
 //   'sftp.harbor.lab' (or 'sftp://sftp.harbor.lab')   a server; paths are '/in/a.csv', or relative to the working directory

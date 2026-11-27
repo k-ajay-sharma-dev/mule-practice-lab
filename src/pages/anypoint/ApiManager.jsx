@@ -4,6 +4,7 @@ import {
   RM_SEVERITIES, setApi, setContract,
 } from '../../lab/platform.js'
 import { docsUrl, POLICIES, policyByType } from '../../lab/policies.js'
+import { FLEX_RUNTIME, flexFields } from '../../lab/platform-flex.js'
 import { bucketsOf, COLORS } from './charts.js'
 import { Btn, Chart, Check, Copy, Dot, Errors, Field, Input, Link, Modal, Note, RadioCards, Radios, Select, SideNav, Table } from './parts.jsx'
 
@@ -350,10 +351,11 @@ function Summary({ api, state, go }) {
         <dd>{api.upstream || 'none'}</dd>
         <dt>Consumer endpoint</dt>
         <dd>{api.consumer || 'none'}</dd>
-        <dt>Mule runtime version</dt>
-        <dd>{status === 'Active' ? '4.9' : 'Not connected'}</dd>
+        <dt>{api.runtime === FLEX_RUNTIME ? 'Runtime' : 'Mule runtime version'}</dt>
+        <dd>{api.runtime === FLEX_RUNTIME ? `Flex Gateway ${api.gateway}, port ${api.port}, base path ${api.basePath}` : status === 'Active' ? '4.9' : 'Not connected'}</dd>
       </dl>
-      {status !== 'Active' && <Note>No running application has registered this instance. The application needs the API Autodiscovery element with this ID, and the client ID and secret of {state.env}.</Note>}
+      {api.runtime === FLEX_RUNTIME && <Link onClick={() => go({ product: 'Flex Gateway', gateway: api.gateway, tab: 'APIs' })}>Open {api.gateway} in Flex Gateways</Link>}
+      {status !== 'Active' && api.runtime !== FLEX_RUNTIME && <Note>No running application has registered this instance. The application needs the API Autodiscovery element with this ID, and the client ID and secret of {state.env}.</Note>}
       <h3 className="pc-h3">Key Metrics, last hour</h3>
       <div className="pc-charts">
         {one('Total Requests', COLORS.blue, (l) => l.length)}
@@ -593,8 +595,8 @@ function Policies({ api, update }) {
           </div>
         </Modal>
       )}
-      {adding && <PolicyForm policy={adding} value={defaults(adding)} onClose={() => setAdding(null)} onSave={(settings) => { update((s) => applyPolicy(s, api.id, adding.type, settings)); setAdding(null) }} />}
-      {editing && <PolicyForm policy={policyByType.get(editing.type)} value={editing.settings} onClose={() => setEditing(null)} onSave={(settings) => { save(api.policies.map((p) => (p.id === editing.id ? { ...p, settings } : p))); setEditing(null) }} />}
+      {adding && <PolicyForm policy={flexFields(api, adding)} value={defaults(flexFields(api, adding))}onClose={() => setAdding(null)} onSave={(settings) => { update((s) => applyPolicy(s, api.id, adding.type, settings)); setAdding(null) }} />}
+      {editing && <PolicyForm policy={flexFields(api, policyByType.get(editing.type))}value={editing.settings} onClose={() => setEditing(null)} onSave={(settings) => { save(api.policies.map((p) => (p.id === editing.id ? { ...p, settings } : p))); setEditing(null) }} />}
     </>
   )
 }

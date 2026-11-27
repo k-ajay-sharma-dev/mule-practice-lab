@@ -34,6 +34,7 @@ import {
   undeploy,
   updateBinding,
 } from '../../lab/pipeline.js'
+import { APP, coverageSettings, createTestFor, flowPath, flowXml, fmt, munitProject, revertFile, setFile, templateNote, testsByFlow, workflowCommands, WORKFLOW } from '../../lab/pipeline-munit.js'
 import { CodeBlock } from '../../components/CopyButton.jsx'
 import Assumed from './Assumed.jsx'
 import { LabOutcome } from './ExchangeScreen.jsx'
@@ -47,7 +48,8 @@ const TICK_MS = 900 // real time between two stages while a run plays
 const STATUS_TEXT = { pending: 'Waiting', passed: 'Passed', warned: 'Passed, check this', failed: 'Failed', skipped: 'Skipped' }
 
 const emptySeen = () => ({ views: [], jobs: [] })
-const freshFor = (guided) => ({ lab: newState(), config: { ...newConfig(), ...guided?.patch }, seen: emptySeen(), answers: {} })
+// the patch is cloned, so edits to a lab's MUnit files never reach the lab definition
+const freshFor = (guided) => ({ lab: newState(), config: { ...newConfig(), ...structuredClone(guided?.patch ?? {}) }, seen: emptySeen(), answers: {} })
 
 // The open pipeline and a guided lab keep separate saves, so a lab never changes the pipeline you built yourself.
 function loadSaved(guided) {
@@ -78,6 +80,7 @@ function save(guided, value) {
 const SIDE = [
   ['runs', 'Release pipeline', 'workflow'],
   ['options', 'Workflow options', 'gear'],
+  ['munit', 'MUnit tests', 'beaker'],
   ['environments', 'Environments', 'rocket'],
   ['exchange', 'Exchange versions', 'package'],
   ['promote', 'Promote API instance', 'arrow'],
@@ -205,8 +208,11 @@ export default function PipelineScreen({ guided, solved, onSolved }) {
               onBack={() => setOpenRun(null)}
               onSkip={() => setState(settle(state))}
               onSeen={(job) => note('jobs', job)}
+              onView={(key) => note('views', key)}
             />
           )}
+
+          {view === 'munit' && <MunitTests config={config} onChange={setConfig} onSeen={(key) => note('views', key)} guided={Boolean(guided)} />}
 
           {view === 'runs' && !run && (
             <>
@@ -340,7 +346,7 @@ function RunList({ runs, onOpen }) {
   )
 }
 
-function RunPage({ run, active, onBack, onSkip, onSeen }) {
+function RunPage({ run, active, onBack, onSkip, onSeen, onView }) {
   const [picked, setPicked] = useState(null)
   const stages = run.stages
   const notable = [...stages].reverse().find((s) => s.status === 'failed' || s.status === 'warned')
@@ -420,6 +426,8 @@ function RunPage({ run, active, onBack, onSkip, onSeen }) {
           ))}
         </section>
       )}
+
+      {shown?.report && <MunitReport key={shown.id} report={shown.report} onCoverage={() => onView?.('coverage')} />}
 
       {shown && (
         <section className="gh-logs" aria-label={`${shown.name} log`}>
@@ -546,6 +554,7 @@ const ICONS = {
   rocket: 'M14.06.94c.3.3.44.7.44 1.06 0 3.1-1.4 6-3.6 7.9l-.4 2.6a1.5 1.5 0 0 1-.8 1.1l-2.4 1.2a.75.75 0 0 1-1.05-.66l-.08-1.9-1.4-1.4-1.9-.08a.75.75 0 0 1-.66-1.05l1.2-2.4a1.5 1.5 0 0 1 1.1-.8l2.6-.4C9 2.4 11.9 1 15 1c.37 0 .76.14 1.06.44ZM11 4a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM2.5 11.5c.6 0 1.5.9 1.5 1.5S2 15 1 15c0-1 .9-3.5 1.5-3.5Z',
   package: 'm8.88.22 6.25 3.6A1.75 1.75 0 0 1 16 5.33v5.34c0 .63-.34 1.2-.88 1.51l-6.25 3.6a1.75 1.75 0 0 1-1.74 0l-6.25-3.6A1.75 1.75 0 0 1 0 10.67V5.33c0-.63.34-1.2.88-1.51L7.13.22a1.75 1.75 0 0 1 1.74 0ZM1.5 5.6v5.07c0 .09.05.17.13.22l5.62 3.24V8.97Zm7.25 3.37v5.16l5.62-3.24a.25.25 0 0 0 .13-.22V5.6ZM2.3 4.3 8 7.6l5.7-3.3L8.12 1.52a.25.25 0 0 0-.24 0Z',
   arrow: 'M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06l2.97-2.97H1.75a.75.75 0 0 1 0-1.5h9.44L8.22 4.03a.75.75 0 0 1 0-1.06Z',
+  beaker: 'M5 1h6v1.5h-.75v3.6l4.1 6.6A1.5 1.5 0 0 1 13.08 15H2.92a1.5 1.5 0 0 1-1.27-2.3l4.1-6.6V2.5H5Zm2.25 1.5v4L5.4 9.5h5.2L8.75 6.5v-4Z',
 }
 
 function Icon({ name }) {
@@ -689,6 +698,9 @@ function Options({ config, onChange }) {
           MUnit and coverage (sample results
           <Assumed />)
         </legend>
+        {config.munit ? (
+          <p className="muted small lab-note">This workflow runs the MUnit project, so the sample results are not used. The tests, the coverage block of pom.xml and the Maven command lines are files under MUnit tests in the sidebar.</p>
+        ) : (
         <div className="lab-fields">
           {number('testCount', 'Tests found')}
           {number('testsFailing', 'Tests failing')}
@@ -702,6 +714,7 @@ function Options({ config, onChange }) {
           {check('childOverride', 'Child POM overrides the coverage block')}
           {check('skipTests', 'Run with -DskipTests')}
         </div>
+        )}
       </fieldset>
 
       <fieldset className="lx-group">
@@ -1042,6 +1055,210 @@ function Promotion({ state, onPromote }) {
           Promote
         </button>
       </div>
+    </section>
+  )
+}
+
+// ---------- MUnit: the project files, and the report of a run ----------
+
+const STATUS_WORD = { passed: 'Passed', failed: 'Failed', error: 'Error', skipped: 'Ignored' }
+const fileOrder = (path) => (path === WORKFLOW ? 0 : path === 'pom.xml' ? 1 : path.startsWith('src/test') ? 2 : 3)
+
+// The files of the Mule project that the MUnit job reads. Test suites, the POM, the workflow and the DataWeave file
+// are edited as text. The flow files are read only, so their doc:name and doc:id can be copied into a mock.
+export function MunitTests({ config, onChange, onSeen, guided }) {
+  const munit = config.munit
+  const editable = munit ? Object.keys(munit.files).sort((a, b) => fileOrder(a) - fileOrder(b) || a.localeCompare(b)) : []
+  const flowFiles = APP.map((f) => flowPath(f.file))
+  const [picked, setPicked] = useState(WORKFLOW)
+  const path = [...editable, ...flowFiles].includes(picked) ? picked : WORKFLOW
+  const hasProject = Boolean(munit)
+
+  useEffect(() => {
+    if (hasProject) onSeen(`file:${path}`)
+  }, [hasProject, path, onSeen])
+
+  if (!munit) {
+    return (
+      <section className="gh-box gh-pad" aria-label="MUnit tests">
+        <h2 className="gh-h">MUnit tests</h2>
+        <p className="gh-dim small">
+          The MUnit job uses the sample results in Workflow options. Load the sample project to work with real test suites, the munit-maven-plugin coverage block and the Maven command lines.
+        </p>
+        <div>
+          <button className="gh-btn" onClick={() => onChange({ ...config, munit: munitProject('sample') })}>
+            Load the sample MUnit project
+          </button>
+        </div>
+      </section>
+    )
+  }
+
+  const set = (next) => onChange({ ...config, munit: next })
+  const cmd = workflowCommands(munit)
+  const gate = coverageSettings(munit)
+  const counts = testsByFlow(munit)
+  const flowFile = APP.find((f) => flowPath(f.file) === path)
+  const note = templateNote(munit, path)
+  const level = (n) => (n < 0 ? 'not set' : `${n}%`)
+
+  return (
+    <section className="gh-box" aria-label="MUnit tests">
+      <div className="gh-box-head gh-mu-head">
+        <span>MUnit tests: orders-papi</span>
+        {!guided && (
+          <button className="gh-btn gh-btn-sm" onClick={() => onChange({ ...config, munit: undefined })}>
+            Use sample results instead
+          </button>
+        )}
+      </div>
+      <div className="gh-mu-facts small">
+        <span>
+          Test job: <code>{cmd.test}</code>
+        </span>
+        <span>
+          Gate: runCoverage {String(gate.runCoverage)}, failBuild {String(gate.failBuild)}, application {level(gate.requiredApplicationCoverage)}, resource {level(gate.requiredResourceCoverage)}, flow {level(gate.requiredFlowCoverage)}
+        </span>
+        {cmd.anySkip && (
+          <span className="gh-mu-skip" role="status">
+            release.yml passes a skip flag, so MUnit does not run and the coverage gate is not checked.
+          </span>
+        )}
+      </div>
+      <div className="gh-mu">
+        <nav className="gh-mu-files" aria-label="Project files">
+          {[...editable, ...flowFiles].map((f) => (
+            <button key={f} className={`gh-mu-file mono${f === path ? ' on' : ''}`} onClick={() => setPicked(f)} aria-current={f === path ? 'true' : undefined}>
+              {f}
+              {flowFiles.includes(f) && <span className="gh-dim"> (read only)</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="gh-mu-pane">
+          {note && <p className="gh-mu-commit small mono">{note}</p>}
+          {flowFile ? (
+            <>
+              <ul className="gh-mu-flows small">
+                {flowFile.flows.map((fl) => (
+                  <li key={fl.name}>
+                    <span className="mono">{fl.name}</span>
+                    <span className="gh-dim">
+                      {fl.steps.length + fl.handler.length} processors, {counts[fl.name] ?? 0} {counts[fl.name] === 1 ? 'test' : 'tests'}
+                    </span>
+                    <button className="gh-btn gh-btn-sm" onClick={() => set(createTestFor(munit, fl.name))}>
+                      Create test for this flow
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <CodeBlock className="mono small">{flowXml(flowFile.file)}</CodeBlock>
+            </>
+          ) : (
+            <>
+              <textarea
+                className="gh-mu-editor mono"
+                aria-label={`Edit ${path}`}
+                spellCheck={false}
+                value={munit.files[path] ?? ''}
+                onChange={(e) => set(setFile(munit, path, e.target.value))}
+              />
+              <div className="gh-mu-actions">
+                <span className="gh-dim small">Changes apply to the next run.</span>
+                <button className="gh-btn gh-btn-sm" onClick={() => set(revertFile(munit, path))}>
+                  Revert file
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// What MUnit writes to the console and to target/site/munit: one line per test, then coverage per resource and flow.
+export function MunitReport({ report, onCoverage, startOpen = false }) {
+  const [open, setOpen] = useState(startOpen)
+  const { totals, tests, coverage } = report
+  return (
+    <section className="gh-box gh-mu-report" aria-label="MUnit report">
+      <div className="gh-box-head gh-mu-head">
+        <span>
+          MUnit report <span className="gh-dim">· Tests: {totals.tests}, Errors: {totals.errors}, Failures: {totals.failures}, Skipped: {totals.skipped}</span>
+        </span>
+        {coverage && (
+          <button
+            className="gh-btn gh-btn-sm"
+            aria-expanded={open}
+            onClick={() => {
+              setOpen(!open)
+              onCoverage()
+            }}
+          >
+            Coverage report
+          </button>
+        )}
+      </div>
+      <table className="gh-mu-table small">
+        <thead>
+          <tr>
+            <th>Suite</th>
+            <th>Test</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tests.map((t) => (
+            <tr key={`${t.suite}/${t.name}`}>
+              <td className="mono">{t.suite}</td>
+              <td>
+                <span className="mono">{t.name}</span>
+                {t.message && <div className="gh-mu-msg mono">{t.message}</div>}
+              </td>
+              <td className={`gh-mu-${t.status}`}>{STATUS_WORD[t.status]}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {coverage && open && (
+        <div className="gh-mu-cov">
+          <p className="small">
+            <b>Application coverage {fmt(coverage.percent)}</b>{' '}
+            <span className="gh-dim">
+              {coverage.covered} of {coverage.total} processors ran in a test. From target/site/munit/coverage.
+            </span>
+          </p>
+          <table className="gh-mu-table small">
+            <thead>
+              <tr>
+                <th>Resource or flow</th>
+                <th>Processors covered</th>
+                <th>Coverage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {coverage.resources.flatMap((r) => [
+                <tr key={r.file} className="gh-mu-res">
+                  <td className="mono">{r.file}</td>
+                  <td>
+                    {r.covered} of {r.total}
+                  </td>
+                  <td>{fmt(r.percent)}</td>
+                </tr>,
+                ...r.flows.map((f) => (
+                  <tr key={`${r.file}/${f.name}`}>
+                    <td className="mono gh-mu-indent">{f.name}</td>
+                    <td>
+                      {f.covered} of {f.total}
+                    </td>
+                    <td className={f.percent < report.settings.requiredFlowCoverage ? 'gh-mu-failed' : ''}>{fmt(f.percent)}</td>
+                  </tr>
+                )),
+              ])}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   )
 }

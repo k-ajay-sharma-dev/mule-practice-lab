@@ -3,6 +3,8 @@
 // Exchange rules come from exchange.js. Facts come from the Mule Maven plugin, MUnit, CloudHub 2.0 and API Manager
 // pages; anything those pages do not state carries `basis: 'assumed'` or an `assumption` sentence.
 import { emptyState, findVersion, hardDeleteReserved, isSemver, isSnapshot, nextAvailableVersion, publish, setGavReuse } from './exchange.js'
+// With config.munit set, the MUnit job runs the project's test files instead of the sample numbers below.
+import { munitProject, munitStage, workflowCommands } from './pipeline-munit.js'
 
 const MMP = 'https://docs.mulesoft.com/mule-runtime/latest/mmp-concept'
 const CH2 = 'https://docs.mulesoft.com/mule-runtime/latest/deploy-to-cloudhub-2'
@@ -176,10 +178,11 @@ function deployJob(config, envName, command = commandName(config.deployCommand))
 }
 
 export function stagesFor(config) {
+  const project = config.munit ? workflowCommands(config.munit) : null
   return [
     { id: 'build', name: 'Build', command: 'mvn clean package' },
-    { id: 'munit', name: 'MUnit and coverage', command: config.skipTests ? 'mvn test -DskipTests' : 'mvn test' },
-    ...(config.publishStage ? [{ id: 'publish', name: 'Publish to Exchange', command: 'mvn clean deploy' }] : []),
+    { id: 'munit', name: 'MUnit and coverage', command: project ? project.test : config.skipTests ? 'mvn test -DskipTests' : 'mvn test' },
+    ...(config.publishStage ? [{ id: 'publish', name: 'Publish to Exchange', command: project ? project.publish : 'mvn clean deploy' }] : []),
     { id: 'Sandbox', name: 'Deploy to Sandbox', ...deployJob(config, 'Sandbox') },
     ...(config.deployProduction ? [{ id: 'Production', name: 'Promote to Production', ...deployJob(config, 'Production') }] : []),
   ]
@@ -212,6 +215,7 @@ function coverageMisses(config) {
 
 function runMunit(state, run) {
   const { config } = run
+  if (config.munit) return munitStage(config.munit, 'test')
   if (config.skipTests) {
     return {
       issues: [warning('Tests were skipped', 'skipTests stops MUnit test execution, so no test ran and coverage was not measured. The release has no test evidence.', 'Remove skipTests.', { docs: MUNIT })],
@@ -266,10 +270,17 @@ function runPublish(state, run) {
       issues: [failure('maven-deploy-plugin is in the POM', 'The publishing page says not to include maven-deploy-plugin, because it is not compatible with the required Mule Maven plugin.', 'Remove maven-deploy-plugin from the POM and the settings file.', { docs: PUBLISHING, assumption: 'The docs do not describe the failure. The lab shows it as a failed publish.' })],
     }
   }
+  // mvn clean deploy goes through the test phase, so MUnit and its coverage gate run again unless the command skips them
+  const tested = config.munit ? munitStage(config.munit, 'publish') : null
+  if (tested?.issues.some((i) => i.severity === 'failure')) {
+    return { logs: [line('INFO', 'mvn clean deploy runs the test phase first, so MUnit runs again here.', 'docs'), ...tested.logs], issues: tested.issues }
+  }
+  const before = tested ? [line('INFO', 'mvn clean deploy runs the test phase first, so MUnit runs again here.', 'docs'), ...tested.logs.filter((l) => l.level !== 'INFO' || /Run Summary| > Tests:|Application Coverage|skipped/.test(l.text))] : []
   const result = upload(state, run)
-  if (!result.ok) return { logs: [line('ERROR', `${result.issue.title}: ${result.issue.cause}`, result.issue.basis)], issues: [result.issue] }
+  if (!result.ok) return { logs: [...before, line('ERROR', `${result.issue.title}: ${result.issue.cause}`, result.issue.basis)], issues: [...(tested?.issues ?? []), result.issue] }
   return {
-    logs: [line('INFO', `Uploading to Repository: .../${ASSET_ID}-${run.version}-mule-application.jar`), line('INFO', result.overwritten ? 'SNAPSHOT overwritten without any errors.' : result.cause, 'docs')],
+    logs: [...before, line('INFO', `Uploading to Repository: .../${ASSET_ID}-${run.version}-mule-application.jar`), line('INFO', result.overwritten ? 'SNAPSHOT overwritten without any errors.' : result.cause, 'docs')],
+    issues: tested?.issues ?? [],
   }
 }
 
@@ -591,9 +602,10 @@ export function step(state) {
   const at = run.stages.findIndex((s) => s.status === 'pending')
   const stage = run.stages[at]
   const runner = RUNNERS[stage.id] ?? ((s, r) => deployTo(s, r, stage.id))
-  const { logs = [], issues = [] } = runner(next, run)
+  const { logs = [], issues = [], report } = runner(next, run)
   stage.logs = logs
   stage.issues = issues
+  if (report) stage.report = report // the MUnit report and coverage of a project run
   const failed = issues.some((i) => i.severity === 'failure')
   stage.status = failed ? 'failed' : issues.length > 0 ? 'warned' : 'passed'
   if (failed) for (const later of run.stages.slice(at + 1)) later.status = 'skipped'
@@ -831,4 +843,6 @@ export const SCENARIOS = [
   { id: 'hybrid-mule-version', title: 'Own servers: muleVersion above the server runtime', patch: { deployTarget: 'hybrid', muleVersion: '4.8.0' }, expect: { stage: 'Sandbox', status: 'failed' }, fix: { muleVersion: SERVER_RUNTIME, publishStage: false } },
   { id: 'hybrid-copy-hosted', title: 'Own servers: a GitHub-hosted runner copies to the apps folder', patch: { deployTarget: 'copy' }, expect: { stage: 'Sandbox', status: 'failed' }, fix: { deployTarget: 'hybrid', publishStage: false } },
   { id: 'hybrid-copy-self', title: 'Own servers: a self-hosted runner copies to the apps folder', patch: { deployTarget: 'copy', runner: 'self-hosted' }, expect: { stage: 'Sandbox', status: 'warned' }, fix: { deployTarget: 'hybrid', runner: 'github-hosted', publishStage: false } },
+  { id: 'munit-skip-flag', title: 'MUnit project: -DskipMunitTests hides a coverage gap', patch: { munit: munitProject('gate') }, expect: { stage: 'munit', status: 'warned' }, fix: { munit: munitProject('sample'), versionStrategy: 'next' } },
+  { id: 'munit-unmocked', title: 'MUnit project: a test calls the real ERP', patch: { munit: munitProject('mock') }, expect: { stage: 'munit', status: 'failed' }, fix: { munit: munitProject('sample') } },
 ]

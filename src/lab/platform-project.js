@@ -10,6 +10,23 @@ import { defaultMailServer } from './platform-mailserver.js'
 import { defaultServiceBus } from './platform-servicebus.js'
 import { defaultJms } from './platform-jms.js'
 import { defaultNetwork } from './platform-network.js'
+import { defaultSalesforce } from './platform-salesforce.js'
+import { defaultSap } from './platform-sap.js'
+import { defaultRtf } from './platform-rtf.js'
+import { defaultFlex } from './platform-flex.js'
+import { defaultB2b } from './platform-b2b.js'
+import { defaultGovernance } from './platform-governance.js'
+import { defaultAccess } from './platform-access.js'
+import { defaultObservability } from './platform-observability.js'
+import { defaultRelease } from './platform-release.js'
+import { defaultEpic } from './platform-epic.js'
+import { defaultHl7 } from './platform-hl7.js'
+import { defaultWorkday } from './platform-workday.js'
+import { defaultServicenow } from './platform-servicenow.js'
+import { defaultSnowflake } from './platform-snowflake.js'
+import { defaultAws } from './platform-aws.js'
+import { defaultMsgraph } from './platform-msgraph.js'
+import { defaultShopify } from './platform-shopify.js'
 import { addEnterprise, welcomeMail } from './platform-enterprise.js'
 
 export const PRIVATE_SPACE = 'harbor-ps'
@@ -188,6 +205,23 @@ export function openConsole() {
   s.serviceBus = defaultServiceBus(at(1, 9))
   s.jms = defaultJms(at(1, 9))
   s.network = defaultNetwork(at(1, 9))
+  s.salesforce = defaultSalesforce(at(1, 9))
+  s.sap = defaultSap(at(1, 9))
+  s.rtf = defaultRtf(at(1, 9))
+  s.flex = defaultFlex(at(1, 9))
+  s.b2b = defaultB2b(at(1, 9))
+  s.governance = defaultGovernance(at(1, 9))
+  s.access = defaultAccess(at(1, 9))
+  s.observability = defaultObservability(at(1, 9))
+  s.release = defaultRelease(at(1, 9))
+  s.epic = defaultEpic(at(1, 9))
+  s.hl7 = defaultHl7(at(1, 9))
+  s.workday = defaultWorkday(at(1, 9))
+  s.servicenow = defaultServicenow(at(1, 9))
+  s.snowflake = defaultSnowflake(at(1, 9))
+  s.aws = defaultAws(at(1, 9))
+  s.msgraph = defaultMsgraph(at(1, 9))
+  s.shopify = defaultShopify(at(1, 9))
   s.jars.push({ pkg: 'orders-sapi-v2', autodiscovery: jarOf('orders').autodiscovery, jar: 'orders-sapi-2.0.0-mule-application.jar' }, 'orders-nightly-load', 'customer-export', 'stock-file-poll', 'search-eapi')
   const alert = { resource: 'Application', severity: 'High', operator: 'Above', recipients: OPS, minutes: 1 }
   s = addMonAlert(s, { ...alert, title: 'Errors in the process layer', name_: LED.process.app, metric: 'Message Error Count', threshold: 0 })

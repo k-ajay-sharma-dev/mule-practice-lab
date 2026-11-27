@@ -3,6 +3,7 @@
 // logs you read and your answers. A step is met by any route that gets there.
 import { isSnapshot } from './exchange.js'
 import { isFeatureBuild } from './pipeline.js'
+import { coverageSettings, DWL, ERP_REQUEST, mockMatches, munitProject, MUNIT_DOCS, suiteTests, totalFrom, workflowCommands, WORKFLOW } from './pipeline-munit.js'
 
 const MMP = 'https://docs.mulesoft.com/mule-runtime/latest/mmp-concept'
 const CH2 = 'https://docs.mulesoft.com/mule-runtime/latest/deploy-to-cloudhub-2'
@@ -20,6 +21,18 @@ const hybridPassed = (s, envName, test = () => true) => someRun(s, (r) => r.conf
 const targetOf = (s, envName, name) => s.envs[envName].targets?.find((t) => t.name === name)
 
 const ON_PREM = 'https://docs.mulesoft.com/mule-runtime/latest/deploy-on-premises'
+
+// runs of the MUnit project (config.munit), and what its files say now
+const projectRun = (s, test) => someRun(s, (r) => Boolean(r.config.munit) && test(r))
+const munitIssue = (r, code) => r.stages.some((st) => st.issues.some((i) => i.code === code))
+const testsOf = (ctx, flow) => (ctx.config.munit ? suiteTests(ctx.config.munit).filter((t) => t.flowRefs.includes(flow) && !t.ignore) : [])
+const gateKept = (ctx) => {
+  const c = coverageSettings(ctx.config.munit)
+  return c.runCoverage && c.failBuild && c.requiredApplicationCoverage >= 80 && !c.ignoreFlows.includes('create-return-flow') && !c.ignoreFiles.includes('returns.xml')
+}
+// the happy path test of get-order-flow, the one that checks the total
+const totalTest = (ctx) => testsOf(ctx, 'get-order-flow').find((t) => !t.expectedErrorType && t.asserts.some((a) => /payload\.total/.test(a.expression ?? '')))
+const stillExpects = (t) => t?.asserts.some((a) => /payload\.total/.test(a.expression ?? '') && /equalTo\(\s*107\.5\s*\)/.test(a.is ?? ''))
 
 export const PIPELINE_LABS = [
   {
@@ -692,6 +705,132 @@ export const PIPELINE_LABS = [
     ],
     why: 'For servers managed by Runtime Manager, the pipeline should deploy through Runtime Manager with armDeployment. Then a GitHub-hosted runner is enough, and the data center keeps every inbound door closed.',
     docs: 'https://docs.mulesoft.com/runtime-manager/deploying-to-your-own-servers',
+  },
+  {
+    id: 'cicd-munit-gate',
+    title: 'Green only because the tests were skipped',
+    scenario: 'Lee added POST /returns in returns.xml with no tests. Coverage fell to 61% against the 80% gate and the release was blocked. Yesterday Sam added -DskipMunitTests to release.yml and the workflow went green. Make it green the honest way.',
+    minutes: 12,
+    // every run picks the next free version, so the release the skip let through does not block a later publish
+    patch: { munit: munitProject('gate'), versionStrategy: 'next' },
+    steps: [
+      {
+        title: 'Run the workflow',
+        how: 'Open Release pipeline and press Run workflow. MUnit and coverage passes with a warning.',
+        done: (ctx) => projectRun(ctx.state, (r) => stageIn(r, 'munit')?.issues.some((i) => i.code === 'munit-skipped')),
+      },
+      {
+        title: 'Find what made it green',
+        how: 'Open MUnit tests in the sidebar and click .github/workflows/release.yml in the file list. Read the run lines and the last commit above the editor.',
+        done: (ctx) => sawView(ctx, `file:${WORKFLOW}`),
+      },
+      {
+        title: 'What did -DskipMunitTests do?',
+        ask: 'The MUnit job is green with -DskipMunitTests. What does that green mean?',
+        options: ['Every MUnit test passed', 'No MUnit test ran and the coverage gate was never checked, so it means nothing about the code', 'The tests ran but the coverage report was not written', 'Only the slow tests were skipped'],
+        right: 1,
+        reason: 'Right. skipMunitTests stops the munit-maven-plugin from running at all. No test runs and the coverage gate never sees the new flow. Using it to get a release out is a smell: it hides the problem from everyone who reads a green run.',
+      },
+      {
+        title: 'Remove the skip',
+        how: 'In the editor for release.yml, delete -DskipMunitTests from both run lines: mvn -B clean test, and mvn -B -s .maven/settings.xml clean deploy. The deploy goal runs the test phase too.',
+        done: (ctx) => Boolean(ctx.config.munit) && !workflowCommands(ctx.config.munit).anySkip,
+      },
+      {
+        title: 'Run it again',
+        how: 'Run the workflow. MUnit and coverage now fails: every test passes, and coverage is below the gate.',
+        done: (ctx) => projectRun(ctx.state, (r) => stageIn(r, 'munit')?.status === 'failed' && munitIssue(r, 'munit-coverage')),
+      },
+      {
+        title: 'Read the coverage report',
+        how: 'On the failed run, the MUnit job shows the MUnit report. Press Coverage report and find the resource and the flow at 0.00%.',
+        done: (ctx) => sawView(ctx, 'coverage') && failedWith(ctx.state, 'munit-coverage'),
+      },
+      {
+        title: 'Test the new flow',
+        how: "In MUnit tests, click src/main/mule/returns.xml and press Create test for this flow on create-return-flow. Open src/test/munit/returns-test-suite.xml and replace the commented example with a real assertion, such as <munit-tools:assert-that expression=\"#[payload.status]\" is=\"#[MunitTools::equalTo('RECEIVED')]\"/>. Leave the gate in pom.xml as it is.",
+        done: (ctx) => Boolean(ctx.config.munit) && gateKept(ctx) && testsOf(ctx, 'create-return-flow').some((t) => t.asserts.length > 0),
+      },
+      {
+        title: 'What does coverage measure?',
+        ask: 'A test with no assertion also raised coverage. What does MUnit coverage measure?',
+        options: ['That every test checks the result of the flow', 'The share of processors that ran during the tests. It does not show whether a result was checked or that every input case was tried', 'The share of lines of DataWeave that are correct', 'How many flows have a test suite file'],
+        right: 1,
+        reason: 'Right. Coverage counts the message processors that ran in at least one test. A test that runs a flow and asserts nothing still covers it. Coverage shows what was never run. It does not prove that what ran was checked, so review the assertions as well.',
+      },
+      {
+        title: 'Run it and ship',
+        how: 'Run the workflow. MUnit and coverage should pass, and the run should finish as Passed.',
+        done: (ctx) => projectRun(ctx.state, (r) => stageIn(r, 'munit')?.status === 'passed' && r.result === 'Passed' && !munitIssue(r, 'munit-skipped')),
+      },
+    ],
+    why: 'A coverage gate only protects a release while it runs. Remove a skip flag the moment it appears, test the new flow with real assertions, and keep failBuild and the levels in the POM, so a green run means the code was tested.',
+    docs: MUNIT_DOCS.coverage,
+  },
+  {
+    id: 'cicd-munit-mock',
+    title: 'Passes on my laptop, fails in the pipeline',
+    scenario: 'Dana wrote a test for get-order-flow and it passed on her laptop over the VPN. In GitHub Actions the MUnit job fails with HTTP:CONNECTIVITY. A refactor of the ERP mapping was merged since then.',
+    minutes: 12,
+    patch: { munit: munitProject('mock') },
+    steps: [
+      {
+        title: 'Run the workflow',
+        how: 'Open Release pipeline and press Run workflow. MUnit and coverage fails.',
+        done: (ctx) => projectRun(ctx.state, (r) => stageIn(r, 'munit')?.issues.some((i) => i.code === 'munit-errors' && i.errorTypes?.includes('HTTP:CONNECTIVITY'))),
+      },
+      {
+        title: 'Read the MUnit job',
+        how: 'Open the failed MUnit and coverage job. Read the annotation, the MUnit report and the ERROR lines in the log.',
+        done: (ctx) => sawJob(ctx, 'munit'),
+      },
+      {
+        title: 'Why must a test not call the ERP?',
+        ask: 'The test called the real ERP. Why should a unit test never call a real system?',
+        options: ['Real systems are slower, and that is the only reason', 'The result then depends on the network, the data and the other system being up, and the call can change real data. The runner often cannot reach it at all', 'MUnit cannot call HTTP endpoints', 'Real calls do not count as coverage'],
+        right: 1,
+        reason: 'Right. A unit test should give the same result on any machine. A real call depends on routes, DNS, credentials and data that change, and it can write to a system other people use. The GitHub-hosted runner has no route to erp.harbor.internal, so the test raised HTTP:CONNECTIVITY.',
+      },
+      {
+        title: 'Mock the ERP request',
+        how: "Open MUnit tests and click src/main/mule/orders.xml to read the doc:name and doc:id of Get order from ERP. In src/test/munit/orders-test-suite.xml, inside munit:behavior of get-order-returns-mapped-order, add a munit-tools:mock-when with processor=\"http:request\", a with-attribute on doc:name \"Get order from ERP\" (or its doc:id), and a then-return with <munit-tools:payload value=\"#[{orderId: '1001', status: 'OPEN', amount: 100.00}]\" mediaType=\"application/json\"/>. The get-order-erp-down test shows the same shape.",
+        done: (ctx) => {
+          const t = totalTest(ctx)
+          return Boolean(t?.mocks.some((m) => mockMatches(m, ERP_REQUEST) && m.payload && !m.error && m.where.length > 0))
+        },
+      },
+      {
+        title: 'Run it again',
+        how: 'Run the workflow. The connectivity error is gone. Read the next failure.',
+        done: (ctx) => projectRun(ctx.state, (r) => munitIssue(r, 'munit-failures')),
+      },
+      {
+        title: 'The code or the test?',
+        ask: 'The test says: Expected: <107.5> but: was <100.075>. The ERP amount is 100.00 and Harbor adds 7.5 percent tax. What do you change?',
+        options: ['The test: expect 100.075, since that is what the flow returns', 'The code: the mapping adds 0.075 instead of multiplying by 1.075, and the test states the business rule', 'Mark the test ignore="true" until later', 'Lower requiredApplicationCoverage'],
+        right: 1,
+        reason: 'Right. The test describes the rule: 100.00 plus 7.5 percent is 107.50. The refactor broke the mapping, and the connectivity error had hidden that. Changing the expected value to match the bug would make the test useless.',
+      },
+      {
+        title: 'Fix the mapping',
+        how: 'In MUnit tests, open src/main/resources/dw/map-erp-order.dwl and correct the total line to payload.amount * 1.075. Leave the assertion in the test as it is.',
+        done: (ctx) => Boolean(ctx.config.munit) && totalFrom(ctx.config.munit.files[DWL], 100) === 107.5 && stillExpects(totalTest(ctx)),
+      },
+      {
+        title: 'Mock or spy?',
+        ask: 'What is the difference between mock-when and spy in MUnit?',
+        options: ['They are the same processor with two names', 'mock-when replaces the processor and returns what you define. spy lets the real processor run and checks the event before and after it', 'spy replaces the processor, and mock-when only logs it', 'mock-when works only for HTTP, spy for databases'],
+        right: 1,
+        reason: 'Right. mock-when stops the real processor from running and gives back the payload, attributes or error you set. spy does not replace anything: it runs assertions before and after the real processor. A spy on the ERP request would still call the ERP.',
+      },
+      {
+        title: 'Run it and ship',
+        how: 'Run the workflow. MUnit and coverage should pass and the run should finish as Passed.',
+        done: (ctx) => projectRun(ctx.state, (r) => stageIn(r, 'munit')?.status === 'passed' && r.result === 'Passed'),
+      },
+    ],
+    why: 'Mock every connector a unit test reaches, by doc:id or doc:name, so the test runs the same on a laptop and on a runner. When a mock then exposes a failing assertion, fix the code the test protects, not the test.',
+    docs: MUNIT_DOCS.mock,
   },
 ]
 

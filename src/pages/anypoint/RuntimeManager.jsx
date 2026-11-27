@@ -4,7 +4,9 @@ import {
   RM_SEVERITIES, runNow, RUNTIME_VERSIONS, scheduleText, searchLogs, setRmAlert, setSchedule, stamp, startApp, stopApp, TIME_ZONES, UNIT_NAMES,
 } from '../../lab/platform.js'
 import { packageOf } from '../../lab/platform-packages.js'
+import { gb, replicaIds, sizeOf } from '../../lab/platform-capacity.js'
 import { PRIVATE_SPACE } from '../../lab/platform-project.js'
+import { isRtfTarget, rtfDefaults, rtfEndpoint, rtfTargets, RTF_CPU, RTF_LIMIT, RTF_MEMORY } from '../../lab/platform-rtf.js'
 import { NodeTable, ServersPage } from './Servers.jsx'
 import { Btn, Chart, Check, Dot, Errors, Field, Input, Link, Modal, Note, Select, SideNav, Table, Tabs } from './parts.jsx'
 import { bucketsOf, COLORS } from './charts.js'
@@ -57,7 +59,7 @@ function Applications({ state, go }) {
               <Link onClick={() => go({ app: a.name, tab: 'Dashboard' })}>{a.name}</Link>
             </td>
             <td>{a.target}</td>
-            <td>{a.targetType ?? 'CloudHub 2.0'}</td>
+            <td>{a.targetType ?? (a.rtf ? 'Runtime Fabric' : 'CloudHub 2.0')}</td>
             <td>
               <Dot status={a.status} />
             </td>
@@ -79,7 +81,7 @@ function AppPage({ app, tab, state, update, go }) {
         <span className="pc-grow" />
         {app.status === 'Stopped' ? <Btn onClick={() => update((s) => startApp(s, app.name))}>Start</Btn> : <Btn disabled={app.status === 'Starting'} onClick={() => update((s) => stopApp(s, app.name))}>Stop</Btn>}
       </div>
-      {tab === 'Dashboard' && <Overview app={app} state={state} go={go} />}
+      {tab === 'Dashboard' && <Overview app={app} state={state} update={update} go={go} />}
       {tab === 'Logs' && <Logs app={app} state={state} update={update} />}
       {tab === 'Schedules' && <Schedules app={app} state={state} update={update} />}
       {tab === 'Settings' && <Settings app={app} state={state} update={update} go={go} />}
@@ -203,7 +205,37 @@ function History({ app, state, update, go }) {
   )
 }
 
-function Overview({ app, state, go }) {
+// The replicas of a CloudHub 2.0 application with their size, CPU and memory of the last 10 minutes. The ingress spreads
+// requests round robin, so the lab gives each replica the same share of the load.
+function ReplicaTable({ app, state, update }) {
+  useEffect(() => update((s) => mark(s, `replicas:${app.name}`)), [app.name, update])
+  const size = sizeOf(app.vCores)
+  const cpu = cpuOf(state, app, state.clock - 10 * 60000, state.clock)
+  const heap = heapOf(state, app, state.clock - 10 * 60000, state.clock)
+  return (
+    <>
+      <h3 className="cp-replicas">Replicas</h3>
+      <Table
+      heads={['Replica', 'Status', 'Size', 'CPU', 'Memory']}
+      rows={replicaIds(replicaName(app), app.replicas).map((id) => (
+        <tr key={id}>
+          <td className="pc-mono">{id}</td>
+          <td>
+            <Dot status={app.status} />
+          </td>
+          <td>
+            {app.vCores} vCores, {gb(size.memory)} ({gb(size.heap)} heap)
+          </td>
+          <td className={cpu >= 85 ? 'pc-bad' : ''}>{cpu}%</td>
+          <td className={heap >= 85 ? 'pc-bad' : ''}>{heap}%</td>
+        </tr>
+      ))}
+      />
+    </>
+  )
+}
+
+function Overview({ app, state, update, go }) {
   const b = bucketsOf(state.clock, HOUR * 2, 24)
   const each = (fn) => b.ranges.map(([from, to]) => fn(from, to))
   const target = { app: app.name, env: app.env }
@@ -245,6 +277,7 @@ function Overview({ app, state, go }) {
         )}
       </dl>
       {app.targetType && <NodeTable state={state} app={app} />}
+      {!app.targetType && <ReplicaTable app={app} state={state} update={update} />}
       {app.status === 'Starting' && !app.targetType && (
         <Note>
           {app.serving
@@ -501,9 +534,13 @@ function RuntimeTab({ form, set }) {
         <Field label="Replica Count">
           <Select value={form.replicas} onChange={(n) => set({ replicas: Number(n) })} options={[1, 2, 3, 4, 5, 6, 7, 8]} />
         </Field>
-        <Field label="Replica size">
-          <Select value={form.vCores} onChange={(n) => set({ vCores: Number(n) })} options={REPLICA_SIZES.map((n) => [n, `${n} vCores`])} />
-        </Field>
+        {form.rtf ? (
+          <RtfFields form={form} set={set} />
+        ) : (
+          <Field label="Replica size">
+            <Select value={form.vCores} onChange={(n) => set({ vCores: Number(n) })} options={REPLICA_SIZES.map((n) => [n, `${n} vCores`])} />
+          </Field>
+        )}
       </div>
       <b>Deployment Model</b>
       <div className="pc-pair">
@@ -519,6 +556,11 @@ function RuntimeTab({ form, set }) {
         <Check checked={form.objectStore} onChange={(objectStore) => set({ objectStore })}>
           Use Object Store V2
         </Check>
+        {form.rtf && (
+          <Check checked={form.rtf.spread} onChange={(spread) => set({ rtf: { ...form.rtf, spread } })}>
+            Enforce deploying replicas across nodes
+          </Check>
+        )}
       </div>
     </div>
   )
@@ -553,9 +595,9 @@ function Deploy({ state, update, go }) {
             value={form.targetType ? `${form.targetType}|${form.target}` : form.target}
             onChange={(v) => {
               const [type, name] = v.includes('|') ? v.split('|') : [undefined, v]
-              set({ target: name, targetType: type, ...(name === 'Shared Space' && { publicEndpoint: true }) })
+              set({ target: name, targetType: type, rtf: !type && isRtfTarget(name) ? rtfDefaults() : undefined, ...(name === 'Shared Space' && { publicEndpoint: true }) })
             }}
-            options={[['Shared Space', 'Shared Space, US East (Ohio), CloudHub 2.0'], [PRIVATE_SPACE, `Private Space ${PRIVATE_SPACE}, US East (Ohio)`], ...hybridTargets(state).map((t) => [`${t.type}|${t.name}`, `${t.type}: ${t.name}, your data center`])]}
+            options={[['Shared Space', 'Shared Space, US East (Ohio), CloudHub 2.0'], [PRIVATE_SPACE, `Private Space ${PRIVATE_SPACE}, US East (Ohio)`], ...rtfTargets(state).map((t) => [t.name, `Runtime Fabric: ${t.name}, ${t.vendor} ${t.region}`]), ...hybridTargets(state).map((t) => [`${t.type}|${t.name}`, `${t.type}: ${t.name}, your data center`])]}
           />
         </Field>
         <Field label="Application File" required hint={jars.length === 0 ? 'No files yet. Export an application from Anypoint Studio first.' : chosen ? packageOf(chosen.pkg).note : undefined}>
@@ -564,7 +606,7 @@ function Deploy({ state, update, go }) {
       </div>
       <Tabs tabs={['Runtime', 'Ingress', 'Properties', 'Logging']} value={tab} onChange={setTab} />
       {tab === 'Runtime' && (form.targetType ? <HybridRuntime /> : <RuntimeTab form={form} set={set} />)}
-      {tab === 'Ingress' && (form.targetType ? <HybridIngress app={{ name: form.name, env: state.env, targetType: form.targetType }} /> : <Ingress app={{ name: form.name, env: state.env }} target={form.target} on={form.publicEndpoint} onChange={(publicEndpoint) => set({ publicEndpoint })} />)}
+      {tab === 'Ingress' && (form.targetType ? <HybridIngress app={{ name: form.name, env: state.env, targetType: form.targetType }} /> : form.rtf ? <RtfIngress app={{ name: form.name, env: state.env, rtf: form.rtf }} form={form} set={set} /> : <Ingress app={{ name: form.name, env: state.env }} target={form.target} on={form.publicEndpoint} onChange={(publicEndpoint) => set({ publicEndpoint })} />)}
       {tab === 'Properties' && <Properties rows={rows} onChange={setRows} />}
       {tab === 'Logging' && <LoggingTab />}
       <Errors list={errors} />
@@ -596,6 +638,38 @@ const Ingress = ({ app, target, on, onChange }) => (
     </Check>
   </div>
 )
+// Runtime Fabric: the resources of each replica, as on the deploy page of a Runtime Fabric target
+function RtfFields({ form, set }) {
+  const put = (patch) => set({ rtf: { ...form.rtf, ...patch }, ...(patch.cpu !== undefined && { vCores: patch.cpu }) })
+  return (
+    <>
+      <Field label="vCores reserved" hint="The CPU request of each replica. The scheduler places a replica only on a node that still has this much unreserved.">
+        <Select value={form.rtf.cpu} onChange={(n) => put({ cpu: Number(n) })} options={RTF_CPU.map((n) => [n, `${n} vCores`])} />
+      </Field>
+      <Field label="vCore limit" hint="The CPU limit. A replica may burst up to it when the node has spare CPU.">
+        <Select value={form.rtf.limit} onChange={(n) => put({ limit: Number(n) })} options={RTF_LIMIT.map((n) => [n, `${n} vCores`])} />
+      </Field>
+      <Field label="Memory" hint="Memory reserved and its limit for each replica. The Mule heap is a part of it.">
+        <Select value={form.rtf.memory} onChange={(n) => put({ memory: Number(n) })} options={RTF_MEMORY.map((n) => [n, `${n} GB`])} />
+      </Field>
+    </>
+  )
+}
+const RtfIngress = ({ app, form, set }) => (
+  <div className="pc-split">
+    <b>Public endpoint</b>
+    <div>
+      <Check checked={form.publicEndpoint} onChange={(publicEndpoint) => set({ publicEndpoint })}>
+        Use the ingress of {app.rtf.instance}
+      </Check>
+      <p className="pc-dim">{!app.name ? 'Give the application a name first.' : form.publicEndpoint ? rtfEndpoint(app) : 'None. Other apps in the cluster reach it through its Kubernetes service.'}</p>
+    </div>
+    <b>Last-mile security</b>
+    <Check checked={form.rtf.lastMile} onChange={(lastMile) => set({ rtf: { ...form.rtf, lastMile } })}>
+      Enable last-mile security
+    </Check>
+  </div>
+)
 const HybridRuntime = () => (
   <div className="pc-split">
     <b>Runtime</b>
@@ -618,7 +692,7 @@ const LoggingTab = () => (
 )
 
 function Settings({ app, state, update, go }) {
-  const [form, setForm] = useState({ channel: app.channel, version: app.version, java: app.java, replicas: app.replicas, vCores: app.vCores, model: app.model, cluster: app.cluster, objectStore: app.objectStore, publicEndpoint: app.publicEndpoint !== false })
+  const [form, setForm] = useState({ channel: app.channel, version: app.version, java: app.java, replicas: app.replicas, vCores: app.vCores, model: app.model, cluster: app.cluster, objectStore: app.objectStore, publicEndpoint: app.publicEndpoint !== false, ...(app.rtf && { rtf: app.rtf }) })
   const [rows, setRows] = useState(() => rowsOf(app.props, app.secrets))
   const [tab, setTab] = useState('Properties')
   const [jar, setJar] = useState(app.jar)
@@ -644,7 +718,7 @@ function Settings({ app, state, update, go }) {
       </div>
       <Tabs tabs={['Runtime', 'Ingress', 'Properties', 'Logging']} value={tab} onChange={setTab} />
       {tab === 'Runtime' && (app.targetType ? <HybridRuntime /> : <RuntimeTab form={form} set={set} />)}
-      {tab === 'Ingress' && (app.targetType ? <HybridIngress app={app} /> : <Ingress app={app} target={app.target} on={form.publicEndpoint} onChange={(publicEndpoint) => set({ publicEndpoint })} />)}
+      {tab === 'Ingress' && (app.targetType ? <HybridIngress app={app} /> : form.rtf ? <RtfIngress app={app} form={form} set={set} /> : <Ingress app={app} target={app.target} on={form.publicEndpoint} onChange={(publicEndpoint) => set({ publicEndpoint })} />)}
       {tab === 'Properties' && <Properties rows={rows} onChange={setRows} />}
       {tab === 'Logging' && <LoggingTab />}
       <Errors list={errors} />

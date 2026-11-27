@@ -4,6 +4,7 @@ import {
   removeMonAlert, setMonAlert, stamp,
 } from '../../lab/platform.js'
 import { packageOf } from '../../lab/platform-packages.js'
+import { addDashboard, addWidget, DASH_METRICS, deleteDashboard, depthsOf, metricOf, openTrace, removeWidget, setDashboard, tracesOf, viewDashboard, viewDashboards, viewTraces } from '../../lab/platform-observability.js'
 import { bucketsOf, COLORS } from './charts.js'
 import { Btn, Chart, Check, Dot, Errors, Field, Input, Link, Modal, Note, Select, SideNav, Table, Tabs } from './parts.jsx'
 import { LogLines } from './RuntimeManager.jsx'
@@ -19,7 +20,7 @@ export default function Monitoring({ state, update, place, go, openEnv }) {
       <SideNav
         env={state.env}
         onEnv={openEnv}
-        items={[{ title: 'Monitoring' }, ['Built-in dashboards', 'Built-in dashboards'], ['Custom dashboards', 'Custom dashboards', true], ['Alerts', 'Alerts'], ['Functional Monitoring', 'Functional Monitoring', true], null, { title: 'Logs' }, ['Log Search', 'Log Search'], ['Log Points', 'Log Points', true], null, { title: 'Other' }, ['Settings', 'Settings', true]]}
+        items={[{ title: 'Monitoring' }, ['Built-in dashboards', 'Built-in dashboards'], ['Custom dashboards', 'Custom dashboards'], ['Alerts', 'Alerts'], ['Functional Monitoring', 'Functional Monitoring', true], ['Traces', 'Traces'], null, { title: 'Logs' }, ['Log Search', 'Log Search'], ['Log Points', 'Log Points', true], null, { title: 'Other' }, ['Settings', 'Settings', true]]}
         value={page}
         onPick={(p) => go({ page: p })}
       />
@@ -27,6 +28,8 @@ export default function Monitoring({ state, update, place, go, openEnv }) {
         {page === 'Built-in dashboards' && (target ? <Dashboard key={target} state={state} update={update} target={target} go={go} /> : <PickDashboard state={state} go={go} />)}
         {page === 'Alerts' && <Alerts state={state} update={update} />}
         {page === 'Log Search' && <LogSearch state={state} update={update} />}
+        {page === 'Custom dashboards' && <CustomDashboards state={state} update={update} />}
+        {page === 'Traces' && <Traces state={state} update={update} />}
       </main>
     </>
   )
@@ -348,6 +351,229 @@ function LogSearch({ state, update }) {
           <div className="pc-underline">{rows.length} log entries</div>
           <LogLines rows={rows} />
         </>
+      )}
+    </>
+  )
+}
+
+// ---------- custom dashboards (state in platform-observability.js) ----------
+
+function CustomDashboards({ state, update }) {
+  const list = state.observability?.dashboards ?? []
+  const [open, setOpen] = useState(null)
+  const [name, setName] = useState('')
+  const [errors, setErrors] = useState([])
+  useEffect(() => update(viewDashboards), [update])
+  const d = list.find((x) => x.id === open)
+  if (d) return <CustomDashboard key={d.id} state={state} update={update} d={d} back={() => setOpen(null)} />
+  const create = (e) => {
+    e.preventDefault()
+    const r = addDashboard(state, name)
+    setErrors(r.errors)
+    if (r.errors.length) return
+    update((s) => addDashboard(s, name).state)
+    setName('')
+    setOpen(r.id)
+  }
+  return (
+    <>
+      <form className="pc-bar" onSubmit={create}>
+        <Field label="Dashboard name">
+          <Input value={name} onChange={setName} placeholder="Checkout" />
+        </Field>
+        <Btn kind="primary" type="submit">
+          Create Dashboard
+        </Btn>
+      </form>
+      <Errors list={errors} />
+      <Table
+        heads={['Name', 'Charts', 'Created', '']}
+        empty="No custom dashboards yet."
+        rows={list.map((x) => (
+          <tr key={x.id}>
+            <td>
+              <Link onClick={() => setOpen(x.id)}>{x.name}</Link>
+            </td>
+            <td>{x.widgets.length}</td>
+            <td>{dayText(x.created)}</td>
+            <td>
+              <Link onClick={() => update((s) => deleteDashboard(s, x.id))}>Delete</Link>
+            </td>
+          </tr>
+        ))}
+      />
+      <Note>Lab made metric list. In Anypoint Monitoring custom dashboards need the Advanced or Titanium tier, and each chart is built in a query editor.</Note>
+    </>
+  )
+}
+
+function CustomDashboard({ state, update, d, back }) {
+  const apps = state.apps.filter((a) => a.env === state.env)
+  const [app, setApp] = useState(apps[0]?.name ?? '')
+  const [metric, setMetric] = useState('Response time p95')
+  // a dashboard on screen while the clock moves counts as viewed again
+  useEffect(() => update((s) => viewDashboard(s, d.id)), [d.id, state.clock, update])
+  const b = bucketsOf(state.clock, Number(d.range), 30)
+  const pointsOf = (w) => {
+    const a = appNamed(state, w.app)
+    return b.ranges.map(([f, t]) => (w.metric === 'CPU' ? (a ? cpuOf(state, a, f, t) : null) : metricOf(eventsOf(state, { app: w.app, env: state.env }, f, t), w.metric)))
+  }
+  const unit = (m) => (m.startsWith('Response') ? ' ms' : m === 'CPU' ? '%' : '')
+  return (
+    <>
+      <div className="pc-bar">
+        <Btn onClick={back}>Back to dashboards</Btn>
+        <h3 className="pc-grow">{d.name}</h3>
+        <Field label="Time range">
+          <Select value={d.range} onChange={(r) => update((s) => setDashboard(s, d.id, { range: Number(r) }))} options={RANGES} />
+        </Field>
+      </div>
+      <div className="pc-bar">
+        <Field label="Application">
+          <Select value={app} onChange={setApp} options={apps.map((a) => a.name)} />
+        </Field>
+        <Field label="Metric">
+          <Select value={metric} onChange={setMetric} options={DASH_METRICS} />
+        </Field>
+        <Btn kind="primary" disabled={!app} onClick={() => update((s) => addWidget(s, d.id, { metric, app }))}>
+          Add chart
+        </Btn>
+      </div>
+      <div className="pc-charts">
+        {d.widgets.map((w) => (
+          <div key={w.id} className="obs-widget">
+            <Chart title={`${w.metric}, ${w.app}`} labels={b.labels} series={[{ name: w.app, color: w.metric === 'Errors' ? COLORS.red : COLORS.teal, points: pointsOf(w) }]} unit={unit(w.metric)} />
+            <Link onClick={() => update((s) => removeWidget(s, d.id, w.id))}>Remove chart</Link>
+          </div>
+        ))}
+      </div>
+      {d.widgets.length === 0 && <Note>Add a chart: pick an application and a metric.</Note>}
+    </>
+  )
+}
+
+// ---------- traces (lab made view; spans come from platform-observability.js) ----------
+
+function Traces({ state, update }) {
+  const [cid, setCid] = useState('')
+  const [minMs, setMinMs] = useState('')
+  const [filter, setFilter] = useState({ cid: '', minMs: '' })
+  const [open, setOpen] = useState(null)
+  useEffect(() => update(viewTraces), [update])
+  const list = tracesOf(state.observability, filter)
+  const trace = (state.observability?.traces ?? []).find((t) => t.id === open)
+  const show = (t) => {
+    setOpen(t.id)
+    update((s) => openTrace(s, t.id, filter.cid))
+  }
+  if (trace) return <Waterfall trace={trace} back={() => setOpen(null)} />
+  return (
+    <>
+      <form className="pc-bar" onSubmit={(e) => (e.preventDefault(), setFilter({ cid, minMs }))}>
+        <Field label="Correlation ID or trace ID">
+          <Input value={cid} onChange={setCid} placeholder="e705bc54-c7a1-11f1" />
+        </Field>
+        <Field label="Min duration (ms)">
+          <Input value={minMs} onChange={setMinMs} inputMode="numeric" />
+        </Field>
+        <Btn kind="primary" type="submit">
+          Search
+        </Btn>
+      </form>
+      <Table
+        heads={['Start', 'Root', 'Duration', 'Spans', 'Status', 'Correlation ID', 'Trace ID']}
+        empty={state.observability ? 'No traces match. Requests from the API client are always traced.' : 'This lab records no traces.'}
+        rows={list.map((t) => (
+          <tr key={t.id}>
+            <td>{stamp(t.t)}</td>
+            <td>
+              <Link onClick={() => show(t)}>
+                {t.app} {t.op}
+              </Link>
+            </td>
+            <td>{t.ms} ms</td>
+            <td>{t.spans.length}</td>
+            <td>{t.st}</td>
+            <td>
+              <code>{t.cid}</code>
+            </td>
+            <td>
+              <code>{t.id.slice(0, 12)}</code>
+            </td>
+          </tr>
+        ))}
+      />
+      <Note>Lab made page. Mule 4.6 and later export OpenTelemetry spans to a tracing backend that draws this view. The lab keeps the last 50 traces: every request of the API client, and from steady traffic a sample plus every slow or failed one.</Note>
+    </>
+  )
+}
+
+function Waterfall({ trace, back }) {
+  const [pick, setPick] = useState(null)
+  const depth = depthsOf(trace)
+  const total = Math.max(1, trace.ms, ...trace.spans.map((x) => x.at + x.ms))
+  const span = trace.spans.find((x) => x.id === pick)
+  return (
+    <>
+      <div className="pc-bar">
+        <Btn onClick={back}>Back to traces</Btn>
+        <h3 className="pc-grow">
+          {trace.app} {trace.op}, {trace.ms} ms
+        </h3>
+      </div>
+      <dl className="pc-facts">
+        <dt>Trace ID</dt>
+        <dd>
+          <code>{trace.id}</code>
+        </dd>
+        <dt>Correlation ID</dt>
+        <dd>
+          <code>{trace.cid}</code>
+        </dd>
+        <dt>Start</dt>
+        <dd>{stamp(trace.t)}</dd>
+      </dl>
+      <ol className="obs-fall" aria-label="Spans">
+        {trace.spans.map((x) => (
+          <li key={x.id} className={x.id === pick ? 'on' : ''}>
+            <button type="button" onClick={() => setPick(x.id === pick ? null : x.id)} style={{ paddingLeft: `${depth[x.id] * 14 + 4}px` }}>
+              <span className="obs-name">
+                <b>{x.app}</b> {x.op}
+              </span>
+              <span className="obs-track">
+                <i className={`obs-span ${x.kind} ${x.st === 'ERROR' ? 'bad' : ''}`} style={{ left: `${(100 * x.at) / total}%`, width: `${Math.max(0.4, (100 * x.ms) / total)}%` }} />
+              </span>
+              <span className="obs-ms">{x.ms} ms</span>
+            </button>
+          </li>
+        ))}
+      </ol>
+      {span && (
+        <dl className="pc-facts">
+          <dt>Span ID</dt>
+          <dd>
+            <code>{span.id}</code>
+          </dd>
+          <dt>Parent span ID</dt>
+          <dd>
+            <code>{span.p ?? 'none (root span)'}</code>
+          </dd>
+          <dt>Kind</dt>
+          <dd>{span.kind}</dd>
+          <dt>Application</dt>
+          <dd>{span.app}</dd>
+          <dt>Flow</dt>
+          <dd>{span.fl || 'none'}</dd>
+          <dt>Start, duration</dt>
+          <dd>
+            +{span.at} ms, {span.ms} ms
+          </dd>
+          <dt>Status</dt>
+          <dd>
+            {span.st}
+            {span.err ? `, ${span.err}` : ''}
+          </dd>
+        </dl>
       )}
     </>
   )

@@ -1148,3 +1148,174 @@
     width: 44px;
   }
 }
+
+/* ---------- CI/CD: MUnit tests and the MUnit report ---------- */
+.gh-mu-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.gh-mu-facts {
+  display: grid;
+  gap: 4px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.gh-mu-facts code {
+  overflow-wrap: anywhere;
+}
+.gh-mu-skip {
+  padding: 6px 10px;
+  border: 1px solid #d4a72c;
+  border-radius: 6px;
+  background: #fff8c5;
+  color: #6c4400;
+}
+.gh-mu {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  min-height: 360px;
+}
+.gh-mu-files {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 8px;
+  border-right: 1px solid var(--border);
+  background: #f6f8fa;
+}
+.gh-mu-file {
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.gh-mu-file:hover {
+  background: #eaeef2;
+}
+.gh-mu-file.on {
+  background: #ddf4ff;
+  font-weight: 600;
+}
+.gh-mu-pane {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+}
+.gh-mu-commit {
+  margin: 0;
+  color: var(--muted);
+}
+.gh-mu-editor {
+  width: 100%;
+  min-height: 340px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 18px;
+  tab-size: 2;
+  resize: vertical;
+  white-space: pre;
+  overflow: auto;
+}
+.gh-mu-editor:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+.gh-mu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.gh-mu-flows {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gh-mu-flows li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.gh-mu-flows li > .gh-dim {
+  flex: 1;
+}
+.gh-mu-report {
+  overflow: hidden;
+}
+.gh-mu-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.gh-mu-table th,
+.gh-mu-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.gh-mu-table th {
+  color: var(--muted);
+  font-weight: 600;
+}
+.gh-mu-msg {
+  margin-top: 2px;
+  color: #cf222e;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.gh-mu-passed {
+  color: #1a7f37;
+}
+.gh-mu-failed,
+.gh-mu-error {
+  color: #cf222e;
+  font-weight: 600;
+}
+.gh-mu-skipped {
+  color: var(--muted);
+}
+.gh-mu-cov {
+  border-top: 1px solid var(--border);
+}
+.gh-mu-cov > p {
+  margin: 0;
+  padding: 10px 12px;
+}
+.gh-mu-res td {
+  background: #f6f8fa;
+  font-weight: 600;
+}
+.gh-mu-indent {
+  padding-left: 28px !important;
+}
+@media (max-width: 720px) {
+  .gh-mu {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .gh-mu-files {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .gh-mu-table th,
+  .gh-mu-table td {
+    padding: 6px 8px;
+  }
+}

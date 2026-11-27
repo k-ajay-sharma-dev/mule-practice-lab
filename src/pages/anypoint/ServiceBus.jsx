@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import { dateText, mark, timeText } from '../../lab/platform.js'
 import {
-  addPolicy, CLAIMS, connectionString, countsOf, createQueue, createSubscription, createTopic, deleteEntity, deleteRule, DLQ, durationText, entityErrors, explorerReceive, explorerSend, explorerSettle,
+  addEntityPolicy, addPolicy, CLAIMS, connectionString, countsOf, entityConnectionString, entityPoliciesOf, entityPolicyErrors, regenerateEntityKey, removeEntityPolicy, createQueue, createSubscription, createTopic, deleteEntity, deleteRule, DLQ, durationText, entityErrors, explorerReceive, explorerSend, explorerSettle,
   filterError, hostOf, keysOf, MAX_LOCK, namespacesOf, peekMessages, policyErrors, purgeDeadLetters, regenerateKey, removePolicy, resendDeadLetters, resolve, setPolicyClaims, setRule, SIZES_MB, topicCounts, updateEntity, upgradeServiceBus,
 } from '../../lab/platform-servicebus.js'
 import { Check, Copy, Input, Select } from './parts.jsx'
@@ -525,8 +525,8 @@ function CreatePane({ state, ns, form, setForm, onCreate, topic }) {
 
 // ---------- an entity: queue, topic or subscription ----------
 
-const QUEUE_MENU = ['Overview', 'Service Bus Explorer', { title: 'Settings' }, 'Properties']
-const TOPIC_MENU = ['Overview', 'Service Bus Explorer', { title: 'Entities' }, 'Subscriptions', { title: 'Settings' }, 'Properties']
+const QUEUE_MENU = ['Overview', 'Service Bus Explorer', { title: 'Settings' }, 'Shared access policies', 'Properties']
+const TOPIC_MENU = ['Overview', 'Service Bus Explorer', { title: 'Entities' }, 'Subscriptions', { title: 'Settings' }, 'Shared access policies', 'Properties']
 const SUB_MENU = ['Overview', 'Service Bus Explorer', { title: 'Settings' }, 'Properties', 'Rules']
 
 function Entity({ state, update, ns, r, open }) {
@@ -544,6 +544,7 @@ function Entity({ state, update, ns, r, open }) {
       {blade === 'Properties' && <Properties key={r.path} update={update} ns={ns} r={r} />}
       {blade === 'Subscriptions' && <Subscriptions state={state} update={update} ns={ns} t={r.entity} open={(name) => open(`${r.entity.name}/subscriptions/${name}`)} />}
       {blade === 'Rules' && <Rules update={update} ns={ns} r={r} />}
+      {blade === 'Shared access policies' && <EntityPolicies state={state} update={update} ns={ns} r={r} />}
     </Resource>
   )
 }
@@ -1078,6 +1079,77 @@ function Policies({ state, update, ns }) {
         </Pane>
       )}
       {p && <PolicyPane key={p.name} state={state} update={update} ns={ns} p={p} onClose={() => setOpen(null)} />}
+    </>
+  )
+}
+// The policies of one queue or topic: their keys work for this entity only, and the connection string has EntityPath
+function EntityPolicies({ state, update, ns, r }) {
+  const [adding, setAdding] = useState(null)
+  const [open, setOpen] = useState(null)
+  const list = entityPoliciesOf(r.entity)
+  const p = list.find((x) => x.name === open)
+  const addErrors = adding?.tried ? entityPolicyErrors(state, ns.name, r.path, adding.name, adding.claims) : []
+  return (
+    <>
+      <Cmd>
+        <CBtn icon="+" onClick={() => setAdding({ name: '', claims: [] })}>
+          Add
+        </CBtn>
+      </Cmd>
+      <Grid
+        heads={['Policy', 'Claims']}
+        empty={`No policies on ${r.entity.name} yet. The namespace policies also reach it.`}
+        rows={list.map((x) => (
+          <tr key={x.name}>
+            <td>
+              <button type="button" className="sy-az-link" onClick={() => setOpen(x.name)}>
+                {x.name}
+              </button>
+            </td>
+            <td>{x.claims.join(', ')}</td>
+          </tr>
+        ))}
+      />
+      <Info>A policy here works for {r.entity.name} only{r.kind === 'topic' ? ' and its subscriptions' : ''}, which makes it the narrowest key you can give an application. Its connection string ends with EntityPath={r.path}.</Info>
+      {adding && (
+        <Pane
+          title="Add SAS Policy"
+          sub={`${ns.name}/${r.path}`}
+          onClose={() => setAdding(null)}
+          foot={
+            <ABtn primary onClick={() => { if (entityPolicyErrors(state, ns.name, r.path, adding.name, adding.claims).length) return setAdding({ ...adding, tried: true }); update((s) => addEntityPolicy(s, ns.name, r.path, adding.name, adding.claims)); setAdding(null) }}>
+              Create
+            </ABtn>
+          }
+        >
+          <Row label="Policy name">
+            <Input value={adding.name} onChange={(v) => setAdding({ ...adding, name: v })} />
+          </Row>
+          <ClaimChecks claims={adding.claims} onChange={(claims) => setAdding({ ...adding, claims })} />
+          <Errors list={addErrors} />
+        </Pane>
+      )}
+      {p && (
+        <Pane
+          key={p.name}
+          title={`SAS Policy: ${p.name}`}
+          sub={`${ns.name}/${r.path}`}
+          onClose={() => setOpen(null)}
+          foot={<ABtn onClick={() => { update((s) => removeEntityPolicy(s, ns.name, r.path, p.name)); setOpen(null) }}>Delete, apps with this key lose access</ABtn>}
+        >
+          <p>Claims: {p.claims.join(', ')}</p>
+          {['primary', 'secondary'].map((which) => (
+            <div key={which} className="sy-az-key">
+              <div className="sy-az-keyhead">
+                <b>{which === 'primary' ? 'Primary key' : 'Secondary key'}</b>
+                <ABtn onClick={() => update((s) => regenerateEntityKey(s, ns.name, r.path, p.name, which))}>Regenerate {which} key</ABtn>
+              </div>
+              <span className="sy-az-dim">{which === 'primary' ? 'Primary' : 'Secondary'} connection string</span>
+              <Masked value={entityConnectionString(state, ns.name, r.path, p.name, which)} />
+            </div>
+          ))}
+        </Pane>
+      )}
     </>
   )
 }

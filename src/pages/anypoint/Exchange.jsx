@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiStatus, assetGroups, createClient, dayText, LIFECYCLE_MOVES, mark, requestAccess, setLifecycle } from '../../lab/platform.js'
 import { parseRaml } from '../../raml/parse.js'
+import { conformanceOf } from '../../lab/platform-governance.js'
 import { Btn, Copy, Dot, Errors, Field, Input, Link, Modal, Note, Select, SideNav, Table } from './parts.jsx'
 
 export default function Exchange({ state, update, place, go }) {
@@ -70,7 +71,9 @@ function Asset({ group, state, update, go }) {
             <h2>{asset.name}</h2>
             <span className="pc-dim">
               REST API, published {dayText(asset.t)}, asset ID {asset.assetId}
-            </span>
+            </span>{' '}
+            {/* API Governance: the conformance of this version */}
+            {((c) => <span className={`pc-tag gov-tag gov-tag-${c.replace(/\s/g, '-').toLowerCase()}`} title="API Governance">{c}</span>)(conformanceOf(state, asset, parseRaml).status)}
           </div>
           <span className="pc-grow" />
           <Select value={version} onChange={setVersion} options={group.map((a) => [a.version, `${a.version}, ${a.apiVersion}, ${a.lifecycle}`])} aria-label="Version" />

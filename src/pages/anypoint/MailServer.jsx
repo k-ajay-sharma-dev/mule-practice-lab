@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { mark, stamp, timeText } from '../../lab/platform.js'
 import {
-  addAppPassword, DEFAULT_SIZE_LIMIT, defaultMailServer, encodedSize, isDamaged, mailboxCtx, MB, removeAppPassword, samplePdf, attachment, setMailAccount, setMailPort, setMailServer, SYSTEM_FOLDERS, unreadOf, usedOf,
+  accountError, addAppPassword, addMailAccount, DEFAULT_SIZE_LIMIT, defaultMailServer, encodedSize, isDamaged, mailboxCtx, MB, removeAppPassword, samplePdf, attachment, setMailAccount, setMailPort, setMailServer, SYSTEM_FOLDERS, unreadOf, usedOf,
   webAddFolder, webDelete, webExpunge, webFlag, webMove, webOpen, webSend,
 } from '../../lab/platform-mailserver.js'
 import { Btn, Check, Field, Input, Note, Select, Tabs } from './parts.jsx'
@@ -67,7 +67,7 @@ export default function MailServer({ state, update }) {
       {tab === 'Server log' && <ServerLog y={y} />}
       {tab === 'Accounts' && <Accounts state={state} update={update} open={(a) => (setAccount(a), setTab('Mail'))} />}
       {tab === 'Settings' && <Settings state={state} update={update} />}
-      {tab === 'In the Mule app' && <InMule state={state} />}
+      {tab === 'In the Mule app' && <InMule state={state} update={update} />}
     </main>
   )
 }
@@ -362,11 +362,43 @@ function ServerLog({ y }) {
   )
 }
 
+function NewAccount({ y, update }) {
+  const [f, setF] = useState({ address: '', name: '', password: '' })
+  const [error, setError] = useState('')
+  const create = () => {
+    const bad = accountError(y, f.address, f.password)
+    setError(bad ?? '')
+    if (bad) return
+    update((s) => addMailAccount(s, f.address, f.name, f.password))
+    setF({ address: '', name: '', password: '' })
+  }
+  return (
+    <form className="ms-newaccount" onSubmit={(e) => (e.preventDefault(), create())} aria-label="New account">
+      <h3>New account</h3>
+      <Field label="Address" hint={`A local domain: ${y.domains.join(', ')}`}>
+        <Input value={f.address} onChange={(address) => setF({ ...f, address })} placeholder="name@harbor.example" autoComplete="off" />
+      </Field>
+      <Field label="Display name">
+        <Input value={f.name} onChange={(name) => setF({ ...f, name })} />
+      </Field>
+      <Field label="Password" hint="At least 10 characters. People sign in to the webmail with it.">
+        <Input value={f.password} onChange={(password) => setF({ ...f, password })} type="password" autoComplete="new-password" />
+      </Field>
+      <Btn kind="primary" type="submit" disabled={!f.address.trim()}>
+        Create account
+      </Btn>
+      {error && <p className="ms-reply bad">{error}</p>}
+      <p className="pc-dim">A new mailbox has INBOX, Sent and Junk. Create other folders in the webmail, under the folder list.</p>
+    </form>
+  )
+}
+
 function Accounts({ state, update, open }) {
   const y = state.mailServer
   const [names, setNames] = useState({})
   return (
     <section className="ms-accounts" aria-label="Accounts">
+      <NewAccount y={y} update={update} />
       <div className="pc-table-box">
         <table className="pc-table">
           <thead>
@@ -563,7 +595,7 @@ function xmlOf(c, app) {
     )
   return out.join('\n')
 }
-function InMule({ state }) {
+function InMule({ state, update }) {
   const y = state.mailServer
   const [tests, setTests] = useState({})
   const apps = state.apps.filter((a) => configsOf(a, y.host).length)
@@ -573,6 +605,8 @@ function InMule({ state }) {
     const mb = mailboxCtx(s, { name: `${app.name} (test)` })
     const r = c.protocol.startsWith('smtp') ? mb.send(c, { from: c.user, to: c.user, subject: 'Test connection', text: 'Test' }) : mb.list(c, 'INBOX')
     setTests((t) => ({ ...t, [`${app.name}|${c.prefix}`]: r.ok ? 'Test connection successful' : `${r.type}: ${r.error}` }))
+    // a passed test is what a lab step can see; the test itself leaves the server untouched
+    if (r.ok) update((s) => mark(s, `mail-test:${app.name}:${c.prefix}`))
   }
   return (
     <section className="ms-mule" aria-label="In the Mule app">

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { mark, stamp } from '../../lab/platform.js'
 import {
-  addPartitions, COMPATIBILITY, CONFIG_HELP, createTopic, deleteGroup, deleteRecords, endOf, kafkaView, lagOf, produceMessage, registerSchema, resetOffsets, setCompatibility, setTopicConfig, startBroker, startOf, stopBroker, TOPIC_DEFAULTS, topicCount, topicSize,
+  ACL_OPERATIONS, ACL_PATTERNS, ACL_RESOURCES, addAcl, addPartitions, COMPATIBILITY, CONFIG_HELP, createTopic, removeAcl, deleteGroup, deleteRecords, endOf, kafkaView, lagOf, produceMessage, registerSchema, resetOffsets, setCompatibility, setTopicConfig, startBroker, startOf, stopBroker, TOPIC_DEFAULTS, topicCount, topicSize,
 } from '../../lab/platform-kafka.js'
 import { Modal } from './parts.jsx'
 
@@ -160,7 +160,7 @@ export default function KafkaUI({ state, update, place, go }) {
             {section === 'consumers' && !group && <Groups cluster={cluster} to={to} />}
             {section === 'consumers' && group && <Group key={group} cluster={cluster} id={group} run={run} to={to} update={update} />}
             {section === 'schemas' && <Schemas key={place.subject ?? ''} cluster={cluster} run={run} subject={place.subject} to={to} />}
-            {section === 'acls' && <Acls cluster={cluster} />}
+            {section === 'acls' && <Acls cluster={cluster} run={run} />}
           </section>
         </div>
       </div>
@@ -870,15 +870,27 @@ function Schemas({ cluster, run, subject, to }) {
           </tr>
         ))}
       </KfTable>
+      <NewSubject cluster={cluster} run={run} to={to} />
     </>
   )
 }
 
-function Acls({ cluster }) {
+function Acls({ cluster, run }) {
+  const [adding, setAdding] = useState(false)
   return (
     <>
-      <h2>Access Control List</h2>
-      <KfTable heads={['Principal', 'Resource', 'Pattern', 'Host', 'Operation', 'Permission']} empty="No ACLs">
+      <div className="kf-title">
+        <h2>Access Control List</h2>
+        <Btn kind="primary" onClick={() => setAdding(true)}>
+          Create ACL
+        </Btn>
+      </div>
+      {cluster.authorizer ? (
+        <p className="kf-dim">authorizer.class.name=org.apache.kafka.metadata.authorizer.StandardAuthorizer and allow.everyone.if.no.acl.found=false: a principal may do only what an ALLOW entry gives it, and a DENY entry wins. READ, WRITE, DELETE and ALTER include DESCRIBE.</p>
+      ) : (
+        <p className="kf-dim">This cluster has no authorizer, so the ACLs are kept and not enforced.</p>
+      )}
+      <KfTable heads={['Principal', 'Resource', 'Pattern', 'Host', 'Operation', 'Permission', '']} empty="No ACLs">
         {(cluster.acls ?? []).map((a, i) => (
           <tr key={i}>
             <td className="kf-mono">{a.principal}</td>
@@ -889,9 +901,94 @@ function Acls({ cluster }) {
             <td>{a.host}</td>
             <td>{a.operation}</td>
             <td>{a.permission === 'ALLOW' ? <Tag kind="good">ALLOW</Tag> : <Tag kind="bad">DENY</Tag>}</td>
+            <td>
+              <Btn kind="danger" aria-label={`Delete ACL ${i + 1}`} onClick={() => run((s) => removeAcl(s, cluster.name, i))}>
+                Delete
+              </Btn>
+            </td>
           </tr>
         ))}
       </KfTable>
+      {adding && <AddAcl cluster={cluster} run={run} close={() => setAdding(false)} />}
     </>
+  )
+}
+
+function AddAcl({ cluster, run, close }) {
+  const [f, setF] = useState({ principal: 'User:', resource: 'TOPIC', pattern: 'LITERAL', name: '', operation: 'READ', permission: 'ALLOW', host: '*' })
+  const [err, setErr] = useState('')
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
+  const save = () => {
+    const r = run((s) => addAcl(s, cluster.name, f))
+    if (r.ok) close()
+    else setErr(r.text)
+  }
+  const pick = (k, options) => (
+    <select className="kf-input" value={f[k]} onChange={set(k)}>
+      {options.map((o) => (
+        <option key={o}>{o}</option>
+      ))}
+    </select>
+  )
+  return (
+    <Modal
+      title="Create ACL"
+      onClose={close}
+      foot={
+        <div className="kf-foot">
+          <Btn onClick={close}>Cancel</Btn>
+          <Btn kind="primary" onClick={save}>
+            Submit
+          </Btn>
+        </div>
+      }
+    >
+      <div className="kf-form">
+        <Field label="Principal" hint="User: and the SASL user name of the client.">
+          <input className="kf-input" value={f.principal} onChange={set('principal')} />
+        </Field>
+        <Field label="Host">
+          <input className="kf-input" value={f.host} onChange={set('host')} />
+        </Field>
+        <Field label="Resource type">{pick('resource', ACL_RESOURCES)}</Field>
+        <Field label="Pattern type" hint="LITERAL is one name, or * for all. PREFIXED is every name that starts with it.">
+          {pick('pattern', ACL_PATTERNS)}
+        </Field>
+        <Field label="Resource name">
+          <input className="kf-input" value={f.name} onChange={set('name')} placeholder="orders.v1" />
+        </Field>
+        <Field label="Operation">{pick('operation', ACL_OPERATIONS)}</Field>
+        <Field label="Permission">{pick('permission', ['ALLOW', 'DENY'])}</Field>
+      </div>
+      <Err text={err} />
+    </Modal>
+  )
+}
+
+function NewSubject({ cluster, run, to }) {
+  const [f, setF] = useState({ subject: '', schema: '' })
+  const [err, setErr] = useState('')
+  const save = () => {
+    if (!f.subject.trim()) return setErr('Give the subject a name, for example orders.v1-value.')
+    const r = run((s) => registerSchema(s, cluster.name, f.subject.trim(), f.schema))
+    if (r.ok) to({ view: 'schemas', subject: f.subject.trim() })
+    else setErr(r.text)
+  }
+  return (
+    <div className="kf-detail">
+      <div>
+        <b>Create a subject</b>
+        <Field label="Subject" hint="With the TopicNameStrategy the subject of the value is the topic name and -value.">
+          <input className="kf-input" value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} placeholder="orders.v1-value" />
+        </Field>
+        <Field label="Schema (Avro)">
+          <textarea className="kf-input kf-mono" rows={8} aria-label="Schema of the new subject" value={f.schema} onChange={(e) => setF({ ...f, schema: e.target.value })} placeholder='{"type":"record","name":"Order","fields":[{"name":"orderId","type":"string"}]}' />
+        </Field>
+        <Btn kind="primary" onClick={save}>
+          Create subject
+        </Btn>
+        <Err text={err} />
+      </div>
+    </div>
   )
 }

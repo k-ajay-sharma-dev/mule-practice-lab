@@ -1098,7 +1098,8 @@ function VersionPane({ state, update, v, name, ver, onClose }) {
   )
 }
 
-const principals = (state, v) => [...new Set([...state.apps.map((a) => a.name), ...Object.keys(v.access), ...Object.keys(v.roles)])]
+// the deployed apps, the app registrations a lab made before its app is deployed, and who already has access
+const principals = (state, v) => [...new Set([...state.apps.map((a) => a.name), ...(state.systems?.principals ?? []), ...Object.keys(v.access), ...Object.keys(v.roles)])]
 function Policies({ state, update, v }) {
   const [edit, setEdit] = useState(null) // { principal, perms, isNew }
   if (v.model !== ACCESS_MODELS[0])
@@ -1116,7 +1117,7 @@ function Policies({ state, update, v }) {
         rows={Object.entries(v.access).map(([p, perms]) => (
           <tr key={p}>
             <td>{p}</td>
-            <td>{state.apps.some((a) => a.name === p) ? 'Application' : 'Group'}</td>
+            <td>{state.apps.some((a) => a.name === p) || (state.systems?.principals ?? []).includes(p) ? 'Application' : 'Group'}</td>
             <td>{perms.map(cap).join(', ')}</td>
             <td className="sy-az-acts">
               <button type="button" className="sy-az-link" onClick={() => setEdit({ principal: p, perms })}>

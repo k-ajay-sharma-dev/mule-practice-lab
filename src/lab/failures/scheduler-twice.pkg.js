@@ -5,7 +5,7 @@ const BASE = Date.UTC(2026, 10, 2) // the same day zero as the lab clock
 const INVOICES = 120
 const SUFFIXES = ['x2k9p', 'm7q4d', 'c8v1n', 'r3t6w', 'h5j2s', 'p9b4k', 'f1z8g', 'w6y3e']
 // the first name is the one the platform writes when the replica starts
-const replicaOf = (app, i) => `${app.name.slice(0, 18)}-${(app.name.length * 7919 + app.config * 31).toString(16).slice(0, 5)}-${SUFFIXES[i % SUFFIXES.length]}`
+const replicaOf = (app, i) => `${app.name.slice(0, 18)}-${(app.name.length * 7919 + (app.podConfig ?? app.config) * 31).toString(16).slice(0, 5)}-${SUFFIXES[i % SUFFIXES.length]}`
 const dayOf = (now) => new Date(BASE + now).toISOString().slice(0, 10)
 
 export const PACKAGES = {

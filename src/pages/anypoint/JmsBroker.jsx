@@ -5,8 +5,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { mark, stamp } from '../../lab/platform.js'
 import {
-  appsOn, ARTEMIS, boxOfConsumer, brokerOf, brokersOf, CLASSIC, configOf, connOfConsumer, consumersOf, createDestination, deleteDestination, deleteMessage, deleteSubscription, heldBy, inFlightOf, isDlq, liveConns, masterOf,
-  messageView, moveAll, moveMessage, parseUrl, policyOf, purgeQueue, queueBytes, restartNode, retryMessage, sendTo, setConfig, sizeText, subActive, subQueueName, subsOf, upgradeJms, usageOf,
+  addAuthEntry, addPolicyEntry, addUser, appsOn, ARTEMIS, authOf, boxOfConsumer, brokerOf, brokersOf, CLASSIC, configOf, connOfConsumer, consumersOf, createDestination, deleteDestination, deleteMessage, deleteSubscription, heldBy, inFlightOf, isDlq, liveConns, masterOf,
+  messageView, moveAll, moveMessage, parseUrl, policyOf, purgeQueue, queueBytes, removeAuthEntry, removeUser, restartNode, retryMessage, sendTo, setConfig, sizeText, subActive, subQueueName, subsOf, upgradeJms, usageOf, usersOf,
 } from '../../lab/platform-jms.js'
 import { Note } from './parts.jsx'
 
@@ -172,7 +172,7 @@ function Classic({ state, b, view, place, to, run, result, update }) {
         )}
         {view === 'scheduled' && (b.config.schedulerSupport ? <p>No scheduled messages.</p> : <p className="amq-warn">Scheduler not started!</p>)}
         {view === 'send' && <Send key={`${place.dest ?? ''}${place.type ?? ''}`} b={b} run={run} dest={place.dest} type={place.type} />}
-        {view === 'users' && <Users b={b} />}
+        {view === 'users' && <Users b={b} run={run} />}
         {view === 'config' && <Config b={b} run={run} />}
         {view === 'mule' && <Mule state={state} b={b} />}
       </section>
@@ -634,41 +634,96 @@ function Send({ b, run, dest, type }) {
 
 // ---------- lab pages for both ----------
 
-function Users({ b }) {
+function Users({ b, run }) {
   const classic = b.kind === CLASSIC
+  const users = usersOf(b)
+  const auth = authOf(b)
+  const waiting = Boolean(b.pending?.users || b.pending?.auth)
+  const [u, setU] = useState({ name: '', password: '', groups: '' })
+  const [e, setE] = useState({ type: 'queue', match: '', read: '', write: '', admin: '' })
+  const setUser = (k) => (ev) => setU({ ...u, [k]: ev.target.value })
+  const setEntry = (k) => (ev) => setE({ ...e, [k]: ev.target.value })
   return (
     <>
       <h2>Users and groups</h2>
       <p className="amq-dim">{classic ? 'The simpleAuthenticationPlugin and authorizationPlugin of activemq.xml.' : 'artemis-users.properties, artemis-roles.properties and the security-settings of broker.xml.'} Passwords are not shown.</p>
-      <T heads={['User', classic ? 'Groups' : 'Roles']}>
-        {Object.entries(b.users).map(([u, x]) => (
-          <tr key={u}>
-            <td>{u}</td>
+      {waiting && <p className="amq-warn">These lists include changes that wait for the next restart of the broker. Until then it uses the old ones.</p>}
+      <T heads={['User', classic ? 'Groups' : 'Roles', '']}>
+        {Object.entries(users).map(([name, x]) => (
+          <tr key={name}>
+            <td>{name}</td>
             <td>{x.groups.join(', ')}</td>
+            <td>{name !== 'admin' && <A onClick={() => run((s) => removeUser(s, b.name, name))}>Remove</A>}</td>
           </tr>
         ))}
       </T>
+      <div className="amq-send">
+        <label>
+          User name <input value={u.name} onChange={setUser('name')} />
+        </label>
+        <label>
+          Password <input type="password" value={u.password} onChange={setUser('password')} autoComplete="new-password" />
+        </label>
+        <label>
+          {classic ? 'Groups' : 'Roles'} (comma separated) <input value={u.groups} onChange={setUser('groups')} />
+        </label>
+        <B kind="primary" onClick={() => run((s) => addUser(s, b.name, u)).ok && setU({ name: '', password: '', groups: '' })}>
+          Add user
+        </B>
+      </div>
       <h3>{classic ? 'authorizationEntries' : 'security-settings'}</h3>
-      <T heads={classic ? ['Type', 'Destination', 'read', 'write', 'admin'] : ['match', 'consume, browse', 'send', 'createAddress, createDurableQueue, deleteDurableQueue, createNonDurableQueue']}>
-        {b.auth.map((e, i) =>
+      <T heads={classic ? ['Type', 'Destination', 'read', 'write', 'admin', ''] : ['match', 'consume, browse', 'send', 'createAddress, createDurableQueue, deleteDurableQueue, createNonDurableQueue', '']}>
+        {auth.map((x, i) =>
           classic ? (
             <tr key={i}>
-              <td>{e.type}</td>
-              <td className="amq-mono">{e.match}</td>
-              <td>{e.read}</td>
-              <td>{e.write}</td>
-              <td>{e.admin}</td>
+              <td>{x.type}</td>
+              <td className="amq-mono">{x.match}</td>
+              <td>{x.read}</td>
+              <td>{x.write}</td>
+              <td>{x.admin}</td>
+              <td>
+                <A onClick={() => run((s) => removeAuthEntry(s, b.name, i))}>Remove</A>
+              </td>
             </tr>
           ) : (
             <tr key={i}>
-              <td className="amq-mono">{e.match}</td>
-              <td>{e.read}</td>
-              <td>{e.write}</td>
-              <td>{e.admin}</td>
+              <td className="amq-mono">{x.match}</td>
+              <td>{x.read}</td>
+              <td>{x.write}</td>
+              <td>{x.admin}</td>
+              <td>
+                <A onClick={() => run((s) => removeAuthEntry(s, b.name, i))}>Remove</A>
+              </td>
             </tr>
           ),
         )}
       </T>
+      <div className="amq-send">
+        {classic && (
+          <label>
+            Type
+            <select value={e.type} onChange={setEntry('type')}>
+              <option value="queue">queue</option>
+              <option value="topic">topic</option>
+            </select>
+          </label>
+        )}
+        <label>
+          {classic ? 'Destination' : 'match'} <input value={e.match} onChange={setEntry('match')} placeholder={classic ? 'ORDERS.IN' : 'ORDERS.#'} />
+        </label>
+        <label>
+          read (groups) <input value={e.read} onChange={setEntry('read')} />
+        </label>
+        <label>
+          write (groups) <input value={e.write} onChange={setEntry('write')} />
+        </label>
+        <label>
+          admin (groups) <input value={e.admin} onChange={setEntry('admin')} />
+        </label>
+        <B kind="primary" onClick={() => run((s) => addAuthEntry(s, b.name, e)).ok && setE({ type: 'queue', match: '', read: '', write: '', admin: '' })}>
+          Add entry
+        </B>
+      </div>
       <p className="amq-dim">{classic ? "Wildcards: '.' separates the parts, '*' is one part, '>' is the rest. A user may act when one of its groups is in a matching entry. Creating a destination on first use needs admin." : "Wildcards: '.' separates words, '*' is one word, '#' any number of words."}</p>
     </>
   )
@@ -685,8 +740,14 @@ function Config({ b, run }) {
     <policyMap>
       <policyEntries>
 ${(c.policies ?? [])
-  .map(
-    (p) => `        <policyEntry queue="${p.match}"${p.memoryLimit ? ` memoryLimit="${p.memoryLimit}"` : ''}>
+  .map((p) =>
+    p.strategy === 'individual'
+      ? `        <policyEntry queue="${p.match}"${p.memoryLimit ? ` memoryLimit="${p.memoryLimit}"` : ''}>
+          <deadLetterStrategy>
+            <individualDeadLetterStrategy queuePrefix="${p.queuePrefix}" useQueueForQueueMessages="true" processNonPersistent="${c.processNonPersistent}" processExpired="${c.processExpired}"${c.dlqExpiration ? ` expiration="${c.dlqExpiration}"` : ''} />
+          </deadLetterStrategy>
+        </policyEntry>`
+      : `        <policyEntry queue="${p.match}"${p.memoryLimit ? ` memoryLimit="${p.memoryLimit}"` : ''}>
           <deadLetterStrategy>
             <sharedDeadLetterStrategy processNonPersistent="${c.processNonPersistent}" processExpired="${c.processExpired}"${c.dlqExpiration ? ` expiration="${c.dlqExpiration}"` : ''}>
               <deadLetterQueue><queue physicalName="${p.deadLetterQueue}" /></deadLetterQueue>
@@ -772,8 +833,45 @@ ${(c.addressSettings ?? [])
       <B kind="primary" onClick={save} disabled={(classic ? [f.storeMb, f.memoryMb, f.dlqDays] : [f.maxDel]).some((v) => String(v).trim() === '' || !Number.isFinite(Number(v)))}>
         Save
       </B>
+      {classic && <PolicyForm b={b} run={run} />}
       <pre className="amq-pre">{xml}</pre>
       <p className="amq-dim">{classic ? 'Classic reads activemq.xml when it starts, so a change applies after a restart (Home, Nodes). Sizes are lab-made, far below a real broker.' : 'Artemis reloads address settings while it runs (configuration-file-refresh-period). The disk size is lab-made.'}</p>
+    </>
+  )
+}
+
+// a policyEntry for some queues, with its dead letter strategy
+function PolicyForm({ b, run }) {
+  const [f, setF] = useState({ match: '', strategy: 'individual', queuePrefix: 'DLQ.', deadLetterQueue: '' })
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
+  return (
+    <>
+      <h3>Add a policyEntry</h3>
+      <div className="amq-send">
+        <label>
+          queue <input value={f.match} onChange={set('match')} placeholder="ORDERS.>" />
+        </label>
+        <label>
+          Dead letter strategy
+          <select value={f.strategy} onChange={set('strategy')}>
+            <option value="individual">individualDeadLetterStrategy, one DLQ per queue</option>
+            <option value="shared">sharedDeadLetterStrategy, one DLQ for all</option>
+          </select>
+        </label>
+        {f.strategy === 'individual' ? (
+          <label>
+            queuePrefix <input value={f.queuePrefix} onChange={set('queuePrefix')} placeholder="ActiveMQ.DLQ.Queue." />
+          </label>
+        ) : (
+          <label>
+            deadLetterQueue <input value={f.deadLetterQueue} onChange={set('deadLetterQueue')} placeholder="ActiveMQ.DLQ" />
+          </label>
+        )}
+      </div>
+      <B kind="primary" onClick={() => run((s) => addPolicyEntry(s, b.name, f))}>
+        Add policyEntry
+      </B>
+      <p className="amq-dim">The most exact match wins. With individualDeadLetterStrategy a message that fails on ORDERS.IN goes to the queuePrefix and the queue name, for example DLQ.ORDERS.IN.</p>
     </>
   )
 }
@@ -898,7 +996,7 @@ function Artemis({ state, b, view, place, to, run, result, update }) {
         {view === 'browse' && <XBrowse key={place.dest} b={b} name={place.dest} run={run} update={update} />}
         {view === 'send' && <Send key={`${place.dest ?? ''}${place.type ?? ''}`} b={b} run={run} dest={place.dest} type={place.type} />}
         {view === 'settings' && <XSettings b={b} />}
-        {view === 'users' && <Users b={b} />}
+        {view === 'users' && <Users b={b} run={run} />}
         {view === 'config' && <Config b={b} run={run} />}
         {view === 'mule' && <Mule state={state} b={b} />}
       </section>

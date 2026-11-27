@@ -556,7 +556,18 @@ export function connectionString(s, ns, policy, which = 'primary') {
   if (!p) return ''
   return `Endpoint=sb://${hostOf(ns)}/;SharedAccessKeyName=${policy};SharedAccessKey=${keyOf(ns, policy, which, p.round[which])}`
 }
-export const keysOf = (ns, p) => ({ primary: keyOf(ns, p.name, 'primary', p.round.primary), secondary: keyOf(ns, p.name, 'secondary', p.round.secondary) })
+export const keysOf = (ns, p, scope = '') => ({ primary: keyOf(ns, `${scope}${p.name}`, 'primary', p.round.primary), secondary: keyOf(ns, `${scope}${p.name}`, 'secondary', p.round.secondary) })
+// A policy on one queue or topic (Settings, Shared access policies of the entity). Its connection string carries
+// EntityPath, and its keys work for that entity only. Old saves have no entity policies: `policies` may be missing.
+export const entityPoliciesOf = (e) => e?.policies ?? []
+const scopeOf = (path) => `${String(path).toLowerCase()}/`
+export function entityConnectionString(s, ns, path, policy, which = 'primary') {
+  const n = namespaceOf(s, ns)
+  const r = n && resolve(n, path)
+  const p = r && entityPoliciesOf(r.entity).find((x) => x.name === policy)
+  if (!p) return ''
+  return `Endpoint=sb://${hostOf(ns)}/;SharedAccessKeyName=${policy};SharedAccessKey=${keysOf(ns, p, scopeOf(r.path))[which]};EntityPath=${r.path}`
+}
 
 export function parseConnectionString(text) {
   const parts = {}
@@ -577,10 +588,16 @@ function access(s, conn, path, claim) {
   if (!c.ok) return c
   const ns = namespacesOf(s).find((n) => hostOf(n.name) === c.host)
   if (!ns) return ERR.noNamespace(c.host)
-  const p = ns.policies.find((x) => x.name === c.keyName)
-  const keys = p && keysOf(ns.name, p)
-  if (!p || (c.key !== keys.primary && c.key !== keys.secondary)) return ERR.signature()
   const target = path || c.entityPath
+  // a namespace policy, or a policy of the entity named in EntityPath, which reaches that entity only
+  const scoped = !ns.policies.some((x) => x.name === c.keyName) && c.entityPath ? resolve(ns, c.entityPath) : null
+  const p = scoped ? entityPoliciesOf(scoped.entity).find((x) => x.name === c.keyName) : ns.policies.find((x) => x.name === c.keyName)
+  const keys = p && keysOf(ns.name, p, scoped ? scopeOf(scoped.path) : '')
+  if (!p || (c.key !== keys.primary && c.key !== keys.secondary)) return ERR.signature()
+  // lab wording: Azure refuses a token of one entity on another one as unauthorized
+  const reached = scoped && resolve(ns, target)?.path.toLowerCase()
+  // a topic policy reaches the subscriptions of the topic too
+  if (scoped && reached !== scoped.path.toLowerCase() && !String(reached).startsWith(scopeOf(scoped.path))) return { ...ERR.claim(ns.name, target ?? '', claim), ns }
   const has = p.claims.includes('Manage') || p.claims.includes(claim)
   if (!has) return { ...ERR.claim(ns.name, target ?? '', claim), ns }
   const r = resolve(ns, target)
@@ -614,6 +631,8 @@ export function serviceBusCtx(s, app) {
     run(action[0].toUpperCase() + action.slice(1), conn, path, 'Listen', (r, ns, now) => queueLike(r) ?? settleOn(r.entity, now, token, action, { ...opts, at: now + (opts.elapsedMs ?? 0), dead: r.dead }))
   return {
     parse: parseConnectionString,
+    // what a sender or receiver link checks when it opens: the key and the claim on the entity, nothing sent
+    check: (conn, path, claim) => run(`Open ${claim} link`, conn, path, claim, (r) => ({ ok: true, path: r.path, kind: r.kind })),
     // one message or a list; { body, messageId, sessionId, correlationId, contentType, subject, properties, scheduledEnqueueTime }
     send: (conn, path, messages) =>
       run('Send', conn, path, 'Send', (r, ns, now) => {
@@ -772,6 +791,40 @@ export const removePolicy = (state, ns, name) =>
     n.policies = n.policies.filter((p) => p.name !== name)
     logOp(n, now, 'Delete Authorization Rule', name)
   })
+// Shared access policies of one queue or topic
+export function entityPolicyErrors(s, ns, path, name, claims) {
+  const n = namespaceOf(s, ns)
+  const r = n && resolve(n, path)
+  const e = []
+  if (!r || r.kind === 'subscription') return ['Shared access policies belong to a queue or a topic.']
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/.test(name ?? '')) e.push('The policy name has 1 to 256 characters: letters, numbers, periods, hyphens and underscores.')
+  else if (entityPoliciesOf(r.entity).some((p) => lower(p.name) === lower(name))) e.push(`A policy named ${name} exists already.`)
+  if (!claims.length) e.push('Select at least one claim.')
+  if (claims.includes('Manage') && !(claims.includes('Send') && claims.includes('Listen'))) e.push('Manage requires Send and Listen.')
+  return e
+}
+export const addEntityPolicy = (state, ns, path, name, claims) =>
+  edit(state, ns, (n, now) => {
+    if (entityPolicyErrors(state, ns, path, name, claims).length) return
+    const r = resolve(n, path)
+    r.entity.policies = [...entityPoliciesOf(r.entity), newPolicy(ns, name, CLAIMS.filter((c) => claims.includes(c)))]
+    logOp(n, now, 'Create or Update Authorization Rule', `${r.path}/${name}`)
+  })
+export const removeEntityPolicy = (state, ns, path, name) =>
+  edit(state, ns, (n, now) => {
+    const r = resolve(n, path)
+    if (!r) return
+    r.entity.policies = entityPoliciesOf(r.entity).filter((p) => p.name !== name)
+    logOp(n, now, 'Delete Authorization Rule', `${r.path}/${name}`)
+  })
+export const regenerateEntityKey = (state, ns, path, name, which) =>
+  edit(state, ns, (n, now) => {
+    const p = entityPoliciesOf(resolve(n, path)?.entity).find((x) => x.name === name)
+    if (!p) return
+    p.round[which]++
+    logOp(n, now, 'Regenerate Keys', `${path}/${name} ${which} key`)
+  })
+
 // A new key. Every app that has the old one gets InvalidSignature until it gets the new one.
 export const regenerateKey = (state, ns, name, which) =>
   edit(state, ns, (n, now) => {
