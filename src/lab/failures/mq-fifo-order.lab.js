@@ -24,7 +24,7 @@ const lab = {
   title: 'Orders that went back to paid after they shipped',
   minutes: 20,
   scenario:
-    'The order system of Harbor Foods publishes three status events for each click and collect order: created, paid and shipped. They go to the standard Anypoint MQ queue order-status. order-status-consumer runs on 2 replicas and writes the status of each order to the order database. Customer service says orders that were collected yesterday show as paid in the customer portal. Monitoring shows no errors. Find out why, stop it, and repair the orders that are wrong.',
+    'The order system of Brightmart publishes three status events for each click and collect order: created, paid and shipped. They go to the standard Anypoint MQ queue order-status. order-status-consumer runs on 2 replicas and writes the status of each order to the order database. Customer service says orders that were collected yesterday show as paid in the customer portal. Monitoring shows no errors. Find out why, stop it, and repair the orders that are wrong.',
   start() {
     const s = newPlatform({
       clock: at(1, 8),
@@ -42,7 +42,7 @@ const lab = {
           to: OPS,
           subject: 'Collected orders show as paid',
           body: 'Order O-5102 was collected by the customer this morning, and the shop scanned it as shipped. The customer portal still says paid, so the customer called us. It is not only this one. About half of the orders of today look the same. The order system itself shows shipped for all of them.',
-          source: 'Harbor Foods Customer Service',
+          source: 'Brightmart Customer Service',
         },
       ],
     })

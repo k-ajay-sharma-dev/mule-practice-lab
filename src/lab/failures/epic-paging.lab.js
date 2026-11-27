@@ -4,8 +4,8 @@ import { app, ask, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { appNamedIn, BASE, browse, KEYSTORE_PASSWORD, MAX_COUNT, newEpic, obsOf, patientByMrn, seedApp, seedKey, TOKEN_URL } from '../platform-epic.js'
 import { VITALS, VITALS_FLOW } from './epic-paging.pkg.js'
 
-const EPIC_APP = 'Harbor Care Vitals'
-const KEY = 'harbor-vitals-2026-10'
+const EPIC_APP = 'Brightmart Care Vitals'
+const KEY = 'brightmart-vitals-2026-10'
 const MRNS = ['203711', '203714', '203715']
 const y = (s) => s.epic ?? {}
 const reg = (s) => appNamedIn(y(s), EPIC_APP)
@@ -53,8 +53,8 @@ function start() {
       {
         t: at(1, 8, 50),
         to: OPS,
-        subject: 'Vital signs missing in Harbor Care',
-        body: `Good morning. Mira Tallon, MRN 203711, has been on the ward at Bayview for two days with vital signs every 6 hours. Harbor Care shows only her 10 newest readings, and the same for Elias Quint (203714) and Rosa Abernath (203715). The trend charts start yesterday evening. Bayview nursing informatics`,
+        subject: 'Vital signs missing in Brightmart Care',
+        body: `Good morning. Mira Tallon, MRN 203711, has been on the ward at Bayview for two days with vital signs every 6 hours. Brightmart Care shows only her 10 newest readings, and the same for Elias Quint (203714) and Rosa Abernath (203715). The trend charts start yesterday evening. Bayview nursing informatics`,
         source: 'Bayview nursing informatics',
       },
     ],
@@ -67,7 +67,7 @@ const lab = {
   group: 'Epic and healthcare',
   title: 'Only the first page of vital signs',
   minutes: 25,
-  scenario: `${VITALS} copies the vital signs of three Harbor Care patients from Epic at Bayview Health every 15 minutes. Every run is green, yet the nurses see only the 10 newest readings per patient. Find what the sync misses, make it read every page, and make it survive the rate limit of Bayview.`,
+  scenario: `${VITALS} copies the vital signs of three Brightmart Care patients from Epic at Bayview Health every 15 minutes. Every run is green, yet the nurses see only the 10 newest readings per patient. Find what the sync misses, make it read every page, and make it survive the rate limit of Bayview.`,
   start,
   steps: [
     { title: 'Read the mail of Bayview', how: 'Open the Inbox from the menu under Lab tools.', done: (s) => Boolean(s.seen.inbox) },

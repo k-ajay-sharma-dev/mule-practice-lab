@@ -4,7 +4,7 @@ import { app, ask, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { DAY, emptyMsgraph, FRAGMENT, guidOf, MAX_FRAGMENT, newItem, newRegistration, newSite, TENANT_ID } from '../platform-msgraph.js'
 import { ARCHIVE } from './graph-upload-session.pkg.js'
 
-const APP_ID = guidOf('reg:harbor-sp-scan-archive')
+const APP_ID = guidOf('reg:brightmart-sp-scan-archive')
 const FOLDER = '2026-11'
 const BIG = [
   ['DN-20261103-0012.pdf', 6712004],
@@ -65,8 +65,8 @@ const lab = {
           t: at(1, 8, 52),
           to: OPS,
           subject: 'Delivery notes missing in SharePoint',
-          body: 'Hello, the delivery notes 0012, 0013 and 0015 of this morning are not in the Delivery notes library, the others are. They are the long multi page ones from the new scanner. The drivers need them for the afternoon run. Harbor warehouse Leeds',
-          source: 'Harbor warehouse Leeds',
+          body: 'Hello, the delivery notes 0012, 0013 and 0015 of this morning are not in the Delivery notes library, the others are. They are the long multi page ones from the new scanner. The drivers need them for the afternoon run. Brightmart warehouse Leeds',
+          source: 'Brightmart warehouse Leeds',
         },
       ],
     })

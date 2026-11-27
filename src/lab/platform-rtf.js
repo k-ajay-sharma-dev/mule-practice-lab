@@ -1,8 +1,8 @@
-// Anypoint Runtime Fabric: a Kubernetes cluster that Harbor runs itself (Amazon EKS), with nodes, pods, resource
+// Anypoint Runtime Fabric: a Kubernetes cluster that Brightmart runs itself (Amazon EKS), with nodes, pods, resource
 // requests and limits, the scheduler, container restarts and Kubernetes events. Pure and import free. Lives in state.rtf.
 //
 // Shape of state.rtf once it is in use (a saved console may hold only the placeholder { created }):
-//   { created, seq, instances: { 'harbor-rtf': { nodes: [{ name, ip, zone, since }], pods: [pod], events: [event] } } }
+//   { created, seq, instances: { 'brightmart-rtf': { nodes: [{ name, ip, zone, since }], pods: [pod], events: [event] } } }
 //   pod   = { name, app, env, config, node (index or null), phase, created, scheduled, started, restarts, streak,
 //             last: { reason, code, started, finished } | null, backoff, why, crash, mem, cpu, prev: [log lines] }
 //   event = { t, last, count, type, reason, obj, ns, msg }
@@ -18,12 +18,12 @@ const BASE = Date.UTC(2026, 10, 2) // the same day zero as platform.js
 const MAX_EVENTS = 60
 const MAX_NODES = 6
 
-export const RTF = 'harbor-rtf'
+export const RTF = 'brightmart-rtf'
 // RTF uses the environment ID as the namespace of the apps of that environment
 export const NAMESPACES = { Sandbox: 'b7c4e2a0-1f6d-4c39-9a8e-5d2f7e61c0a4', Production: '3e9d1c57-8a2b-4f60-b1d4-7c0e95a2f318' }
 const ENV_OF_NS = Object.fromEntries(Object.entries(NAMESPACES).map(([k, v]) => [v, k]))
 // sample versions
-export const INSTANCES = [{ name: RTF, status: 'Active', version: '2.11.4', k8s: 'v1.31.4-eks-0f56d01', vendor: 'Amazon EKS', region: 'us-east-2', envs: ['Sandbox', 'Production'], domain: 'rtf.harbor.lab', ingressClass: 'rtf-nginx' }]
+export const INSTANCES = [{ name: RTF, status: 'Active', version: '2.11.4', k8s: 'v1.31.4-eks-0f56d01', vendor: 'Amazon EKS', region: 'us-east-2', envs: ['Sandbox', 'Production'], domain: 'rtf.brightmart.lab', ingressClass: 'rtf-nginx' }]
 // m5.large: 2 vCPU and 8 GiB. Allocatable is what is left after the kubelet and the system reserve.
 export const NODE = { type: 'm5.large', cpu: 2000, mem: 7725, allocCpu: 1930, allocMem: 7051, pods: 29 }
 export const RTF_CPU = [0.1, 0.2, 0.5, 1, 1.5, 2]
@@ -119,7 +119,7 @@ export const isRtfTarget = (name) => INSTANCES.some((i) => i.name === name)
 export const rtfApps = (state, name = RTF) => (state?.apps ?? []).filter((a) => a.rtf?.instance === name)
 export const podsOf = (state, app, env = 'Sandbox', name = RTF) => (rtfView(state).instances[name]?.pods ?? []).filter((p) => p.app === app && p.env === env)
 // The ingress host of an app. It has the same -lab1a2.sbx. shape as the other endpoints, so apps can call it.
-export const rtfEndpoint = (app) => `https://${app.name}-lab1a2.${app.env === 'Production' ? 'prd' : 'sbx'}.${instanceMeta(app.rtf?.instance)?.domain ?? 'rtf.harbor.lab'}`
+export const rtfEndpoint = (app) => `https://${app.name}-lab1a2.${app.env === 'Production' ? 'prd' : 'sbx'}.${instanceMeta(app.rtf?.instance)?.domain ?? 'rtf.brightmart.lab'}`
 
 const reqOf = (app) => ({ cpu: Math.round((app?.rtf?.cpu ?? 0.5) * 1000), lim: Math.round((app?.rtf?.limit ?? 1) * 1000), mem: Math.round((app?.rtf?.memory ?? 1) * 1024) })
 const systemOn = (i) => [...DAEMONS, ...(PLACED[i] ?? [])]

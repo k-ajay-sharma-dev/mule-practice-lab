@@ -3,7 +3,7 @@
 import { info, muleError, needs, warn } from '../platform-log.js'
 import { errorText, GRAPH_SCOPE, GRAPH_URL, httpMessage, httpType, MIB, tokenFor } from '../platform-msgraph.js'
 
-export const ARCHIVE = 'harbor-sp-scan-archive'
+export const ARCHIVE = 'brightmart-sp-scan-archive'
 export const ARCHIVE_FLOW = 'scan-archive-flow'
 const cfgOf = (p) => ({ tenant: p['azure.tenantId'], clientId: p['azure.clientId'], clientSecret: p['azure.clientSecret'] })
 const el = {

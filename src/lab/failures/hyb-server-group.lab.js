@@ -3,7 +3,7 @@ import { at, callApi, CONTROL_PLANE, createServerSet, deployApp, finishDeploys, 
 import { app, ask, OPS } from '../platform-kit.js'
 
 const APP = 'price-lookup-sapi'
-const GROUP = 'harbor-dc-sbx'
+const GROUP = 'brightmart-dc-sbx'
 const HOSTS = { 'mule-01': 'HBR-MULE-01', 'mule-02': 'HBR-MULE-02' }
 const groupOf = (s) => (s.hybrid?.groups ?? []).find((g) => g.env === 'Sandbox' && Object.keys(HOSTS).every((n) => g.servers.includes(n)))
 const onGroup = (s) => {
@@ -47,7 +47,7 @@ const lab = {
   title: 'One deploy, two servers',
   minutes: 15,
   scenario:
-    'Harbor has two Windows servers in its data center, HBR-MULE-01 and HBR-MULE-02. Both run Mule 4.9.0 and are registered in Sandbox as mule-01 and mule-02. The Harbor load balancer sends traffic for price-lookup-sapi to both. The team wants one deployment in Runtime Manager to land on both servers, and proof that the API keeps answering when one server goes down.',
+    'Brightmart has two Windows servers in its data center, HBR-MULE-01 and HBR-MULE-02. Both run Mule 4.9.0 and are registered in Sandbox as mule-01 and mule-02. The Brightmart load balancer sends traffic for price-lookup-sapi to both. The team wants one deployment in Runtime Manager to land on both servers, and proof that the API keeps answering when one server goes down.',
   start() {
     const s = newPlatform({ clock: at(1, 9), jars: [APP], hybrid: newHybrid([server(HOSTS['mule-01'], 'mule-01'), server(HOSTS['mule-02'], 'mule-02')]) })
     s.mail.push({
@@ -92,12 +92,12 @@ const lab = {
       'What did X-Lab-Server say on the two calls?',
       ['mule-01 both times', 'mule-01, then mule-02', 'Nothing, the header was empty', 'anypoint, because Runtime Manager answers'],
       1,
-      'The Harbor load balancer sends the requests round robin to the servers where the application runs. The answer body names the same server.',
+      'The Brightmart load balancer sends the requests round robin to the servers where the application runs. The answer body names the same server.',
     ),
     ask(
       'Who balances',
       'Which part sends each request to one of the two servers?',
-      ['Runtime Manager', 'The Runtime Manager agent on HBR-MULE-01', 'The load balancer of Harbor in front of the servers', 'The server group itself'],
+      ['Runtime Manager', 'The Runtime Manager agent on HBR-MULE-01', 'The load balancer of Brightmart in front of the servers', 'The server group itself'],
       2,
       'Runtime Manager deploys and monitors; it never carries the requests. Neither a server group nor an on premises cluster has a built in load balancer. You put your own in front.',
     ),
@@ -124,7 +124,7 @@ const lab = {
       done: (s) => outages(s).length > 0 && Boolean(deployedBoth(s)) && liveNodes(s, deployedBoth(s)).length === 2,
     },
   ],
-  why: 'A server group is a set of servers that Runtime Manager treats as one deployment target. One deployment puts the same application on every server, and each runtime runs its own copy, with its own schedulers. The servers must run the same Mule runtime and agent versions, and a server with applications cannot join. Runtime Manager does not carry traffic: Harbor puts its own load balancer in front, so one server can stop while the other answers. Sources: https://docs.mulesoft.com/runtime-manager/server-group-about and https://docs.mulesoft.com/mule-runtime/latest/mule-high-availability-ha-clusters',
+  why: 'A server group is a set of servers that Runtime Manager treats as one deployment target. One deployment puts the same application on every server, and each runtime runs its own copy, with its own schedulers. The servers must run the same Mule runtime and agent versions, and a server with applications cannot join. Runtime Manager does not carry traffic: Brightmart puts its own load balancer in front, so one server can stop while the other answers. Sources: https://docs.mulesoft.com/runtime-manager/server-group-about and https://docs.mulesoft.com/mule-runtime/latest/mule-high-availability-ha-clusters',
   docs: 'https://docs.mulesoft.com/runtime-manager/server-group-about',
   solve(start) {
     let s = mark(mark(mark(start, 'inbox'), `server:${HOSTS['mule-01']}`), `server:${HOSTS['mule-02']}`)

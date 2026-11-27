@@ -104,7 +104,7 @@ const lab = {
     ),
     {
       title: `Sandbox: deploy ${V2_APP}`,
-      how: `Environment Sandbox. Runtime Manager, Deploy application, name ${V2_APP}, file ${JAR.inventory2}, target Private Space harbor-ps, no public endpoint. Paste these properties, which hold the ID of the v2 instance of Sandbox, and add the protected property anypoint.platform.client_secret from Environment information. inventory-sapi keeps running v1.`,
+      how: `Environment Sandbox. Runtime Manager, Deploy application, name ${V2_APP}, file ${JAR.inventory2}, target Private Space brightmart-ps, no public endpoint. Paste these properties, which hold the ID of the v2 instance of Sandbox, and add the protected property anypoint.platform.client_secret from Environment information. inventory-sapi keeps running v1.`,
       code: TEMPLATE('Sandbox'),
       done: (s) => v2Running(s, 'Sandbox'),
     },

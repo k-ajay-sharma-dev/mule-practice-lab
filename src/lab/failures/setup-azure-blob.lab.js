@@ -4,15 +4,15 @@ import { app, ask, sawLogs, until } from '../platform-kit.js'
 import { addContainer, addSecretVersion, createSas, DEFAULT_EGRESS, latestVersion, newContainer, newStorage, newVault, sasState, setNetwork, setVaultAccess, systemsOf } from '../platform-systems.js'
 import { blobName, CUSTOMERS, FLOW, NAME, rejectsName } from './setup-azure-blob.pkg.js'
 
-const ACCOUNT = 'harborexports'
+const ACCOUNT = 'brightmartexports'
 const CONTAINER = 'customer-exports'
 const PREFIX = 'daily'
-const VAULT = 'harbor-kv'
+const VAULT = 'brightmart-kv'
 const SECRET = 'customer-export-sas'
-const OFFICE = '198.51.100.0/24' // lab made: the Harbor office range (a documentation range)
+const OFFICE = '198.51.100.0/24' // lab made: the Brightmart office range (a documentation range)
 const CLIENT_ID = 'lab-app-registration-0042'
 const CLIENT_SECRET = 'lab-practice-client-secret-42' // a practice value of the lab, not a real secret
-const ALERT_TO = 'crm-team@harbor.example'
+const ALERT_TO = 'crm-team@brightmart.example'
 const DAY = 24 * 60 * 60000
 
 const acc = (s) => s.systems?.storage?.[ACCOUNT]
@@ -66,7 +66,7 @@ const alerted = (s) => s.monAlerts.some((x) => x.enabled && x.name_ === NAME && 
 
 const MAIL = {
   t: at(1, 8, 15),
-  to: 'ops@harbor.example',
+  to: 'ops@brightmart.example',
   subject: 'Nightly customer export to Azure Blob',
   body: [
     'Hello integration team,',
@@ -89,7 +89,7 @@ const lab = {
   scenario: `It is 09:00 on Tuesday. The CRM team asks for a nightly export of changed customers to Azure Blob Storage, for the data team. The app ${NAME} is built and its jar is ready. The storage account ${ACCOUNT} and the Key Vault ${VAULT} exist, but nothing is set up for the export: no container, no SAS, no firewall rule, no secret. Done means a test run puts the blob in the container, the bad row lands in a rejects blob, and failures raise an alert. The Inbox has the request.`,
   start() {
     const store = newStorage(ACCOUNT, { network: { mode: 'Selected networks', ips: [OFFICE] }, containers: { 'crm-archive': newContainer({}, { created: at(0, 9) }) } })
-    const vault = newVault(VAULT, { access: { 'Harbor Platform Admins': ['get', 'list', 'set', 'delete', 'recover', 'backup', 'restore'] } })
+    const vault = newVault(VAULT, { access: { 'Brightmart Platform Admins': ['get', 'list', 'set', 'delete', 'recover', 'backup', 'restore'] } })
     const s = newPlatform({ clock: at(1, 8), jars: [NAME], systems: systemsOf({ storage: [store], vaults: [vault], principals: [NAME] }), mail: [MAIL] })
     return until(s, at(1, 9))
   },

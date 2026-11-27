@@ -24,7 +24,7 @@ const ORA_VIEWS = [
 ]
 const START_SQL = {
   sqlserver: "SELECT TOP 10 order_id, customer_id, status, total\nFROM dbo.orders\nWHERE status = 'PAID'\nORDER BY order_id;",
-  oracle: "SELECT SHIPMENT_ID, ORDER_ID, STATUS, CREATED_AT\nFROM HARBOR.SHIPMENTS\nWHERE STATUS = 'BOOKED'\nORDER BY SHIPMENT_ID\nFETCH FIRST 10 ROWS ONLY;",
+  oracle: "SELECT SHIPMENT_ID, ORDER_ID, STATUS, CREATED_AT\nFROM BRIGHTMART.SHIPMENTS\nWHERE STATUS = 'BOOKED'\nORDER BY SHIPMENT_ID\nFETCH FIRST 10 ROWS ONLY;",
 }
 const n = (x) => Math.round(x).toLocaleString('en-US')
 const cell = (v) => (v === null || v === undefined ? 'NULL' : typeof v === 'number' ? String(v) : String(v))
@@ -196,7 +196,7 @@ export default function DbConsole({ state, update, place, go }) {
         </div>
         <footer className="db-status">
           <span>{srv.host}{ora ? `:${srv.port}/${srv.service}` : ` (${srv.version.match(/\d+\.\d+\.\d+\.\d+/)?.[0] ?? ''})`}</span>
-          <span>{ora ? me?.login ?? 'HARBOR_DBA' : `${me?.login ?? 'HARBOR\\dba'} (${me?.id ?? '-'})`}</span>
+          <span>{ora ? me?.login ?? 'BRIGHTMART_DBA' : `${me?.login ?? 'BRIGHTMART\\dba'} (${me?.id ?? '-'})`}</span>
           <span>{srv.database}</span>
           <span>{sqlTime(state.clock).slice(0, 19)}</span>
         </footer>
@@ -232,10 +232,10 @@ function Explorer({ srv, name, to, openTable, place }) {
       <ul>
         <li>
           <span className="db-server">
-            {ora ? `${name} (${srv.service})` : `${srv.host} (SQL Server 16.0, HARBOR\\dba)`}
+            {ora ? `${name} (${srv.service})` : `${srv.host} (SQL Server 16.0, BRIGHTMART\\dba)`}
           </span>
           <ul>
-            <Node k="tables" label={ora ? 'Tables (HARBOR)' : `Databases, ${srv.database}, Tables`}>
+            <Node k="tables" label={ora ? 'Tables (BRIGHTMART)' : `Databases, ${srv.database}, Tables`}>
               {Object.keys(tablesOf(srv)).map((tk) => (
                 <Leaf key={tk} label={tk} on={place.view === 'table' && place.table === tk} onClick={() => openTable(tk)} />
               ))}
@@ -623,7 +623,7 @@ function Security({ srv }) {
       />
       <p className="db-hint">
         {ora
-          ? 'CREATE USER name IDENTIFIED BY "password" PROFILE APP_USERS makes a user. GRANT CREATE SESSION TO name lets it log in, and GRANT SELECT, INSERT ON HARBOR.TABLE TO name gives it one table. ALTER USER name ACCOUNT UNLOCK opens a locked account.'
+          ? 'CREATE USER name IDENTIFIED BY "password" PROFILE APP_USERS makes a user. GRANT CREATE SESSION TO name lets it log in, and GRANT SELECT, INSERT ON BRIGHTMART.TABLE TO name gives it one table. ALTER USER name ACCOUNT UNLOCK opens a locked account.'
           : 'CREATE LOGIN name WITH PASSWORD = \'...\' makes a server login, CREATE USER name FOR LOGIN name maps it into the database, and GRANT SELECT, INSERT ON dbo.table TO name gives it one table. ALTER LOGIN name ENABLE turns a disabled login on.'}
       </p>
       {srv.errorlog.length > 0 && (
@@ -678,7 +678,7 @@ function MuleConfig({ srv }) {
   const pools = poolsOf(srv)
   const cfg = pools[0]?.cfg
   const xml = ora
-    ? `<db:config name="Oracle_Config">\n  <db:oracle-connection host="${srv.host}" port="${srv.port}"\n      user="\${db.user}" password="\${secure::db.password}"\n      serviceName="${srv.service}" transactionIsolation="READ_COMMITTED">\n    <db:pooling-profile maxPoolSize="${cfg?.maxPoolSize ?? 5}" minPoolSize="0" maxWait="${cfg?.maxWait ?? 0}" maxWaitUnit="SECONDS" />\n  </db:oracle-connection>\n</db:config>\n\n<db:select config-ref="Oracle_Config" queryTimeout="\${db.queryTimeout}" fetchSize="1000">\n  <db:sql>SELECT STATUS FROM HARBOR.SHIPMENTS WHERE SHIPMENT_ID = :id</db:sql>\n  <db:input-parameters>#[{ id: attributes.uriParams.id }]</db:input-parameters>\n</db:select>`
+    ? `<db:config name="Oracle_Config">\n  <db:oracle-connection host="${srv.host}" port="${srv.port}"\n      user="\${db.user}" password="\${secure::db.password}"\n      serviceName="${srv.service}" transactionIsolation="READ_COMMITTED">\n    <db:pooling-profile maxPoolSize="${cfg?.maxPoolSize ?? 5}" minPoolSize="0" maxWait="${cfg?.maxWait ?? 0}" maxWaitUnit="SECONDS" />\n  </db:oracle-connection>\n</db:config>\n\n<db:select config-ref="Oracle_Config" queryTimeout="\${db.queryTimeout}" fetchSize="1000">\n  <db:sql>SELECT STATUS FROM BRIGHTMART.SHIPMENTS WHERE SHIPMENT_ID = :id</db:sql>\n  <db:input-parameters>#[{ id: attributes.uriParams.id }]</db:input-parameters>\n</db:select>`
     : `<db:config name="SqlServer_Config">\n  <db:mssql-connection host="${srv.host}" port="${srv.port}"\n      user="\${db.user}" password="\${secure::db.password}"\n      databaseName="${srv.database}" transactionIsolation="NOT_CONFIGURED">\n    <db:pooling-profile maxPoolSize="${cfg?.maxPoolSize ?? 5}" minPoolSize="0" maxWait="${cfg?.maxWait ?? 0}" maxWaitUnit="SECONDS" />\n  </db:mssql-connection>\n</db:config>\n\n<try transactionalAction="ALWAYS_BEGIN" transactionType="LOCAL">\n  <db:update config-ref="SqlServer_Config" queryTimeout="\${db.queryTimeout}">\n    <db:sql>UPDATE dbo.orders SET status = 'REFUND_PENDING' WHERE order_id = :id</db:sql>\n    <db:input-parameters>#[{ id: attributes.uriParams.orderId }]</db:input-parameters>\n  </db:update>\n</try>`
   return (
     <div>

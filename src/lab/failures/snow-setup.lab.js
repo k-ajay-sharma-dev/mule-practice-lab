@@ -6,7 +6,7 @@ import { WMS, WMS_ALERT, WMS_BAD, WMS_JAR } from './snow-setup.pkg.js'
 
 const SVC = 'svc_wms_alerts'
 const GROUP = 'Warehouse Systems'
-const ONCALL = 'wms-oncall@harbor.example'
+const ONCALL = 'wms-oncall@brightmart.example'
 const PASSWORD = 'Wms-Bridge-2611'
 const y = (s) => s.servicenow
 const svc = (s) => userOf(y(s), SVC)
@@ -43,9 +43,9 @@ const MAIL = {
     `4. New incidents go to the group ${GROUP}. One open incident per problem: a repeated alert adds a work note.`,
     `5. An alert without a key must be rejected, not turned into an empty ticket.`,
     `6. Failures of the bridge alert ${ONCALL}.`,
-    'Harbor warehouse operations',
+    'Brightmart warehouse operations',
   ].join('\n\n'),
-  source: 'Harbor warehouse operations',
+  source: 'Brightmart warehouse operations',
 }
 
 const lab = {
@@ -62,7 +62,7 @@ const lab = {
     { title: 'Read the request', how: 'Open the Inbox from the top bar and read the mail of warehouse operations. Note the user, the group, the rule for repeats and who gets the alert.', done: (s) => Boolean(s.seen.inbox) },
     {
       title: 'Create the integration user',
-      how: `ServiceNow from the console menu, User Administration, Users, New. User ID ${SVC}, First name Harbor, Last name WMS Alerts, tick Web service access only, and Submit.`,
+      how: `ServiceNow from the console menu, User Administration, Users, New. User ID ${SVC}, First name Brightmart, Last name WMS Alerts, tick Web service access only, and Submit.`,
       done: userOk,
     },
     {
@@ -130,7 +130,7 @@ const lab = {
   solve(start) {
     let s = mark(start, 'inbox')
     // the New user form has no password field: the password is set on the record, as a learner does
-    s = createUser(s, { user_name: SVC, first_name: 'Harbor', last_name: 'WMS Alerts', web_service_access_only: true }).state
+    s = createUser(s, { user_name: SVC, first_name: 'Brightmart', last_name: 'WMS Alerts', web_service_access_only: true }).state
     s = setRole(s, SVC, REST_ROLE, true).state
     s = setRole(s, SVC, 'sn_incident_write', true).state
     s = setUserFields(s, SVC, { password: PASSWORD }).state

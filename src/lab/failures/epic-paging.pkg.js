@@ -1,5 +1,5 @@
 // The sample application of the epic-paging lab. Imports only platform-log.js and the import free Epic engine, so the
-// engine can load it without a cycle. It copies the vital signs of the Harbor Care patients from Epic.
+// engine can load it without a cycle. It copies the vital signs of the Brightmart Care patients from Epic.
 import { info, line, muleError, warn } from '../platform-log.js'
 import { bearer, epicConfig, httpErrorType, httpFailText, searchAll, tokenFailure } from '../platform-epic.js'
 
@@ -14,7 +14,7 @@ const on = (v) => String(v ?? '').trim().toLowerCase() === 'true'
 
 export const PACKAGES = {
   [VITALS]: {
-    note: `The vital signs sync of Harbor Care. The flow ${VITALS_FLOW} runs every 15 minutes. For each MRN in sync.mrns it finds the patient in Epic at Bayview Health and searches its Observations of category vital-signs with _count sync.pageSize. With sync.followNext true it reads every page through link next; otherwise only the first page. With sync.retryOn429 true it waits the Retry-After of a 429 and tries again, up to 3 times. The access token stays in the object store until a minute before it expires.`,
+    note: `The vital signs sync of Brightmart Care. The flow ${VITALS_FLOW} runs every 15 minutes. For each MRN in sync.mrns it finds the patient in Epic at Bayview Health and searches its Observations of category vital-signs with _count sync.pageSize. With sync.followNext true it reads every page through link next; otherwise only the first page. With sync.retryOn429 true it waits the Retry-After of a 429 and tries again, up to 3 times. The access token stays in the object store until a minute before it expires.`,
     schedules: [{ flow: VITALS_FLOW, type: 'fixed', value: '15', unit: 'minutes', enabled: true }],
     run: {
       [VITALS_FLOW]: (ctx) => {

@@ -8,8 +8,8 @@ import { app, ask, call, called, until } from '../platform-kit.js'
 import { addClientApp, clientApps, createQueue, DEFAULT_LOCK_TTL, DEFAULT_TTL, isFifo } from '../platform-mq.js'
 import { APP, CLIENT, DLQ, MQ_URL, QUEUE } from './setup-anypoint-mq.pkg.js'
 
-const ALERTS = 'returns-support@harbor.example'
-const OPS = 'ops@harbor.example'
+const ALERTS = 'returns-support@brightmart.example'
+const OPS = 'ops@brightmart.example'
 const ATTEMPTS = 3
 
 const queue = (s, name) => s.queues.find((q) => q.name === name)
@@ -42,7 +42,7 @@ const lab = {
   group: 'Databases and queues',
   title: 'Set up the Anypoint MQ integration for return refunds',
   minutes: 30,
-  scenario: `Harbor starts paying refunds for returned goods within the hour. The returns portal hands each return request to ${APP}, which puts it on an Anypoint MQ queue, and the Subscriber of the same app books the refund. The app is built and its jar is ready in Runtime Manager. Anypoint MQ has nothing for it yet: no queue, no dead letter queue and no client app. Set it up from the mail, prove that refunds flow and that a bad request is kept, and make sure the returns team hears about failures.`,
+  scenario: `Brightmart starts paying refunds for returned goods within the hour. The returns portal hands each return request to ${APP}, which puts it on an Anypoint MQ queue, and the Subscriber of the same app books the refund. The app is built and its jar is ready in Runtime Manager. Anypoint MQ has nothing for it yet: no queue, no dead letter queue and no client app. Set it up from the mail, prove that refunds flow and that a bad request is kept, and make sure the returns team hears about failures.`,
   start() {
     const s = newPlatform({
       clock: at(1, 9, 20),
@@ -53,7 +53,7 @@ const lab = {
           to: OPS,
           subject: 'Refunds through Anypoint MQ: what we need',
           body: `Hello, please set up the refund queue in Sandbox (US East).\n\nQueue ${QUEUE}. A refund that fails must be tried ${ATTEMPTS} times in all and then kept in ${DLQ} for us to look at, never dropped. Each refund is on its own: the order between two returns does not matter, and booking the same return twice is caught by the returnId.\n\nThe app needs its own client app in Anypoint MQ, named ${CLIENT}. Broker URL ${MQ_URL}. Treat the client ID and secret as secrets.\n\nAlerts for failed refunds to ${ALERTS}.\n\nMarta, Returns team`,
-          source: 'Harbor Returns',
+          source: 'Brightmart Returns',
         },
       ],
     })

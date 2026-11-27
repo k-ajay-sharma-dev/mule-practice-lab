@@ -1,4 +1,4 @@
-// Shopify: an admin screen of the Harbor web store harbor-goods.myshopify.com. Orders (with a lab-made Create test order),
+// Shopify: an admin screen of the Brightmart web store brightmart-goods.myshopify.com. Orders (with a lab-made Create test order),
 // Products and their inventory per location, Apps (Develop apps: custom apps with Admin API access scopes, API
 // credentials, webhook subscriptions with their deliveries, and a lab-made log of the Admin API calls with their cost),
 // and Settings, Notifications with the webhooks made by hand. The store is a lab tool: one staff account does everything.
@@ -157,7 +157,7 @@ function Products({ y, act }) {
   return (
     <>
       <h2>Products</h2>
-      <p className="shp-dim">Inventory is tracked for each variant at each location. Selling is stopped when a variant is out of stock at Harbor Warehouse.</p>
+      <p className="shp-dim">Inventory is tracked for each variant at each location. Selling is stopped when a variant is out of stock at Brightmart Warehouse.</p>
       <Table
         heads={['Product', 'SKU', 'Status', 'Price', ...y.locations.map((l) => `${l.name}: available`), 'Inventory item']}
         rows={variants(y).map((v) => (
@@ -229,7 +229,7 @@ function Apps({ y, state, act, place }) {
             <Input value={form.name} onChange={(name) => setForm({ ...form, name })} />
           </Field>
           <Field label="App developer" hint="Shopify mails this address about failing webhooks.">
-            <Input value={form.developer} onChange={(developer) => setForm({ ...form, developer })} placeholder="ops@harbor.example" />
+            <Input value={form.developer} onChange={(developer) => setForm({ ...form, developer })} placeholder="ops@brightmart.example" />
           </Field>
           <Btn kind="primary" type="submit">
             Create app

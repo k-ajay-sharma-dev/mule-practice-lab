@@ -7,9 +7,9 @@ import { loginsOf, newOracle, poolsOf, runSql, serverOf, tablesOf, usersOf } fro
 import { DB, EVENTS, JAR, NAME, SHIPMENTS, urlOf } from './setup-oracle.pkg.js'
 
 const USER = 'MULE_TRACK'
-const TEAM = 'logistics-it@harbor.example'
-const HOST = 'ora.harbor.lab'
-const SERVICE = 'HARBORPDB'
+const TEAM = 'logistics-it@brightmart.example'
+const HOST = 'ora.brightmart.lab'
+const SERVICE = 'BRIGHTMARTPDB'
 const URL = `jdbc:oracle:thin:@//${HOST}:1521/${SERVICE}`
 const PASSWORD = 'Track-Lab-2026' // a made-up lab value
 const EVENT = '{"shipmentId":500103,"status":"PICKED_UP","location":"Rotterdam"}'
@@ -52,7 +52,7 @@ const lab = {
   group: 'Databases and queues',
   title: 'Set up the Oracle integration for carrier tracking events',
   minutes: 30,
-  scenario: `Harbor logistics wants the tracking events of its carriers in Oracle, so the shipment pages show where a parcel is. ${NAME} takes each event and writes it into ${EVENTS} and updates the status in ${SHIPMENTS}. The DBA team created the table in the pluggable database ${SERVICE} on ${HOST} and gave you the DBA account for the setup. The app is built and its jar waits in Runtime Manager. Done means: the app logs in as its own user with only the grants it needs, a test event is stored, an event for an unknown shipment is refused, and logistics IT gets an alert on errors. The Inbox has the request.`,
+  scenario: `Brightmart logistics wants the tracking events of its carriers in Oracle, so the shipment pages show where a parcel is. ${NAME} takes each event and writes it into ${EVENTS} and updates the status in ${SHIPMENTS}. The DBA team created the table in the pluggable database ${SERVICE} on ${HOST} and gave you the DBA account for the setup. The app is built and its jar waits in Runtime Manager. Done means: the app logs in as its own user with only the grants it needs, a test event is stored, an event for an unknown shipment is refused, and logistics IT gets an alert on errors. The Inbox has the request.`,
   start() {
     let s = newPlatform({
       clock: at(1, 13),
@@ -63,8 +63,8 @@ const lab = {
           t: at(1, 12, 30),
           to: OPS,
           subject: 'Carrier tracking events into Oracle: please set up',
-          body: `Hello, please set up ${NAME} (the jar is in Runtime Manager).\n\nOracle 19c on ${HOST}, listener port 1521. The tables are in the pluggable database: service name ${SERVICE}. The old batch jobs still use the SID HARBORCDB of the container database; do not copy that.\nUser: ${USER}, profile APP_USERS. The app inserts and reads ${EVENTS} and reads and updates the STATUS of ${SHIPMENTS}. Nothing else.\nThe carriers send about 300 events a minute at peak. Each transaction takes about 10 ms. The app runs on 1 replica. Query timeout 5 seconds.\nAlerts on errors to ${TEAM}.\n\nThanks, Harbor logistics`,
-          source: 'Harbor logistics',
+          body: `Hello, please set up ${NAME} (the jar is in Runtime Manager).\n\nOracle 19c on ${HOST}, listener port 1521. The tables are in the pluggable database: service name ${SERVICE}. The old batch jobs still use the SID BRIGHTMARTCDB of the container database; do not copy that.\nUser: ${USER}, profile APP_USERS. The app inserts and reads ${EVENTS} and reads and updates the STATUS of ${SHIPMENTS}. Nothing else.\nThe carriers send about 300 events a minute at peak. Each transaction takes about 10 ms. The app runs on 1 replica. Query timeout 5 seconds.\nAlerts on errors to ${TEAM}.\n\nThanks, Brightmart logistics`,
+          source: 'Brightmart logistics',
         },
       ],
     })
@@ -81,15 +81,15 @@ const lab = {
     },
     {
       title: 'Grant the session and the two tables, nothing more',
-      how: `Run\nGRANT CREATE SESSION TO ${USER};\nGRANT SELECT, INSERT ON ${EVENTS} TO ${USER};\nGRANT SELECT, UPDATE ON ${SHIPMENTS} TO ${USER};\nNot DBA, not HARBOR_RW, not an ANY TABLE privilege. Without CREATE SESSION the app gets ORA-01045. The Users tab, or SELECT * FROM DBA_TAB_PRIVS WHERE GRANTEE = '${USER}', shows the grants. REVOKE takes back what is too much.`,
+      how: `Run\nGRANT CREATE SESSION TO ${USER};\nGRANT SELECT, INSERT ON ${EVENTS} TO ${USER};\nGRANT SELECT, UPDATE ON ${SHIPMENTS} TO ${USER};\nNot DBA, not BRIGHTMART_RW, not an ANY TABLE privilege. Without CREATE SESSION the app gets ORA-01045. The Users tab, or SELECT * FROM DBA_TAB_PRIVS WHERE GRANTEE = '${USER}', shows the grants. REVOKE takes back what is too much.`,
       done: leastOk,
     },
     ask(
       'Service name or SID',
-      `The old jobs connect with jdbc:oracle:thin:@${HOST}:1521:HARBORCDB. Why should the new app use ${URL}?`,
+      `The old jobs connect with jdbc:oracle:thin:@${HOST}:1521:BRIGHTMARTCDB. Why should the new app use ${URL}?`,
       [
         'They are the same, the colon form is only older',
-        `A SID names one instance. The tables live in the pluggable database ${SERVICE}, which the listener knows as a service, not as a SID. With the SID HARBORCDB the session lands in the root container, where ${USER} does not exist (ORA-01017), and another SID gets ORA-12505. A service name also survives a move to RAC or a standby`,
+        `A SID names one instance. The tables live in the pluggable database ${SERVICE}, which the listener knows as a service, not as a SID. With the SID BRIGHTMARTCDB the session lands in the root container, where ${USER} does not exist (ORA-01017), and another SID gets ORA-12505. A service name also survives a move to RAC or a standby`,
         'The SID form does not support passwords',
         'The service form is faster',
       ],

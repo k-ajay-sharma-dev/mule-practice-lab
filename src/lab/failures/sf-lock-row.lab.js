@@ -15,7 +15,7 @@ function startState() {
   // lab made: the internal batches of Bulk API 2.0 are scaled down from 10,000 to 100 rows, so a small file shows the effect
   const sfState = newSalesforce({ orgs: { Production: newOrg('Production', { bulkChunk: 100 }), Sandbox: newOrg('Sandbox') } })
   const tmp = { clock: at(0, 9), salesforce: sfState }
-  const ids = seedAccounts(tmp, 'Production', STORES.slice(0, ACCOUNTS).map((x, i) => ({ Name: `Larkspur Store ${x}`, Harbor_Customer_Id__c: `HC-${20001 + i}`, Type: 'Customer', BillingCity: x, BillingCountry: 'Norway' }))).map((r) => r.id)
+  const ids = seedAccounts(tmp, 'Production', STORES.slice(0, ACCOUNTS).map((x, i) => ({ Name: `Larkspur Store ${x}`, Brightmart_Customer_Id__c: `HC-${20001 + i}`, Type: 'Customer', BillingCity: x, BillingCountry: 'Norway' }))).map((r) => r.id)
   return { sfState, ids }
 }
 
@@ -31,13 +31,13 @@ const lab = {
       clock: at(1, 9),
       apps: [
         newApp(NAME, {
-          props: { 'salesforce.url': 'https://login.salesforce.com/services/Soap/u/61.0', 'salesforce.username': 'mule.integration@harbor.example', 'contacts.accounts': ids.join(','), 'load.sortByParent': 'false', 'load.retryFailed': 'false' },
+          props: { 'salesforce.url': 'https://login.salesforce.com/services/Soap/u/61.0', 'salesforce.username': 'mule.integration@brightmart.example', 'contacts.accounts': ids.join(','), 'load.sortByParent': 'false', 'load.retryFailed': 'false' },
           secrets: { 'salesforce.password': 'Hrb-Int-Prod-26', 'salesforce.securityToken': 'labTokenProd7x2' },
           store: {},
         }),
       ],
       salesforce: sfState,
-      mail: [{ t: at(1, 9, 50), to: OPS, subject: 'Larkspur contacts missing', body: 'Most staff of the Larkspur stores are still not in Salesforce. Store Nordkai has 8 of its 24 contacts. Harbor sales operations', source: 'Harbor sales operations' }],
+      mail: [{ t: at(1, 9, 50), to: OPS, subject: 'Larkspur contacts missing', body: 'Most staff of the Larkspur stores are still not in Salesforce. Store Nordkai has 8 of its 24 contacts. Brightmart sales operations', source: 'Brightmart sales operations' }],
     })
     return until(s, at(1, 10))
   },
@@ -69,12 +69,12 @@ const lab = {
     ),
     {
       title: 'Retry only the failed rows',
-      how: 'Set load.retryFailed to true and Apply Changes. After a job with failures, the next run reads its failedResults and loads only those rows. Upsert on Harbor_Contact_Id__c makes the retry safe: a row that was saved meanwhile is updated, not duplicated.',
+      how: 'Set load.retryFailed to true and Apply Changes. After a job with failures, the next run reads its failedResults and loads only those rows. Upsert on Brightmart_Contact_Id__c makes the retry safe: a row that was saved meanwhile is updated, not duplicated.',
       done: (s) => running(s) && yes(s, 'load.retryFailed'),
     },
     ask(
       'A retry that is safe',
-      'Why load only the failed rows, and why upsert on Harbor_Contact_Id__c rather than insert?',
+      'Why load only the failed rows, and why upsert on Brightmart_Contact_Id__c rather than insert?',
       ['A retry must always reload the full file', 'The failed rows are the only work left, so a retry is small and fast. Upsert on an External ID makes it idempotent: running a row twice updates it instead of creating a second Contact', 'Insert is not allowed in Bulk API 2.0', 'failedResults deletes the saved rows'],
       1,
       'failedResults holds each failed row with sf__Error, ready to be loaded again. With insert, a retry of a whole file would duplicate every row that worked. Upsert on the key of the source makes any retry safe.',
@@ -86,9 +86,9 @@ const lab = {
         if (!yes(s, 'load.sortByParent') || !yes(s, 'load.retryFailed')) return false
         const a = app(s, NAME)
         const after = jobs(s).filter((j) => timeOf(j.createdDate) > a.updated && j.state === 'JobComplete')
-        const contacts = orgOf(s, 'Production').records.Contact.filter((r) => /^HCT-/.test(r.Harbor_Contact_Id__c ?? ''))
+        const contacts = orgOf(s, 'Production').records.Contact.filter((r) => /^HCT-/.test(r.Brightmart_Contact_Id__c ?? ''))
         const last = a.schedules.find((x) => x.flow === FLOW)?.last
-        return after.some((j) => j.numberRecordsFailed === 0) && new Set(contacts.map((r) => r.Harbor_Contact_Id__c)).size === ACCOUNTS * PER_ACCOUNT && contacts.length === ACCOUNTS * PER_ACCOUNT && Boolean(last?.ok)
+        return after.some((j) => j.numberRecordsFailed === 0) && new Set(contacts.map((r) => r.Brightmart_Contact_Id__c)).size === ACCOUNTS * PER_ACCOUNT && contacts.length === ACCOUNTS * PER_ACCOUNT && Boolean(last?.ok)
       },
     },
   ],

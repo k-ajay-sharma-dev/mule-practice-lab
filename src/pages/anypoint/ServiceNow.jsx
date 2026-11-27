@@ -1,7 +1,7 @@
-// ServiceNow: the instance harbor.service-now.lab in the style of the Next Experience UI. List views with filter
+// ServiceNow: the instance brightmart.service-now.lab in the style of the Next Experience UI. List views with filter
 // conditions and Update selected, forms with history, users and roles, Access Control (ACL), the REST API Explorer,
 // Rate Limit Rules, the Application Registry, Transform Maps, the System Log and the REST transactions. A lab tool: the
-// screen is used as harbor.admin, and the REST API Explorer can run as another user.
+// screen is used as brightmart.admin, and the REST API Explorer can run as another user.
 import { useEffect, useMemo, useState } from 'react'
 import { mark } from '../../lab/platform.js'
 import * as sn from '../../lab/platform-servicenow.js'

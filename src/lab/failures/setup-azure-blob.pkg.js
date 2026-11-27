@@ -10,7 +10,7 @@ export const rejectsName = (prefix, now) => `${String(prefix ?? '').replace(/^\/
 
 // Lab made: the customers that changed yesterday, as the CRM query returns them. One has no valid email.
 export const CUSTOMERS = [
-  ['C-1041', 'Harbor Deli Dublin', 'orders@harbordeli.example'],
+  ['C-1041', 'Maple Deli Dublin', 'orders@mapledeli.example'],
   ['C-1042', 'Quayside Bakery', 'hello@quayside.example'],
   ['C-1043', 'North Pier Cafe', 'not-an-email'],
   ['C-1044', 'Lantern Grocers', 'buying@lantern.example'],

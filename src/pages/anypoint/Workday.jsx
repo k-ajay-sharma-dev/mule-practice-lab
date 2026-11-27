@@ -1,4 +1,4 @@
-// Workday: the Harbor tenant harbor1, as an integration developer (kbrand) sees it. The search box finds tasks and
+// Workday: the Brightmart tenant brightmart1, as an integration developer (kbrand) sees it. The search box finds tasks and
 // workers the way the Workday search does. Workers shows the profile with the business process history, where the
 // effective date and the completed date of each event can differ. Custom reports keeps the reports with their prompts,
 // Enable As Web Service, sharing and the RaaS URL. Integration system users, Security groups (domain security policies

@@ -6,8 +6,8 @@ import { MEDIA_SYNC } from './aws-sts-role.pkg.js'
 
 const USER = 'svc-media-sync'
 const DEV = 'tomas.berg'
-const ROLE = 'harbor-media-reader'
-const BUCKET = 'harbor-product-media'
+const ROLE = 'brightmart-media-reader'
+const BUCKET = 'brightmart-product-media'
 const OLD_KEY = 'AKIA_LAB_0005501'
 const DEV_KEY = { id: 'AKIA_LAB_0005590', secret: 'lab-only/tomas-laptop-5590' }
 
@@ -38,7 +38,7 @@ function account(now) {
     ],
     roles: [{ name: ROLE, created: at(0, 16), maxSession: 3600, desc: 'Read the product images', trust: policyDoc({ Sid: 'Developers', Effect: 'Allow', Principal: { AWS: arnUser(DEV) }, Action: 'sts:AssumeRole' }), policies: { 'read-product-media': policyDoc({ Sid: 'ReadImages', Effect: 'Allow', Action: 's3:GetObject', Resource: arnBucket(BUCKET, 'incoming/*') }, { Sid: 'ListImages', Effect: 'Allow', Action: 's3:ListBucket', Resource: arnBucket(BUCKET) }) } }],
     buckets: [{ name: BUCKET, created: at(-400, 9), objects }],
-    trail: [{ t: at(1, 7), src: 'iam', name: 'UpdateAccessKey', user: 'harbor-key-rotation', arn: arnUser('harbor-key-rotation'), key: '', res: arnUser(USER), code: '', msg: `${OLD_KEY} Inactive: older than 90 days` }],
+    trail: [{ t: at(1, 7), src: 'iam', name: 'UpdateAccessKey', user: 'brightmart-key-rotation', arn: arnUser('brightmart-key-rotation'), key: '', res: arnUser(USER), code: '', msg: `${OLD_KEY} Inactive: older than 90 days` }],
   })
 }
 

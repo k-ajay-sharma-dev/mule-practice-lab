@@ -9,7 +9,7 @@ export const CREATED = 'saved in the order database'
 
 export const PACKAGES = {
   'partner-orders-api': {
-    note: 'The real Partner Orders API. POST /orders saves the order in the order database of Harbor Foods and returns its own order ID.',
+    note: 'The real Partner Orders API. POST /orders saves the order in the order database of Brightmart and returns its own order ID.',
     boot: needs('db.host'),
     sample: { method: 'POST', path: '/orders' },
     handle({ props, now }, req) {

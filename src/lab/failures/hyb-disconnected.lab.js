@@ -22,7 +22,7 @@ const lab = {
   title: 'The server shows Disconnected',
   minutes: 15,
   scenario:
-    'Harbor runs carrier-rates-papi on its Windows server HBR-MULE-01, registered in Sandbox as mule-01. At 07:40 the network team rolled out a new firewall policy in the data center. Since then Runtime Manager shows mule-01 as Disconnected. Callers have not complained. Today you must deploy the new label-print-papi to the same server.',
+    'Brightmart runs carrier-rates-papi on its Windows server HBR-MULE-01, registered in Sandbox as mule-01. At 07:40 the network team rolled out a new firewall policy in the data center. Since then Runtime Manager shows mule-01 as Disconnected. Callers have not complained. Today you must deploy the new label-print-papi to the same server.',
   start() {
     let s = newPlatform({ clock: at(0, 10), jars: [OLD, NEW], hybrid: newHybrid([newServer(HOST, { ip: '10.20.1.11', agent: { env: 'Sandbox', name: NAME } })]) })
     s = finishDeploys(deployApp(s, toServer(OLD)).state)
@@ -58,7 +58,7 @@ const lab = {
     ),
     {
       title: 'Call the running application',
-      how: `API client, ${OLD}, GET /rates. It answers 200 through the Harbor load balancer, with X-Lab-Server: mule-01.`,
+      how: `API client, ${OLD}, GET /rates. It answers 200 through the Brightmart load balancer, with X-Lab-Server: mule-01.`,
       done: (s) => ok(s, OLD),
     },
     ask(
@@ -90,7 +90,7 @@ const lab = {
     ask(
       'Which direction',
       'Which direction does the connection between the agent and Runtime Manager go?',
-      ['From Runtime Manager into the data center', 'From the agent on the server out to Runtime Manager', 'Both directions, on two different ports', 'Through the load balancer of Harbor'],
+      ['From Runtime Manager into the data center', 'From the agent on the server out to Runtime Manager', 'Both directions, on two different ports', 'Through the load balancer of Brightmart'],
       1,
       'The agent makes an outbound HTTPS connection and upgrades it to a secure WebSocket on port 443. Runtime Manager sends its commands back on that open connection.',
     ),

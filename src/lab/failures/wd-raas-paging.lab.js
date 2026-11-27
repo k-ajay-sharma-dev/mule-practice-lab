@@ -31,13 +31,13 @@ const lab = {
   group: 'HR, ITSM and CRM',
   title: 'The worker report that outgrew its timeout',
   minutes: 25,
-  scenario: `${DIRECTORY} copies the active workers of Workday to the staff directory every night at 02:00. It calls the custom report ${REPORT} as RaaS in one request and waits up to 60 seconds. Yesterday afternoon HR loaded the 3,800 workers of the acquired Pier Logistics. This morning the directory has none of them. Find out why, and change the sync so it keeps working as Harbor grows.`,
+  scenario: `${DIRECTORY} copies the active workers of Workday to the staff directory every night at 02:00. It calls the custom report ${REPORT} as RaaS in one request and waits up to 60 seconds. Yesterday afternoon HR loaded the 3,800 workers of the acquired Pier Logistics. This morning the directory has none of them. Find out why, and change the sync so it keeps working as Brightmart grows.`,
   start() {
     const s = newPlatform({
       clock: at(0, 1, 58),
       apps: [
         newApp(DIRECTORY, {
-          props: { 'workday.host': WD_HOST, 'workday.tenant': TENANT, 'workday.username': 'ISU_HARBOR_HCM', 'workday.responseTimeout': '60000', 'raas.owner': 'lhart', 'raas.report': REPORT, 'raas.mode': 'full', 'raas.windowHours': '' },
+          props: { 'workday.host': WD_HOST, 'workday.tenant': TENANT, 'workday.username': 'ISU_BRIGHTMART_HCM', 'workday.responseTimeout': '60000', 'raas.owner': 'lhart', 'raas.report': REPORT, 'raas.mode': 'full', 'raas.windowHours': '' },
           secrets: { 'workday.password': 'Hcm-Lab-Pass-0826' },
           store: {},
         }),
@@ -48,8 +48,8 @@ const lab = {
           t: at(1, 8, 50),
           to: OPS,
           subject: 'Pier Logistics people missing in the staff directory',
-          body: 'Good morning. Since yesterday Workday has the 3,800 people of Pier Logistics, but the staff directory still shows the old head count and none of them. Their managers cannot find their teams. Harbor HR systems',
-          source: 'Harbor HR systems',
+          body: 'Good morning. Since yesterday Workday has the 3,800 people of Pier Logistics, but the staff directory still shows the old head count and none of them. Their managers cannot find their teams. Brightmart HR systems',
+          source: 'Brightmart HR systems',
         },
       ],
     })

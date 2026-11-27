@@ -3,7 +3,7 @@
 import { info, muleError, needs, warn } from '../platform-log.js'
 import { cfgOf } from '../platform-servicenow.js'
 
-export const POS = 'harbor-pos-alert-incidents'
+export const POS = 'brightmart-pos-alert-incidents'
 export const POS_ALERT = JSON.stringify({ ci: 'STORE-0042-POS', check: 'receipt_printer', summary: 'STORE-0042-POS receipt printer offline' })
 const FLOW = 'post:\\alerts:application\\json:pos-alerts-config'
 const el = {
@@ -45,7 +45,7 @@ export const PACKAGES = {
         const message = `CI ${a.ci} came back without support_group. The integration user may not read it, or the CI has no group.`
         return { status: 500, ms: c.ms + f.ms + 10, flow: FLOW, error: 'APP:CI_WITHOUT_GROUP', log: [muleError({ ...el.group, file: POS, type: 'APP:CI_WITHOUT_GROUP', message })], body: '{"message":"Internal server error"}' }
       }
-      const p = sn.table(cfg, 'POST', 'incident', { sysparm_fields: 'number' }, { short_description: a.summary, cmdb_ci: ci.sys_id, correlation_id: key, correlation_display: 'Harbor store monitor', assignment_group: group, category: 'hardware', impact: '2', urgency: '2' })
+      const p = sn.table(cfg, 'POST', 'incident', { sysparm_fields: 'number' }, { short_description: a.summary, cmdb_ci: ci.sys_id, correlation_id: key, correlation_display: 'Brightmart store monitor', assignment_group: group, category: 'hardware', impact: '2', urgency: '2' })
       if (!p.ok) return httpFail(p, el.create, '/api/now/table/incident')
       return { status: 201, ms: c.ms + f.ms + p.ms + 10, flow: FLOW, log: [info(`Alert ${key}: incident ${p.body.result.number} created for group ${group || '(none)'}`)], body: JSON.stringify({ incident: p.body.result.number, status: 'created' }) }
     },

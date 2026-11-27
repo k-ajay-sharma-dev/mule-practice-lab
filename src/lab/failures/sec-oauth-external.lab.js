@@ -20,7 +20,7 @@ const MAIL_IDP = {
     `client applications now get access tokens from our provider with the OAuth 2.0 client credentials grant at ${TOKEN_URL}. Each token is a signed JWT that lives one hour.`,
     `Issuer ${ISSUER}. Signing keys are published at ${JWKS_URL}.`,
     `The audience of tokens for your API is ${AUDIENCE}. Reading needs the scope ${READ}, creating an invoice needs ${WRITE}. Tokens for other APIs carry their own audience.`,
-    'Identity team, Harbor Foods',
+    'Identity team, Brightmart',
   ].join('\n\n'),
   source: 'Identity team',
 }
@@ -33,7 +33,7 @@ const MAIL_REVIEW = {
     '1. A token issued for the payments API (aud api://payments) reads supplier invoices.',
     `2. Reporting Job holds only ${READ} and still created a test invoice with POST /invoices.`,
     'Please fix both today and keep Ledger Sync working.',
-    'Security team, Harbor Foods',
+    'Security team, Brightmart',
   ].join('\n\n'),
   source: 'Security team',
 }
@@ -44,7 +44,7 @@ const lab = {
   title: 'Accept tokens from an external identity provider',
   minutes: 15,
   scenario: [
-    `It is 09:00. ${NAME} of Harbor Foods accepts OAuth 2.0 access tokens from the external identity provider Cobalt Identity. Callers get their tokens with the client credentials grant.`,
+    `It is 09:00. ${NAME} of Brightmart accepts OAuth 2.0 access tokens from the external identity provider Cobalt Identity. Callers get their tokens with the client credentials grant.`,
     'The token check verifies the signature with the JWKS of the provider and the expiry, but the security team found that it lets in tokens it should refuse.',
     'In this lab the application checks the token itself, with properties named after the JWT Validation policy fields, because the gateway of the lab console sends no token to its OAuth and JWT policies.',
     'The API client has no Authorization header either, so each client application in Send as stands for a caller with its own token: Ledger Sync, Reporting Job, Payments Bot and Old Batch.',

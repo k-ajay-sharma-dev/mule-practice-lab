@@ -8,9 +8,9 @@ import { app, ask, call, called, until } from '../platform-kit.js'
 import { addEntityPolicy, createQueue, entityConnectionString, entityPoliciesOf, explorerSend, namespaceOf, newNamespace, SB_TIME } from '../platform-servicebus.js'
 import { APP, LISTEN_POLICY, QUEUE, SEND_POLICY, WORK_MS } from './setup-service-bus.pkg.js'
 
-const NS = 'harbor-bus'
-const ALERTS = 'stores-oncall@harbor.example'
-const OPS = 'ops@harbor.example'
+const NS = 'brightmart-bus'
+const ALERTS = 'stores-oncall@brightmart.example'
+const OPS = 'ops@brightmart.example'
 const HOUR = 60 * MINUTE
 const MAX_DELIVERY = 5
 
@@ -42,7 +42,7 @@ const lab = {
   group: 'Azure Service Bus',
   title: 'Set up the Service Bus integration for click and collect notices',
   minutes: 35,
-  scenario: `Harbor stores start click and collect. When an order is ready at the store, the order API calls ${APP}, which puts a notice on an Azure Service Bus queue, and the listener of the same app sends the customer an SMS and marks the pickup in the store system. The app is built and its jar is ready in Runtime Manager. The namespace ${NS} exists with its RootManageSharedAccessKey and nothing else. Set it up from the mail of the stores team, prove that each customer gets exactly one SMS and that a bad message is kept, and make sure the stores hear about failures.`,
+  scenario: `Brightmart stores start click and collect. When an order is ready at the store, the order API calls ${APP}, which puts a notice on an Azure Service Bus queue, and the listener of the same app sends the customer an SMS and marks the pickup in the store system. The app is built and its jar is ready in Runtime Manager. The namespace ${NS} exists with its RootManageSharedAccessKey and nothing else. Set it up from the mail of the stores team, prove that each customer gets exactly one SMS and that a bad message is kept, and make sure the stores hear about failures.`,
   start() {
     const clock = at(2, 10, 20)
     const s = newPlatform({
@@ -54,8 +54,8 @@ const lab = {
           t: at(2, 10, 15),
           to: OPS,
           subject: 'Click and collect notices on Service Bus',
-          body: `Please set up the pickup notices on ${NS} in Sandbox.\n\nQueue ${QUEUE}, no sessions. Sending the SMS and updating the store system takes up to 40 seconds per notice. A notice that keeps failing is tried ${MAX_DELIVERY} times in all and then kept for us to look at. The order API may send the same notice again within the hour, and a customer must get one SMS per pickup.\n\nThe sending flow gets a key that can only send, the listener a key that can only listen, both on this queue only. Name them ${SEND_POLICY} and ${LISTEN_POLICY}. Never the RootManageSharedAccessKey, and no key in a plain property.\n\nAlerts to ${ALERTS}.\n\nLena, Harbor Stores`,
-          source: 'Harbor Stores',
+          body: `Please set up the pickup notices on ${NS} in Sandbox.\n\nQueue ${QUEUE}, no sessions. Sending the SMS and updating the store system takes up to 40 seconds per notice. A notice that keeps failing is tried ${MAX_DELIVERY} times in all and then kept for us to look at. The order API may send the same notice again within the hour, and a customer must get one SMS per pickup.\n\nThe sending flow gets a key that can only send, the listener a key that can only listen, both on this queue only. Name them ${SEND_POLICY} and ${LISTEN_POLICY}. Never the RootManageSharedAccessKey, and no key in a plain property.\n\nAlerts to ${ALERTS}.\n\nLena, Brightmart Stores`,
+          source: 'Brightmart Stores',
         },
       ],
     })

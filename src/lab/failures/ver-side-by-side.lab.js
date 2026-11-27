@@ -57,7 +57,7 @@ const lab = {
   title: 'Run v1 and v2 of a System API side by side',
   minutes: 35,
   scenario:
-    'The Inventory team renamed the field available to onHand. They published it in Exchange as asset 2.0.0 with API version v2, and the jar is built. The new store tablets of Harbor Foods need it: store-stock-eapi is deployed and waits for v2. order-fulfilment-papi still reads available from v1, and its team has no time to change it this quarter. Release v2 so that the tablets get onHand and the Process API keeps working without a single change.',
+    'The Inventory team renamed the field available to onHand. They published it in Exchange as asset 2.0.0 with API version v2, and the jar is built. The new store tablets of Brightmart need it: store-stock-eapi is deployed and waits for v2. order-fulfilment-papi still reads available from v1, and its team has no time to change it this quarter. Release v2 so that the tablets get onHand and the Process API keeps working without a single change.',
   start() {
     const s = ledProject()
     s.clients.push(structuredClone(TABLET), structuredClone(STORE_CLIENT))

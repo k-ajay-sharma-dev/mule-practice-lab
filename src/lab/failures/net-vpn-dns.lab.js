@@ -4,9 +4,9 @@ import { app, ask, OPS, sawLogs, until } from '../platform-kit.js'
 import { addInternalDomain, addVpnRoute, inCidr, newNetwork, newSpace, newVpn, resolve, spaceOf } from '../platform-network.js'
 import { FLOW, NAME } from './net-vpn-dns.pkg.js'
 
-const SPACE = 'harbor-ps'
-const VPN = 'harbor-dc-vpn'
-const ERP = 'erp.corp.harbor.lab'
+const SPACE = 'brightmart-ps'
+const VPN = 'brightmart-dc-vpn'
+const ERP = 'erp.corp.brightmart.lab'
 const ERP_IP = '10.40.12.30'
 
 const space = (s) => spaceOf(s, SPACE)
@@ -21,7 +21,7 @@ const lab = {
   title: 'The ERP that cannot be found',
   minutes: 20,
   scenario:
-    'harbor-erp-stock-sync runs in the private space harbor-ps and reads stock levels from the ERP in the Harbor data center every 5 minutes, over the VPN harbor-dc-vpn. Over the weekend the ERP team moved the ERP to a new network and asked all apps to use its name instead of the old address. It is Tuesday 09:00. The app was deployed with the new name at 08:00, and the web shop has had no stock update since. The Inbox has the mails.',
+    'brightmart-erp-stock-sync runs in the private space brightmart-ps and reads stock levels from the ERP in the Brightmart data center every 5 minutes, over the VPN brightmart-dc-vpn. Over the weekend the ERP team moved the ERP to a new network and asked all apps to use its name instead of the old address. It is Tuesday 09:00. The app was deployed with the new name at 08:00, and the web shop has had no stock update since. The Inbox has the mails.',
   start() {
     const s = newPlatform({
       clock: at(1, 8),
@@ -53,15 +53,15 @@ const lab = {
           t: at(0, 7),
           to: OPS,
           subject: 'ERP moved to the new data center network',
-          body: `The ERP now runs at ${ERP_IP} in the new network 10.40.0.0/16. Please use the name ${ERP} and not an address. Our DNS servers 10.20.0.53 and 10.20.0.54 answer for corp.harbor.lab. Harbor ERP team`,
-          source: 'Harbor ERP team',
+          body: `The ERP now runs at ${ERP_IP} in the new network 10.40.0.0/16. Please use the name ${ERP} and not an address. Our DNS servers 10.20.0.53 and 10.20.0.54 answer for corp.brightmart.lab. Brightmart ERP team`,
+          source: 'Brightmart ERP team',
         },
         {
           t: at(0, 22, 30),
           to: OPS,
           subject: 'VPN maintenance on our side',
-          body: `Tunnel 2 of ${VPN} is down after the firewall work on our gateway tonight. Tunnel 1 carries the traffic, so nothing should stop. We fix tunnel 2 on Thursday. Harbor network team`,
-          source: 'Harbor network team',
+          body: `Tunnel 2 of ${VPN} is down after the firewall work on our gateway tonight. Tunnel 1 carries the traffic, so nothing should stop. We fix tunnel 2 on Thursday. Brightmart network team`,
+          source: 'Brightmart network team',
         },
       ],
     })
@@ -79,7 +79,7 @@ const lab = {
         'The app needs a public endpoint to use DNS',
       ],
       1,
-      'UnknownHostException comes before any connection: no address was found for the name. The ERP being down would give a timeout or a refused connection. corp.harbor.lab lives only on the company DNS servers, so the space must forward that domain to them over the VPN.',
+      'UnknownHostException comes before any connection: no address was found for the name. The ERP being down would give a timeout or a refused connection. corp.brightmart.lab lives only on the company DNS servers, so the space must forward that domain to them over the VPN.',
     ),
     {
       title: 'Open the DNS settings of the space',
@@ -88,7 +88,7 @@ const lab = {
     },
     {
       title: 'Forward the company domain',
-      how: `On the DNS tab add the internal domain corp.harbor.lab with the DNS servers from the mail of the ERP team, 10.20.0.53 and 10.20.0.54. They sit in 10.20.0.0/16, which the VPN already routes.`,
+      how: `On the DNS tab add the internal domain corp.brightmart.lab with the DNS servers from the mail of the ERP team, 10.20.0.53 and 10.20.0.54. They sit in 10.20.0.0/16, which the VPN already routes.`,
       done: dnsOk,
     },
     ask(
@@ -135,7 +135,7 @@ const lab = {
   docs: 'https://docs.mulesoft.com/cloudhub-2/ps-create-configure-vpn',
   solve(start) {
     let s = mark(mark(start, `logs:${NAME}`), `ps-dns:${SPACE}`)
-    s = addInternalDomain(s, SPACE, 'corp.harbor.lab', ['10.20.0.53', '10.20.0.54']).state
+    s = addInternalDomain(s, SPACE, 'corp.brightmart.lab', ['10.20.0.53', '10.20.0.54']).state
     s = mark(advance(s, MINUTE), `ps-vpn:${SPACE}`)
     s = addVpnRoute(s, SPACE, VPN, '10.40.0.0/16').state
     return advance(s, 9 * MINUTE)

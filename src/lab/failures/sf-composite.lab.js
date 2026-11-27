@@ -15,7 +15,7 @@ const sizeOk = (s) => running(s) && Number.isInteger(per(s)) && per(s) >= 1 && p
 export const orphans = (s, from = -Infinity) => {
   const o = org(s)
   const linked = new Set(recordsOf(o, 'Contact').map((c) => c.AccountId))
-  return recordsOf(o, 'Account').filter((a) => String(a.Harbor_Customer_Id__c ?? '').startsWith('WEB-') && timeOf(a.CreatedDate) > from && !linked.has(a.Id))
+  return recordsOf(o, 'Account').filter((a) => String(a.Brightmart_Customer_Id__c ?? '').startsWith('WEB-') && timeOf(a.CreatedDate) > from && !linked.has(a.Id))
 }
 
 function salesforce() {
@@ -28,20 +28,20 @@ const lab = {
   group: 'Salesforce and SAP',
   title: 'Accounts without contacts after the webshop sync',
   minutes: 25,
-  scenario: `${NAME} saves each new order of the Harbor webshop in Salesforce as an Account, a Contact and an Order, every 15 minutes. It is Tuesday 09:00. Sales sees webshop Accounts with no Contact and no Order, and the Salesforce admin warns that the app makes about four API requests per order. The Black Friday forecast is 30,000 orders a day, and the whole org has 100,000 requests a day.`,
+  scenario: `${NAME} saves each new order of the Brightmart webshop in Salesforce as an Account, a Contact and an Order, every 15 minutes. It is Tuesday 09:00. Sales sees webshop Accounts with no Contact and no Order, and the Salesforce admin warns that the app makes about four API requests per order. The Black Friday forecast is 30,000 orders a day, and the whole org has 100,000 requests a day.`,
   start() {
     let s = newPlatform({
       clock: at(1, 8),
       apps: [
         newApp(NAME, {
-          props: { 'salesforce.url': 'https://login.salesforce.com/services/Soap/u/61.0', 'salesforce.username': 'mule.integration@harbor.example', 'sync.mode': 'per-record', 'composite.allOrNone': 'false', 'composite.ordersPerRequest': '20' },
+          props: { 'salesforce.url': 'https://login.salesforce.com/services/Soap/u/61.0', 'salesforce.username': 'mule.integration@brightmart.example', 'sync.mode': 'per-record', 'composite.allOrNone': 'false', 'composite.ordersPerRequest': '20' },
           secrets: { 'salesforce.password': 'Hrb-Int-Prod-26', 'salesforce.securityToken': 'labTokenProd7x2' },
           store: {},
         }),
       ],
       salesforce: salesforce(),
       mail: [
-        { t: at(1, 8, 50), to: OPS, subject: 'Webshop accounts without contacts', body: 'Several webshop customers from this morning are in Salesforce as an Account only: no Contact, no Order. The webshop says the orders were placed. Also, the webshop sync makes about four API requests per order. At the Black Friday forecast of 30,000 orders a day that is 120,000 requests, more than the 100,000 of the whole org. Harbor Salesforce admin team', source: 'Harbor Salesforce admin team' },
+        { t: at(1, 8, 50), to: OPS, subject: 'Webshop accounts without contacts', body: 'Several webshop customers from this morning are in Salesforce as an Account only: no Contact, no Order. The webshop says the orders were placed. Also, the webshop sync makes about four API requests per order. At the Black Friday forecast of 30,000 orders a day that is 120,000 requests, more than the 100,000 of the whole org. Brightmart Salesforce admin team', source: 'Brightmart Salesforce admin team' },
       ],
     })
     return until(s, at(1, 9))
@@ -55,7 +55,7 @@ const lab = {
     },
     {
       title: 'Find the orphan Accounts',
-      how: "Salesforce, Developer Console. Run SELECT Id, Name, Harbor_Customer_Id__c FROM Account WHERE Harbor_Customer_Id__c LIKE 'WEB-%', then SELECT Id, AccountId FROM Contact WHERE AccountId = 'an Account Id from the log'. The query finds no Contact.",
+      how: "Salesforce, Developer Console. Run SELECT Id, Name, Brightmart_Customer_Id__c FROM Account WHERE Brightmart_Customer_Id__c LIKE 'WEB-%', then SELECT Id, AccountId FROM Contact WHERE AccountId = 'an Account Id from the log'. The query finds no Contact.",
       done: (s) => Boolean(s.seen['sf:soql']),
     },
     ask(
@@ -95,7 +95,7 @@ const lab = {
       done: (s) => {
         if (!compositeOk(s) || !sizeOk(s)) return false
         const since = app(s, NAME).updated
-        const orders = recordsOf(org(s), 'Order').filter((o) => String(o.Harbor_Order_Id__c ?? '').startsWith('W-') && timeOf(o.CreatedDate) > since)
+        const orders = recordsOf(org(s), 'Order').filter((o) => String(o.Brightmart_Order_Id__c ?? '').startsWith('W-') && timeOf(o.CreatedDate) > since)
         return s.clock >= since + 30 * MINUTE && (app(s, NAME).store?.streak ?? 0) >= 2 && orders.length >= 10 && orphans(s, since).length === 0
       },
     },

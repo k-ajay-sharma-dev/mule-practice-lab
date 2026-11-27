@@ -7,8 +7,8 @@ import { granted, loginsOf, newSqlServer, poolsOf, runSql, serverOf, tablesOf, u
 import { DATABASE, DB, JAR, NAME, TABLE } from './setup-sqlserver.pkg.js'
 
 const LOGIN = 'mule_mkt'
-const TEAM = 'marketplace-team@harbor.example'
-const HOST = 'sql.harbor.lab'
+const TEAM = 'marketplace-team@brightmart.example'
+const HOST = 'sql.brightmart.lab'
 const PASSWORD = 'Mkt-Orders-2026' // a made-up lab value
 const ORDER = '{"marketplaceRef":"TM-50001","customerId":"C-101","total":89.5}'
 
@@ -51,14 +51,14 @@ const lab = {
   group: 'Databases and queues',
   title: 'Set up the SQL Server integration for marketplace orders',
   minutes: 35,
-  scenario: `Harbor starts selling on Tidemark Marketplace next Monday. The marketplace team asked for ${NAME}: it takes each marketplace order and writes it into a new SQL Server database, ${DATABASE}, on ${HOST}. The DBA team created the empty database and gave you sysadmin for the setup. The app is built and its jar waits in Runtime Manager. Done means: the app runs with its own login and only the rights it needs, a test order is in the table, a repeated order is stored once, and the team gets an alert on errors. The Inbox has the request.`,
+  scenario: `Brightmart starts selling on Tidemark Marketplace next Monday. The marketplace team asked for ${NAME}: it takes each marketplace order and writes it into a new SQL Server database, ${DATABASE}, on ${HOST}. The DBA team created the empty database and gave you sysadmin for the setup. The app is built and its jar waits in Runtime Manager. Done means: the app runs with its own login and only the rights it needs, a test order is in the table, a repeated order is stored once, and the team gets an alert on errors. The Inbox has the request.`,
   start() {
     const server = newSqlServer(DB, {
       database: DATABASE,
       dbid: 9,
       tables: {},
       // a new database has only dbo; the logins of the server stay
-      users: [{ name: 'dbo', login: 'HARBOR\\dba', schema: 'dbo', roles: ['db_owner'] }],
+      users: [{ name: 'dbo', login: 'BRIGHTMART\\dba', schema: 'dbo', roles: ['db_owner'] }],
     })
     return newPlatform({
       clock: at(1, 9),
@@ -70,7 +70,7 @@ const lab = {
           to: OPS,
           subject: 'Marketplace orders into SQL Server: please set up',
           body: `Hello, we go live on Tidemark Marketplace on Monday. Please set up ${NAME} (the jar is in Runtime Manager).\n\nServer ${HOST}, port 1433, database ${DATABASE}. It is new and empty.\nLogin and user: ${LOGIN}. The app reads, inserts and updates orders. It never deletes and never changes the schema.\nTable ${TABLE}: order_id (our key), marketplace_ref, customer_id, status, total, created_at. The app looks orders up by marketplace_ref.\nThe marketplace sends a webhook again when it gets no 2xx, so the same order can come twice. It must be stored once.\nLoad: about 20 orders a minute at peak, each insert takes a few milliseconds. Query timeout 5 seconds.\nAlerts on errors to ${TEAM}.\n\nThanks, Marketplace team`,
-          source: 'Harbor marketplace team',
+          source: 'Brightmart marketplace team',
         },
       ],
     })

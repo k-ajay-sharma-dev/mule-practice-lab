@@ -3,8 +3,8 @@
 // picks for the query: a scan reads every row of dbo.order_lines, a seek reads the rows of one day.
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const DB = 'harbor-sql'
-export const NAME = 'harbor-nightly-settlement'
+export const DB = 'brightmart-sql'
+export const NAME = 'brightmart-nightly-settlement'
 export const FLOW = 'settlement-flow'
 export const SLOW_SQL = 'SELECT line_id, order_id, sku, qty, amount FROM dbo.order_lines WHERE CONVERT(varchar(10), shipped_at, 23) = :day'
 const WRITE_MS = 1800 // writing the settlement file to the finance share

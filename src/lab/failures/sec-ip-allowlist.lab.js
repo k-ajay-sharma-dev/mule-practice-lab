@@ -38,7 +38,7 @@ const MAIL_SCAN = {
     `our external scanner at 203.0.113.77 calls https://${NAME}-lab1a2.sbx.usa-e2.cloudhub.example/api/stock every few minutes and gets 200 with stock and cost prices. This API is meant for the company network only.`,
     `We saw that an IP Allowlist was added yesterday with ${TEAMMATE_LIST}. It does not stop us. Please fix it today.`,
     `For your network map: the office VPN is ${OFFICE}, the data center is ${DATA_CENTER}, and the public load balancer lb-edge talks to your API from ${LB_IP}.`,
-    'Security team, Harbor Foods',
+    'Security team, Brightmart',
   ].join('\n\n'),
   source: 'Security team',
 }

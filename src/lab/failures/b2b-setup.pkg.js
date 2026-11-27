@@ -2,12 +2,12 @@
 // Imports only platform-log.js, so the engine can load it without a cycle.
 import { info } from '../platform-log.js'
 
-export const NAME = 'harbor-b2b-order-api'
+export const NAME = 'brightmart-b2b-order-api'
 export const FLOW = 'b2b-order-api-flow'
 
 export const PACKAGES = {
   [NAME]: {
-    note: 'The order API of Harbor for EDI partners. Every minute it takes the purchase orders that any Partner Manager flow delivered to it as JSON and creates an order for each one. It does not see the X12: validation and the 997 happen in Partner Manager.',
+    note: 'The order API of Brightmart for EDI partners. Every minute it takes the purchase orders that any Partner Manager flow delivered to it as JSON and creates an order for each one. It does not see the X12: validation and the 997 happen in Partner Manager.',
     schedules: [{ flow: FLOW, type: 'fixed', value: '1', unit: 'minutes', enabled: true }],
     run: {
       [FLOW]: (ctx) => {

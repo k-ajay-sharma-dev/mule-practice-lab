@@ -8,8 +8,8 @@ import { app, ask, call, called, until } from '../platform-kit.js'
 import { addAcl, authorized, createTopic, lagOf, newCluster, newKafka, produceMessage, registerSchema } from '../platform-kafka.js'
 import { ackModeOf, acksOf, BOOTSTRAP, CLUSTER, clusterOf, CONSUMER, CONSUMER_PW, CONSUMER_USER, DLT, GROUP, keyed, PRODUCER, PRODUCER_PW, PRODUCER_USER, resetOf, TOPIC } from './setup-kafka.pkg.js'
 
-const ALERTS = 'warehouse-oncall@harbor.example'
-const OPS = 'ops@harbor.example'
+const ALERTS = 'warehouse-oncall@brightmart.example'
+const OPS = 'ops@brightmart.example'
 const SUBJECT = `${TOPIC}-value`
 const RETENTION = '259200000'
 
@@ -73,7 +73,7 @@ const deadOk = (s) => {
 }
 const alertOk = (s) => s.monAlerts.some((a) => a.enabled && a.name_ === CONSUMER && a.metric === 'Message Error Count' && ((a.operator === 'Above' && Number(a.threshold) === 0) || (a.operator === 'Above or equal to' && Number(a.threshold) === 1)) && String(a.recipients ?? '').includes(ALERTS))
 
-const SCHEMA = JSON.stringify({ type: 'record', name: 'OrderEvent', namespace: 'lab.harbor.orders', fields: [{ name: 'orderId', type: 'string' }, { name: 'customerId', type: 'string' }, { name: 'status', type: 'string' }, { name: 'total', type: 'double' }] })
+const SCHEMA = JSON.stringify({ type: 'record', name: 'OrderEvent', namespace: 'lab.brightmart.orders', fields: [{ name: 'orderId', type: 'string' }, { name: 'customerId', type: 'string' }, { name: 'status', type: 'string' }, { name: 'total', type: 'double' }] })
 
 const lab = {
   id: 'p-setup-kafka',
@@ -94,7 +94,7 @@ const lab = {
           to: OPS,
           subject: 'New integration: order events to the warehouse over Kafka',
           body: `Please set up the order events in Sandbox today.\n\nTopic ${TOPIC} on ${CLUSTER} (bootstrap ${BOOTSTRAP}). The warehouse consumer starts with 3 replicas and may scale to 6 at peak, so give the topic room for that. Replication factor 3, min.insync.replicas 2, keep events 3 days (${RETENTION} ms). Events of one order must stay in order, and no event may be lost when a broker goes down.\n\nEvents the warehouse cannot read go to ${DLT}. One partition is enough there.\n\n${PRODUCER} logs in as ${PRODUCER_USER}. ${CONSUMER} logs in as ${CONSUMER_USER}, consumer group ${GROUP}, and must read the topic from the start the first time. SCRAM passwords from the vault: ${PRODUCER_USER} ${PRODUCER_PW}, ${CONSUMER_USER} ${CONSUMER_PW}. Each user gets only the rights it needs.\n\nRegister the value schema of the topic in the Schema Registry, with orderId as a string.\n\nFailures of the consumer go to ${ALERTS}.\n\nPriya, Integration Architecture`,
-          source: 'Harbor Integration Architecture',
+          source: 'Brightmart Integration Architecture',
         },
       ],
     })

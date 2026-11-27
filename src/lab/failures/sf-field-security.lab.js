@@ -4,7 +4,7 @@ import { app, ask, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { accessOf, fieldOf, INTEGRATION_USER, newOrg, newSalesforce, orgOf, recordsOf, setFieldAccess, userOf } from '../platform-salesforce.js'
 import { LIMITS, NAME } from './sf-field-security.pkg.js'
 
-const PERMSET = 'Harbor_Mule_Account_Sync'
+const PERMSET = 'Brightmart_Mule_Account_Sync'
 const FIELD = 'Account.Credit_Limit__c'
 const props = (s) => ({ ...app(s, NAME)?.props, ...app(s, NAME)?.secrets })
 const running = (s) => app(s, NAME)?.status === 'Running'
@@ -25,13 +25,13 @@ function salesforce() {
     cdc: [],
     permsets: {
       // the old set: all objects and fields, plus Modify All Data. The security review retired it on Friday.
-      Harbor_Mule_Integration: { label: 'Harbor Mule Integration (retired)', apiEnabled: true, modifyAll: true, allObjects: 'CRED', allFields: 'edit', fields: {} },
+      Brightmart_Mule_Integration: { label: 'Brightmart Mule Integration (retired)', apiEnabled: true, modifyAll: true, allObjects: 'CRED', allFields: 'edit', fields: {} },
       // the new set, built from a field list made before Credit_Limit__c existed
       [PERMSET]: {
-        label: 'Harbor Mule Account Sync',
+        label: 'Brightmart Mule Account Sync',
         apiEnabled: true,
         objects: { Account: 'RE', Contact: 'CRE', Order: 'CRE' },
-        fields: { 'Account.AccountNumber': 'edit', 'Account.Type': 'edit', 'Account.Phone': 'edit', 'Account.BillingCity': 'edit', 'Account.BillingCountry': 'edit', 'Account.Industry': 'read', 'Account.Harbor_Customer_Id__c': 'read', 'Account.Loyalty_Tier__c': 'read', 'Contact.FirstName': 'edit', 'Contact.Email': 'edit', 'Contact.Phone': 'edit', 'Contact.AccountId': 'edit', 'Order.TotalAmount': 'edit', 'Order.Harbor_Order_Id__c': 'edit' },
+        fields: { 'Account.AccountNumber': 'edit', 'Account.Type': 'edit', 'Account.Phone': 'edit', 'Account.BillingCity': 'edit', 'Account.BillingCountry': 'edit', 'Account.Industry': 'read', 'Account.Brightmart_Customer_Id__c': 'read', 'Account.Loyalty_Tier__c': 'read', 'Contact.FirstName': 'edit', 'Contact.Email': 'edit', 'Contact.Phone': 'edit', 'Contact.AccountId': 'edit', 'Order.TotalAmount': 'edit', 'Order.Brightmart_Order_Id__c': 'edit' },
       },
     },
   })
@@ -45,19 +45,19 @@ const lab = {
   group: 'Salesforce and SAP',
   title: 'The credit limit field vanished for the integration user',
   minutes: 25,
-  scenario: `${NAME} copies the credit limits of the ERP to Account.Credit_Limit__c every 15 minutes, and its credit check reads them to hold orders of customers over their limit. On Friday a security review replaced the permission set Harbor_Mule_Integration, which had Modify All Data, with a narrow set Harbor_Mule_Account_Sync. It is Monday 09:00. The credit check fails with "No such column", the sync logs that it sent the limits, and finance sees no credit limit on any Account.`,
+  scenario: `${NAME} copies the credit limits of the ERP to Account.Credit_Limit__c every 15 minutes, and its credit check reads them to hold orders of customers over their limit. On Friday a security review replaced the permission set Brightmart_Mule_Integration, which had Modify All Data, with a narrow set Brightmart_Mule_Account_Sync. It is Monday 09:00. The credit check fails with "No such column", the sync logs that it sent the limits, and finance sees no credit limit on any Account.`,
   start() {
     let s = newPlatform({
       clock: at(0, 8),
       apps: [
         newApp(NAME, {
-          props: { 'salesforce.url': 'https://login.salesforce.com/services/Soap/u/61.0', 'salesforce.username': 'mule.integration@harbor.example', 'sync.checkSaveResults': 'false' },
+          props: { 'salesforce.url': 'https://login.salesforce.com/services/Soap/u/61.0', 'salesforce.username': 'mule.integration@brightmart.example', 'sync.checkSaveResults': 'false' },
           secrets: { 'salesforce.password': 'Hrb-Int-Prod-26', 'salesforce.securityToken': 'labTokenProd7x2' },
           store: {},
         }),
       ],
       salesforce: salesforce(),
-      mail: [{ t: at(0, 8, 45), to: OPS, subject: 'No credit limits in Salesforce', body: 'Quay Deli, Pier Cafe and the others show an empty Credit Limit since this morning, and orders that should be on hold went through. The ERP has the limits. Harbor finance', source: 'Harbor finance' }],
+      mail: [{ t: at(0, 8, 45), to: OPS, subject: 'No credit limits in Salesforce', body: 'Quay Deli, Pier Cafe and the others show an empty Credit Limit since this morning, and orders that should be on hold went through. The ERP has the limits. Brightmart finance', source: 'Brightmart finance' }],
     })
     return until(s, at(0, 9))
   },
@@ -77,12 +77,12 @@ const lab = {
     ),
     {
       title: 'Find what the integration user is granted',
-      how: 'Salesforce, Users: Mule Integration has the profile Harbor Integration User and the permission set Harbor_Mule_Account_Sync. Open Permission Sets, Harbor Mule Account Sync. Object Settings give Account Read and Edit. Field Permissions: Account lists Credit_Limit__c with neither Read Access nor Edit Access.',
+      how: 'Salesforce, Users: Mule Integration has the profile Brightmart Integration User and the permission set Brightmart_Mule_Account_Sync. Open Permission Sets, Brightmart Mule Account Sync. Object Settings give Account Read and Edit. Field Permissions: Account lists Credit_Limit__c with neither Read Access nor Edit Access.',
       done: (s) => Boolean(s.seen['sf:users'] && s.seen['sf:permsets']),
     },
     ask(
       'Object access and field access',
-      'Harbor_Mule_Account_Sync gives Read and Edit on Account. Why can the user still not read Credit_Limit__c?',
+      'Brightmart_Mule_Account_Sync gives Read and Edit on Account. Why can the user still not read Credit_Limit__c?',
       ['Edit on an object always includes every field', 'Object permissions and field level security are separate. Object access lets the user see and change Account records; each field still needs its own Read Access, and Edit Access to change it', 'The profile overrides the permission set', 'Custom fields need Modify All Data'],
       1,
       'Salesforce checks two layers. Object Settings decide which record types a user can create, read, edit or delete. Field Permissions decide, field by field, what the user can see and change on those records. A new permission set starts with no field access, and a field added later is not in any old field list. Access adds up over the profile and all permission sets of the user.',
@@ -95,13 +95,13 @@ const lab = {
     ask(
       'The right size of fix',
       'Which change fixes the integration user with the least privilege?',
-      ['Assign Harbor_Mule_Integration again, it has Modify All Data', 'Change the profile of the user to System Administrator', 'Grant Read Access and Edit Access on Credit_Limit__c in Harbor_Mule_Account_Sync', 'Make Credit_Limit__c a required field, because required fields are always visible'],
+      ['Assign Brightmart_Mule_Integration again, it has Modify All Data', 'Change the profile of the user to System Administrator', 'Grant Read Access and Edit Access on Credit_Limit__c in Brightmart_Mule_Account_Sync', 'Make Credit_Limit__c a required field, because required fields are always visible'],
       2,
       'The user needs one more field, so grant that field in the permission set that holds the integration access. Modify All Data or View All Data skips every sharing and field check, which is what the security review removed. A System Administrator profile gives the same and more. Making the field required changes the data model for every user and fails while Accounts have no value.',
     ),
     {
       title: 'Grant the field in the permission set',
-      how: 'Salesforce, Permission Sets, Harbor Mule Account Sync, Field Permissions: Account. Tick Read Access and Edit Access for Credit_Limit__c. With Read only, the credit check works but the sync gets INVALID_FIELD_FOR_INSERT_UPDATE. Do not assign the retired set again.',
+      how: 'Salesforce, Permission Sets, Brightmart Mule Account Sync, Field Permissions: Account. Tick Read Access and Edit Access for Credit_Limit__c. With Read only, the credit check works but the sync gets INVALID_FIELD_FOR_INSERT_UPDATE. Do not assign the retired set again.',
       done: (s) => level(s) === 'edit' && leastOk(s),
     },
     {
@@ -111,7 +111,7 @@ const lab = {
         if (!checkOk(s) || level(s) !== 'edit' || !leastOk(s)) return false
         const st = app(s, NAME).store ?? {}
         const accounts = recordsOf(org(s), 'Account')
-        return (st.syncClean ?? 0) >= 2 && (st.checkClean ?? 0) >= 1 && Object.entries(LIMITS).every(([id, v]) => accounts.some((a) => a.Harbor_Customer_Id__c === id && a.Credit_Limit__c === v))
+        return (st.syncClean ?? 0) >= 2 && (st.checkClean ?? 0) >= 1 && Object.entries(LIMITS).every(([id, v]) => accounts.some((a) => a.Brightmart_Customer_Id__c === id && a.Credit_Limit__c === v))
       },
     },
   ],

@@ -2,7 +2,7 @@
 import { info, line, warn } from '../platform-log.js'
 import { MULE_BASE_MI } from '../platform-rtf.js'
 
-export const EXPORT = 'harbor-inventory-export'
+export const EXPORT = 'brightmart-inventory-export'
 export const FILE = 'inventory-full-20261127.csv'
 export const FILE_MB = 412
 // a SKU and price cache the app keeps in memory all the time

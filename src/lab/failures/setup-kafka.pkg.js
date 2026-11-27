@@ -5,8 +5,8 @@
 // letter topic. Both log in with SASL/SCRAM, and the cluster enforces ACLs.
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const CLUSTER = 'harbor-events'
-export const BOOTSTRAP = 'kafka-1.harbor-events.lab:9092,kafka-2.harbor-events.lab:9092,kafka-3.harbor-events.lab:9092'
+export const CLUSTER = 'brightmart-events'
+export const BOOTSTRAP = 'kafka-1.brightmart-events.lab:9092,kafka-2.brightmart-events.lab:9092,kafka-3.brightmart-events.lab:9092'
 export const TOPIC = 'order-events.v1'
 export const DLT = 'order-events.v1.DLT'
 export const GROUP = 'warehouse-orders'

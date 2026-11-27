@@ -4,8 +4,8 @@ import { app, ask, change, sawLogs, until } from '../platform-kit.js'
 import { BASE, INTEGRATION_USER, newOrg, newSalesforce, orgOf, setConnectedApp, userOf } from '../platform-salesforce.js'
 import { FLOW, NAME } from './sf-jwt-bearer.pkg.js'
 
-const APP = 'Harbor MuleSoft Integration'
-const NEW_CERT = 'harbor-mule-jwt-2027'
+const APP = 'Brightmart MuleSoft Integration'
+const NEW_CERT = 'brightmart-mule-jwt-2027'
 const props = (s) => ({ ...app(s, NAME)?.props, ...app(s, NAME)?.secrets })
 const running = (s) => app(s, NAME)?.status === 'Running'
 const capp = (s) => orgOf(s, 'Production')?.connectedApps.find((a) => a.name === APP)
@@ -18,7 +18,7 @@ const approvedOk = (s) => {
 }
 
 function salesforce() {
-  const old = { name: 'harbor-mule-jwt-2026', expires: Date.UTC(2026, 9, 31) - BASE }
+  const old = { name: 'brightmart-mule-jwt-2026', expires: Date.UTC(2026, 9, 31) - BASE }
   const neu = { name: NEW_CERT, expires: Date.UTC(2027, 9, 31) - BASE }
   const prod = newOrg('Production')
   Object.assign(prod.connectedApps[0], { certificate: old, permittedUsers: 'All users may self-authorize', permsets: [], profiles: [] })
@@ -37,7 +37,7 @@ const lab = {
       clock: at(1, 8),
       apps: [
         newApp(NAME, {
-          props: { 'salesforce.auth': 'jwt', 'salesforce.url': 'https://login.salesforce.com', 'salesforce.audienceUrl': 'https://test.salesforce.com', 'salesforce.consumerKey': '3MVG9lab.HarborMule.Prod', 'salesforce.keyStore': `${NEW_CERT}.jks`, 'salesforce.principal': INTEGRATION_USER },
+          props: { 'salesforce.auth': 'jwt', 'salesforce.url': 'https://login.salesforce.com', 'salesforce.audienceUrl': 'https://test.salesforce.com', 'salesforce.consumerKey': '3MVG9lab.BrightmartMule.Prod', 'salesforce.keyStore': `${NEW_CERT}.jks`, 'salesforce.principal': INTEGRATION_USER },
           secrets: { 'salesforce.keyStorePassword': 'lab-keystore' },
           store: {},
         }),
@@ -67,7 +67,7 @@ const lab = {
     },
     {
       title: 'Upload the new certificate',
-      how: `Salesforce, App Manager, ${APP}. Use digital signatures shows harbor-mule-jwt-2026, which expired on 31 October and does not match the new key anyway. In Upload a certificate choose ${NEW_CERT}.crt, the public half of the new keystore.`,
+      how: `Salesforce, App Manager, ${APP}. Use digital signatures shows brightmart-mule-jwt-2026, which expired on 31 October and does not match the new key anyway. In Upload a certificate choose ${NEW_CERT}.crt, the public half of the new keystore.`,
       done: certOk,
     },
     ask(
@@ -79,7 +79,7 @@ const lab = {
     ),
     {
       title: 'Pre-authorize the integration user',
-      how: `On ${APP}, OAuth Policies: set Permitted Users to Admin approved users are pre-authorized. In Permission Sets tick Harbor Mule Integration, the permission set of ${INTEGRATION_USER}.`,
+      how: `On ${APP}, OAuth Policies: set Permitted Users to Admin approved users are pre-authorized. In Permission Sets tick Brightmart Mule Integration, the permission set of ${INTEGRATION_USER}.`,
       done: approvedOk,
     },
     ask(
@@ -107,7 +107,7 @@ const lab = {
   solve(start) {
     let s = mark(mark(start, `logs:${NAME}`), 'sf:login-history')
     s = change(s, NAME, { props: { ...app(s, NAME).props, 'salesforce.audienceUrl': 'https://login.salesforce.com' } })
-    s = setConnectedApp(s, 'Production', APP, { certificate: NEW_CERT, permittedUsers: 'Admin approved users are pre-authorized', permsets: ['Harbor_Mule_Integration'] })
+    s = setConnectedApp(s, 'Production', APP, { certificate: NEW_CERT, permittedUsers: 'Admin approved users are pre-authorized', permsets: ['Brightmart_Mule_Integration'] })
     return until(s, s.clock + 11 * MINUTE)
   },
   answers: { 2: 1, 5: 1, 7: 1 },

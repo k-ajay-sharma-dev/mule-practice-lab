@@ -4,7 +4,7 @@ import { app, ask, change, OPS, until } from '../platform-kit.js'
 import { addKey, DAY, deleteRows, dupesOf, emptyMsgraph, guidOf, keyOn, newRegistration, newRow, ORG_URL, rowsOf, TENANT_ID } from '../platform-msgraph.js'
 import { CUSTOMER_SYNC, CUSTOMERS } from './graph-dataverse-upsert.pkg.js'
 
-const APP_ID = guidOf('reg:harbor-d365-customer-sync')
+const APP_ID = guidOf('reg:brightmart-d365-customer-sync')
 const key = (s) => keyOn(s.msgraph, 'account', ['accountnumber'])
 const clean = (s) => dupesOf(s.msgraph, 'account', 'accountnumber').length === 0
 const active = (s) => key(s)?.status === 'Active' && clean(s)
@@ -17,8 +17,8 @@ function graph(now) {
   const m = emptyMsgraph(now)
   const t0 = now - 90 * DAY
   newRegistration(m, { name: CUSTOMER_SYNC, appId: APP_ID, t: t0, secrets: [{ desc: 'mule-sandbox', start: t0, end: now + 270 * DAY }] })
-  m.dv.roles['Harbor Account Writer'] = { system: false, privs: { account: ['Create', 'Read', 'Write'] } }
-  m.dv.users.push({ id: guidOf(`user:${APP_ID}`), appId: APP_ID, name: CUSTOMER_SYNC, roles: ['Harbor Account Writer'], t: t0 })
+  m.dv.roles['Brightmart Account Writer'] = { system: false, privs: { account: ['Create', 'Read', 'Write'] } }
+  m.dv.users.push({ id: guidOf(`user:${APP_ID}`), appId: APP_ID, name: CUSTOMER_SYNC, roles: ['Brightmart Account Writer'], t: t0 })
   for (const [i, [no, name, city]] of CUSTOMERS.entries()) newRow(m, 'account', { accountnumber: no, name, address1_city: city }, t0 + i * MINUTE, 'Data migration')
   // the last weeks: every change of a customer became a new account
   for (let i = 0; i < 10; i++) {
@@ -45,8 +45,8 @@ const lab = {
           t: at(1, 8, 50),
           to: OPS,
           subject: 'Duplicate accounts in Dynamics',
-          body: 'Hi, the account view in Dynamics has the same customers again and again, all with the same account number. Account number is our customer number from the web shop and must be unique. Can the sync update the account instead of adding one? Harbor sales operations',
-          source: 'Harbor sales operations',
+          body: 'Hi, the account view in Dynamics has the same customers again and again, all with the same account number. Account number is our customer number from the web shop and must be unique. Can the sync update the account instead of adding one? Brightmart sales operations',
+          source: 'Brightmart sales operations',
         },
       ],
     })
@@ -114,7 +114,7 @@ const lab = {
   solve(start) {
     let s = mark(start, 'msgraph:table:account')
     s = deleteRows(s, 'account', dupesOf(s.msgraph, 'account', 'accountnumber').map((r) => r.accountid)).state
-    s = addKey(s, 'account', { name: 'harbor_accountnumberkey', cols: ['accountnumber'] }).state
+    s = addKey(s, 'account', { name: 'brightmart_accountnumberkey', cols: ['accountnumber'] }).state
     s = advance(s, MINUTE)
     s = change(s, CUSTOMER_SYNC, { props: { ...app(s, CUSTOMER_SYNC).props, 'dynamics.writeMode': 'upsert' } })
     s = advance(s, 2 * MINUTE)

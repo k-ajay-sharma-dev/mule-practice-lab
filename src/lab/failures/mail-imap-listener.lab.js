@@ -24,7 +24,7 @@ function mailServer(now) {
   // orders from the night, not read yet
   for (const [i, o] of [order('PO-5201', 'Quay Deli', 'H-300', '4'), order('PO-5202', 'Pier Cafe', 'H-100', '10')].entries()) {
     const m = mailMsg({ ...o, to: BOX, date: now - (50 - i * 10) * MINUTE })
-    box.folders.INBOX.push({ ...m, uid: box.uidNext++, messageId: `<night-${i + 1}.4f20@mx.harbor-partners.example>` })
+    box.folders.INBOX.push({ ...m, uid: box.uidNext++, messageId: `<night-${i + 1}.4f20@mx.brightmart-partners.example>` })
   }
   // the shops send their orders by mail, one every 4 minutes; a person typed the fourth one
   y.feeds = [
@@ -37,7 +37,7 @@ function mailServer(now) {
         { from: 'Quay Deli <orders@quay-deli.example>', subject: 'Order PO-5{n}', text: 'PO: PO-5{n}\nItem: H-300\nQty: 6\nCustomer: Quay Deli' },
         { from: 'Pier Cafe <orders@pier-cafe.example>', subject: 'Order PO-5{n}', text: 'PO: PO-5{n}\nItem: H-100\nQty: 8\nCustomer: Pier Cafe' },
         { from: 'Dock Bakery <orders@dock-bakery.example>', subject: 'Order PO-5{n}', text: 'PO: PO-5{n}\nItem: H-200\nQty: 20\nCustomer: Dock Bakery' },
-        { from: 'Harbor Bistro <buyer@harbor-bistro.example>', subject: 'Order for Thursday', text: 'Hello, please send us\nPO: PO-5{n}\nItem: H-100\nQty: 12 cases\nCustomer: Harbor Bistro\nThanks, Mia' },
+        { from: 'Maple Bistro <buyer@brightmart-bistro.example>', subject: 'Order for Thursday', text: 'Hello, please send us\nPO: PO-5{n}\nItem: H-100\nQty: 12 cases\nCustomer: Maple Bistro\nThanks, Mia' },
       ],
     },
   ]
@@ -50,13 +50,13 @@ const lab = {
   title: 'Every order twice, then not at all',
   minutes: 20,
   scenario:
-    `${NAME} reads the shared mailbox ${BOX} over IMAP once a minute and creates an order for each new mail. It is Tuesday 09:00. Since 07:00 shops got the same order confirmation again and again. At 08:40 a developer set deleteAfterRetrieve to true. The repeats stopped, but now Harbor Bistro says its order never arrived, and the mail is not in the mailbox either. The Inbox has the mail of the order desk.`,
+    `${NAME} reads the shared mailbox ${BOX} over IMAP once a minute and creates an order for each new mail. It is Tuesday 09:00. Since 07:00 shops got the same order confirmation again and again. At 08:40 a developer set deleteAfterRetrieve to true. The repeats stopped, but now Maple Bistro says its order never arrived, and the mail is not in the mailbox either. The Inbox has the mail of the order desk.`,
   start() {
     let s = newPlatform({
       clock: at(1, 7),
       apps: [
         newApp(NAME, {
-          props: { 'mail.protocol': 'imaps', 'mail.host': 'mail.harbor.lab', 'mail.port': '993', 'mail.user': BOX, 'mail.folder': 'INBOX', 'listener.deleteAfterRetrieve': 'false', 'after.success': 'none', 'after.error': 'none', 'idempotency.messageId': 'false' },
+          props: { 'mail.protocol': 'imaps', 'mail.host': 'mail.brightmart.lab', 'mail.port': '993', 'mail.user': BOX, 'mail.folder': 'INBOX', 'listener.deleteAfterRetrieve': 'false', 'after.success': 'none', 'after.error': 'none', 'idempotency.messageId': 'false' },
           secrets: { 'mail.password': APP_PASSWORD },
           store: {},
         }),
@@ -67,8 +67,8 @@ const lab = {
           t: at(1, 8, 50),
           to: OPS,
           subject: 'Orders from the order mailbox',
-          body: `From 07:00 every order that came in by mail was created again each minute. Quay Deli got more than 100 confirmations of one order. At 08:40 we set deleteAfterRetrieve to true in ${NAME} and the copies stopped. Now Harbor Bistro called: they sent an order this morning and it never arrived, and we cannot find their mail in ${BOX}. Harbor order desk`,
-          source: 'Harbor order desk',
+          body: `From 07:00 every order that came in by mail was created again each minute. Quay Deli got more than 100 confirmations of one order. At 08:40 we set deleteAfterRetrieve to true in ${NAME} and the copies stopped. Now Maple Bistro called: they sent an order this morning and it never arrived, and we cannot find their mail in ${BOX}. Brightmart order desk`,
+          source: 'Brightmart order desk',
         },
       ],
     })
@@ -97,10 +97,10 @@ const lab = {
     ),
     ask(
       'Why the Bistro order is gone',
-      'With deleteAfterRetrieve true the copies stopped. Why was the Harbor Bistro order lost?',
+      'With deleteAfterRetrieve true the copies stopped. Why was the Maple Bistro order lost?',
       [
         'The mailbox is full',
-        'Harbor Bistro sent it to the wrong address',
+        'Maple Bistro sent it to the wrong address',
         'The mail was deleted when the source retrieved it. Its flow then failed on Qty: 12 cases, and no copy was left on the server to read again or to look at',
         'IMAP cannot read a mail with more than four lines',
       ],
@@ -143,7 +143,7 @@ const lab = {
     ),
     {
       title: 'Watch the next polls',
-      how: 'Move the clock 15 minutes after the last change. New orders are created once each, the Harbor Bistro mail that comes next lands in Error, nothing is lost, and the last poll has no error.',
+      how: 'Move the clock 15 minutes after the last change. New orders are created once each, the Maple Bistro mail that comes next lands in Error, nothing is lost, and the last poll has no error.',
       done: (s) => {
         if (!successOk(s) || !errorOk(s) || s.clock < app(s, NAME).updated + 15 * MINUTE) return false
         const st = store(s)

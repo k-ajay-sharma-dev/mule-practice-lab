@@ -1,11 +1,11 @@
-// B2B with Anypoint Partner Manager: the host Harbor and its trading partners, AS2 endpoints with certificates and MDNs,
+// B2B with Anypoint Partner Manager: the host Brightmart and its trading partners, AS2 endpoints with certificates and MDNs,
 // X12 documents (850, 855, 856, 810, 997) with their envelopes and control numbers, X12 validation with 997 and TA1
 // acknowledgments, inbound and outbound message flows, and the tracking of every transmission.
 // Pure and import free. Lives in state.b2b.
 //
 // State shape (state.b2b). The partners, flows, certificates and code lists are the same seed on every console, so a
 // lean state leaves them out until an action changes them (own). Reads fall back to the seed.
-//   created, n (a counter), ctrl: { harbor, northwind, bayline } (the next ISA13 of each sender),
+//   created, n (a counter), ctrl: { brightmart, northwind, bayline } (the next ISA13 of each sender),
 //   partners?, flows?, certs?: [extra certificates], codes?: { 'northwind|850|PO103': ['EA', ...] },
 //   tx: [transmission], pending: [{ kind: mdn | ack | resend, at, ... }], feeds: [{ partner, every, at, n, orders }],
 //   inq: [{ id, flow, app, doc }] (mapped documents waiting for the target app), quirks: { northwind: { se01, pad } },
@@ -68,7 +68,7 @@ const ST = S('ST', 'Transaction Set Header', 'M', [E(1, '143', 'Transaction Set 
 const SE = S('SE', 'Transaction Set Trailer', 'M', [E(1, '96', 'Number of Included Segments', 'M', 1, 10, 'N0'), E(2, '329', 'Transaction Set Control Number', 'M', 4, 9)])
 const N1 = S('N1', 'Name', 'O', [E(1, '98', 'Entity Identifier Code', 'M', 2, 3, 'ID'), E(2, '93', 'Name', 'O', 1, 60), E(3, '66', 'Identification Code Qualifier', 'O', 1, 2, 'ID'), E(4, '67', 'Identification Code', 'O', 2, 80)], 'N1')
 const CTT = S('CTT', 'Transaction Totals', 'O', [E(1, '354', 'Number of Line Items', 'M', 1, 6, 'N0')], 'CTT')
-// Version 004010. Lab made: PO102 and PO103 are conditional in X12, Harbor's implementation guide makes them mandatory.
+// Version 004010. Lab made: PO102 and PO103 are conditional in X12, Brightmart's implementation guide makes them mandatory.
 export const DOC_TYPES = {
   850: {
     name: 'Purchase Order',
@@ -116,7 +116,7 @@ export const CODE_LISTS = { '850|PO103': UOM_355 }
 // ---------- seed ----------
 
 const seedPartners = () => ({
-  harbor: { id: 'harbor', name: 'Harbor', host: true, role: 'Host', isaQual: 'ZZ', isaId: 'HARBOR', gsId: 'HARBOR', contact: 'edi-team@harbor.example', as2: { as2Id: 'HARBOR-AS2', url: 'https://b2b.harbor.example/as2/receive', signCert: 'harbor-sign-2026', encCert: 'harbor-enc-2026' } },
+  brightmart: { id: 'brightmart', name: 'Brightmart', host: true, role: 'Host', isaQual: 'ZZ', isaId: 'BRIGHTMART', gsId: 'BRIGHTMART', contact: 'edi-team@brightmart.example', as2: { as2Id: 'BRIGHTMART-AS2', url: 'https://b2b.brightmart.example/as2/receive', signCert: 'brightmart-sign-2026', encCert: 'brightmart-enc-2026' } },
   northwind: {
     id: 'northwind',
     name: 'Northwind Supplies',
@@ -137,15 +137,15 @@ const seedPartners = () => ({
     isaId: 'BAYLINE',
     gsId: 'BAYLINE',
     contact: 'edi-support@bayline-logistics.example',
-    as2: { as2Id: 'BAYLINE-AS2', url: 'https://as2.bayline-logistics.example/as2/receive', signCert: 'bayline-sign-2025', encCert: 'bayline-enc-2025', mdn: 'async', mdnUrl: 'https://b2b.harbor.example/as2/mdn', mdnSigned: true, mic: 'sha-256', encryption: 'AES256_CBC', signing: 'SHA256' },
-    sftp: { host: 'sftp.bayline-logistics.example', port: 22, user: 'harbor', path: '/inbound/edi', enabled: false },
+    as2: { as2Id: 'BAYLINE-AS2', url: 'https://as2.bayline-logistics.example/as2/receive', signCert: 'bayline-sign-2025', encCert: 'bayline-enc-2025', mdn: 'async', mdnUrl: 'https://b2b.brightmart.example/as2/mdn', mdnSigned: true, mic: 'sha-256', encryption: 'AES256_CBC', signing: 'SHA256' },
+    sftp: { host: 'sftp.bayline-logistics.example', port: 22, user: 'brightmart', path: '/inbound/edi', enabled: false },
     ackDelay: 4,
   },
 })
 const cert = (id, owner, use, cn, notBefore, notAfter, issuer = 'CN=Lab Trust CA G2, O=Lab Trust') => ({ id, alias: id, owner, use, subject: `CN=${cn}`, issuer, serial: hex(id, 16).toUpperCase(), fp: fingerprint(id), notBefore, notAfter })
 const seedCerts = () => [
-  cert('harbor-sign-2026', 'harbor', 'Signing', 'b2b.harbor.example', at(-300), at(65)),
-  cert('harbor-enc-2026', 'harbor', 'Encryption', 'b2b.harbor.example', at(-300), at(65)),
+  cert('brightmart-sign-2026', 'brightmart', 'Signing', 'b2b.brightmart.example', at(-300), at(65)),
+  cert('brightmart-enc-2026', 'brightmart', 'Encryption', 'b2b.brightmart.example', at(-300), at(65)),
   cert('northwind-sign-2026', 'northwind', 'Signing', 'as2.northwind-supplies.example', at(-80), at(285)),
   cert('northwind-enc-2026', 'northwind', 'Encryption', 'as2.northwind-supplies.example', at(-80), at(285)),
   cert('bayline-sign-2025', 'bayline', 'Signing', 'as2.bayline-logistics.example', at(-340), at(150)),
@@ -153,10 +153,10 @@ const seedCerts = () => [
 ]
 export const newCert = cert
 const seedFlows = () => ({
-  'nw-850-in': { id: 'nw-850-in', name: 'Northwind 850 to Order API', partner: 'northwind', dir: 'inbound', type: '850', receive: 'AS2', validate: true, ack997: true, target: { kind: 'API', name: 'Harbor order intake', app: 'harbor-edi-order-intake', url: 'https://harbor-edi-order-intake.internal.harbor.example/api/orders' }, unitMap: { EA: 'EACH', CA: 'CASE', PK: 'PACK' }, alerts: { rejected997: false, negativeMdn: false, to: '' }, ackWindowMin: null },
-  'harbor-855-out': { id: 'harbor-855-out', name: 'Order acknowledgment 855 to Northwind', partner: 'northwind', dir: 'outbound', type: '855', send: 'AS2', source: { kind: 'API', name: 'Harbor order intake', app: 'harbor-edi-order-intake' }, alerts: { rejected997: false, negativeMdn: false, to: '' }, ackWindowMin: null },
-  'nw-810-in': { id: 'nw-810-in', name: 'Northwind 810 to Payables API', partner: 'northwind', dir: 'inbound', type: '810', receive: 'AS2', validate: true, ack997: true, target: { kind: 'API', name: 'Harbor payables', app: 'harbor-payables-sapi', url: 'https://harbor-payables-sapi.internal.harbor.example/api/invoices' }, unitMap: { EA: 'EACH', CA: 'CASE', PK: 'PACK' }, alerts: { rejected997: false, negativeMdn: false, to: '' }, ackWindowMin: null },
-  'bayline-856-out': { id: 'bayline-856-out', name: 'Ship notice 856 to Bayline', partner: 'bayline', dir: 'outbound', type: '856', send: 'AS2', source: { kind: 'API', name: 'Harbor ASN dispatch', app: 'harbor-asn-dispatch' }, alerts: { rejected997: false, negativeMdn: false, to: '' }, ackWindowMin: null },
+  'nw-850-in': { id: 'nw-850-in', name: 'Northwind 850 to Order API', partner: 'northwind', dir: 'inbound', type: '850', receive: 'AS2', validate: true, ack997: true, target: { kind: 'API', name: 'Brightmart order intake', app: 'brightmart-edi-order-intake', url: 'https://brightmart-edi-order-intake.internal.brightmart.example/api/orders' }, unitMap: { EA: 'EACH', CA: 'CASE', PK: 'PACK' }, alerts: { rejected997: false, negativeMdn: false, to: '' }, ackWindowMin: null },
+  'brightmart-855-out': { id: 'brightmart-855-out', name: 'Order acknowledgment 855 to Northwind', partner: 'northwind', dir: 'outbound', type: '855', send: 'AS2', source: { kind: 'API', name: 'Brightmart order intake', app: 'brightmart-edi-order-intake' }, alerts: { rejected997: false, negativeMdn: false, to: '' }, ackWindowMin: null },
+  'nw-810-in': { id: 'nw-810-in', name: 'Northwind 810 to Payables API', partner: 'northwind', dir: 'inbound', type: '810', receive: 'AS2', validate: true, ack997: true, target: { kind: 'API', name: 'Brightmart payables', app: 'brightmart-payables-sapi', url: 'https://brightmart-payables-sapi.internal.brightmart.example/api/invoices' }, unitMap: { EA: 'EACH', CA: 'CASE', PK: 'PACK' }, alerts: { rejected997: false, negativeMdn: false, to: '' }, ackWindowMin: null },
+  'bayline-856-out': { id: 'bayline-856-out', name: 'Ship notice 856 to Bayline', partner: 'bayline', dir: 'outbound', type: '856', send: 'AS2', source: { kind: 'API', name: 'Brightmart ASN dispatch', app: 'brightmart-asn-dispatch' }, alerts: { rejected997: false, negativeMdn: false, to: '' }, ackWindowMin: null },
 })
 
 // ---------- small helpers ----------
@@ -204,7 +204,7 @@ export function fill(b) {
   b ??= {}
   b.created ??= 0
   b.n ??= 1
-  b.ctrl ??= { harbor: 4100, northwind: 731, bayline: 2210 }
+  b.ctrl ??= { brightmart: 4100, northwind: 731, bayline: 2210 }
   for (const k of ['tx', 'pending', 'feeds', 'inq', 'alerts', 'issues', 'offered']) b[k] ??= []
   for (const k of ['quirks', 'partnerKeys', 'seenIsa']) b[k] ??= {}
   return b
@@ -352,6 +352,9 @@ export function errorText(r) {
 function buildBody(type, p, t) {
   const lines = p.lines ?? []
   if (!lines.length && type !== '997') return { error: `The payload has no lines: ${type} needs at least one` }
+  // a purchase order of Brightmart to a supplier
+  if (type === '850')
+    return { body: [['BEG', '00', 'SA', p.po, '', x12Date(t)], ['N1', 'ST', 'Brightmart DC East', '92', 'DC01'], ...lines.map((l, i) => ['PO1', String(i + 1), String(l.qty), l.uom ?? 'EA', l.price ?? '', '', 'VP', l.part ?? '', 'BP', l.item ?? '']), ['CTT', String(lines.length)]] }
   if (type === '855')
     return { body: [['BAK', '00', p.status ?? 'AC', p.po, x12Date(t)], ...lines.flatMap((l, i) => [['PO1', String(i + 1), String(l.qty), l.uom, l.price ?? '', '', 'VP', l.part ?? '', 'BP', l.item ?? ''], ['ACK', p.status === 'RJ' ? 'IR' : 'IA', String(l.qty), l.uom]]), ['CTT', String(lines.length)]] }
   if (type === '856') {
@@ -362,7 +365,7 @@ function buildBody(type, p, t) {
   }
   if (type === '810') {
     const total = lines.reduce((n, l) => n + Math.round(Number(l.qty) * Number(l.price) * 100), 0)
-    return { body: [['BIG', x12Date(t), p.invoice, '', p.po], ['N1', 'BT', 'Harbor', '92', 'HQ'], ...lines.map((l, i) => ['IT1', String(i + 1), String(l.qty), l.uom, String(l.price), '', 'VP', l.part ?? '']), ['TDS', String(total)], ['CTT', String(lines.length)]] }
+    return { body: [['BIG', x12Date(t), p.invoice, '', p.po], ['N1', 'BT', 'Brightmart', '92', 'HQ'], ...lines.map((l, i) => ['IT1', String(i + 1), String(l.qty), l.uom, String(l.price), '', 'VP', l.part ?? '']), ['TDS', String(total)], ['CTT', String(lines.length)]] }
   }
   return { error: `Document type ${type} cannot be sent from a payload` }
 }
@@ -391,13 +394,15 @@ function transmit(s, b, partner, raw, meta) {
   const ep = partner.as2
   const x = parseX12(raw)
   const set = x.groups[0]?.sets[0]
-  const tx = newTx(b, { t: now, dir: 'out', partner: partner.id, type: meta.type, isa: x.isa?.[13], gs: x.groups[0]?.gs[6], st: set?.[0][2], ref: meta.ref ?? refOf(meta.type, set), status: 'Sent', raw, flow: meta.flow ?? null, src: meta.src ?? null, app: meta.app ?? null, orig: meta.orig ?? null, resentOf: meta.resentOf ?? null, as2: { messageId: msgId(b, 'b2b.harbor.example'), from: host.as2.as2Id, to: ep.as2Id, url: ep.url, encCert: ep.encCert, signCert: host.as2.signCert, mic: micOf(raw), mode: ep.mdn, mdn: null } })
+  const tx = newTx(b, { t: now, dir: 'out', partner: partner.id, type: meta.type, isa: x.isa?.[13], gs: x.groups[0]?.gs[6], st: set?.[0][2], ref: meta.ref ?? refOf(meta.type, set), status: 'Sent', raw, flow: meta.flow ?? null, src: meta.src ?? null, app: meta.app ?? null, orig: meta.orig ?? null, resentOf: meta.resentOf ?? null, as2: { messageId: msgId(b, 'b2b.brightmart.example'), from: host.as2.as2Id, to: ep.as2Id, url: ep.url, encCert: ep.encCert, signCert: host.as2.signCert, mic: micOf(raw), mode: ep.mdn, mdn: null } })
   hist(tx, 'Sent', now, `AS2 POST ${ep.url}: HTTP 200 OK. AS2-From ${host.as2.as2Id}, AS2-To ${ep.as2Id}, Message-ID ${tx.as2.messageId}. Signed with ${host.as2.signCert} (SHA-256), encrypted for ${ep.encCert} (AES-256-CBC). Disposition-Notification-Options: signed-receipt-micalg=sha-256${ep.mdn === 'async' ? `, Receipt-Delivery-Option ${ep.mdnUrl}` : ''}.`)
   const ok = (b.partnerKeys[partner.id] ?? ep.encCert) === ep.encCert
   const mdn = { disposition: ok ? DISP_OK : DISP_DECRYPT, mic: ok ? tx.as2.mic : null, signed: ep.mdnSigned !== false, from: ep.as2Id }
   if (ep.mdn === 'async') b.pending.push({ kind: 'mdn', at: now + MINUTE, tx: tx.id, mdn })
   else applyMdn(s, b, tx, mdn)
   if (ok && !['997', 'TA1'].includes(meta.type)) b.pending.push({ kind: 'ack', at: now + (partner.ackDelay ?? 4) * MINUTE, tx: tx.id })
+  // a supplier answers a purchase order with an 855 after its 997, when it has an inbound flow for the answer
+  if (ok && meta.type === '850' && findFlow(b, partner.id, 'inbound', '855')) b.pending.push({ kind: 'po855', at: now + ((partner.ackDelay ?? 4) + 2) * MINUTE, tx: tx.id })
   return tx
 }
 function applyMdn(s, b, tx, mdn) {
@@ -422,7 +427,7 @@ function sendOut(s, b, key, type, payload, meta = {}) {
   if (!partner.as2) return { ok: false, type: 'B2B:ENDPOINT', error: `${partner.name} has no AS2 endpoint` }
   const built = type === '997' ? { body: payload.body } : buildBody(type, payload ?? {}, now)
   if (built.error) return { ok: false, type: 'B2B:TRANSFORMATION', error: built.error }
-  const ctrl = b.ctrl.harbor++
+  const ctrl = b.ctrl.brightmart++
   const raw = envelope(hostOf(b), partner, DOC_TYPES[type].fg, [type === '997' ? payload.set : wrapSet(type, built.body)], ctrl, now)
   const tx = transmit(s, b, partner, raw, { type, flow: flow?.id, src: type === '997' ? null : payload, app: meta.app, ref: meta.ref })
   return { ok: true, id: tx.id, isa: tx.isa, gs: tx.gs, st: tx.st, status: tx.status, messageId: tx.as2.messageId, mdn: tx.as2.mdn }
@@ -540,9 +545,19 @@ export function partner850(b, key, src, t) {
   b.ctrl[partner.id] ??= 101
   const q = b.quirks?.[partner.id] ?? {}
   const lines = src.lines.map((l, i) => [['PO1', String(i + 1), String(l.qty), q.pad && l.migrated ? `${l.uom} ` : l.uom, l.price, '', 'VP', l.part, 'BP', l.item], ['PID', 'F', '', '', '', l.desc]]).flat()
-  const body = [['BEG', '00', 'SA', src.po, '', x12Date(t)], ['REF', 'VR', src.vendor ?? 'NW-VENDOR-77'], ['DTM', '002', x12Date(t + 5 * DAY)], ['N1', 'ST', 'Harbor DC East', '92', 'DC01'], ['N3', '1 Quay Road'], ['N4', 'Harbor City', 'CA', '90001'], ...lines, ['CTT', String(src.lines.length)]]
+  const body = [['BEG', '00', 'SA', src.po, '', x12Date(t)], ['REF', 'VR', src.vendor ?? 'NW-VENDOR-77'], ['DTM', '002', x12Date(t + 5 * DAY)], ['N1', 'ST', 'Brightmart DC East', '92', 'DC01'], ['N3', '1 Quay Road'], ['N4', 'Brightmart City', 'CA', '90001'], ...lines, ['CTT', String(src.lines.length)]]
   const ctrl = b.ctrl[partner.id]++
   return envelope(partner, hostOf(b), 'PO', [wrapSet('850', body, q.se01)], ctrl, t)
+}
+// the supplier accepts the purchase order with an 855, BAK02 AC
+function partner855(s, b, out) {
+  const partner = partnerOf(b, out.partner)
+  const now = s.clock ?? 0
+  const src = { po: out.ref, status: 'AC', lines: out.src?.lines ?? [] }
+  const built = buildBody('855', src, now)
+  if (built.error) return
+  b.ctrl[partner.id] ??= 101
+  receiveIn(s, b, partner.id, envelope(partner, hostOf(b), 'PR', [wrapSet('855', built.body)], b.ctrl[partner.id]++, now), { src })
 }
 function partnerAck(s, b, out) {
   const partner = partnerOf(b, out.partner)
@@ -552,8 +567,8 @@ function partnerAck(s, b, out) {
   receiveIn(s, b, partner.id, raw)
 }
 
-// Issues Harbor can raise with a partner. Lab made: the partner answers by mail and fixes its side from the next
-// interchange when the issue is real; a code that is valid X12 is for Harbor to accept.
+// Issues Brightmart can raise with a partner. Lab made: the partner answers by mail and fixes its side from the next
+// interchange when the issue is real; a code that is valid X12 is for Brightmart to accept.
 export const ISSUES = {
   'se01-count': { title: 'SE01 is one less than the segments from ST to SE', fixes: 'se01', reply: 'Thank you. Our new ERP did not count the SE segment itself in SE01. It is fixed from the next interchange.' },
   'uom-padding': { title: 'PO103 unit codes come with a trailing space ("EA ")', fixes: 'pad', reply: 'Thank you. The items we migrated kept a three character unit field. We trim it from the next interchange.' },
@@ -570,6 +585,14 @@ export function b2bCtx(s, app) {
   const me = app?.name ?? 'app'
   return {
     sendDocument: (partner, type, payload) => sendOut(s, b(), partner, String(type), payload, { app: me }),
+    // Lab made: the message flows an app needs are set up in Partner Manager on its first call, as if the B2B team
+    // had deployed them with the app. A flow that already exists keeps its settings.
+    addFlows: (list) => {
+      const x = b()
+      if (list.every((f) => flowOf(x, f.id))) return
+      const flows = own(x, 'flows')
+      for (const f of list) flows[f.id] ??= structuredClone(f)
+    },
     // the mapped documents an inbound flow delivered to this app
     receive: (flowId) => {
       const x = b()
@@ -623,6 +646,7 @@ export function b2bTick(s) {
     if (!tx) continue
     if (p.kind === 'mdn') applyMdn(s, b, tx, p.mdn)
     if (p.kind === 'ack') partnerAck(s, b, tx)
+    if (p.kind === 'po855') partner855(s, b, tx)
   }
   // 997 overdue: an outbound document whose flow names an acknowledgment window and has no 997 inside it
   for (const tx of b.tx) {
@@ -754,7 +778,7 @@ export const createFlow = (state, form) =>
           type: form.type,
           status: 'Draft',
           ...(form.dir === 'inbound'
-            ? { receive: 'AS2', validate: Boolean(form.validate), ack997: Boolean(form.ack997), target: { kind: 'API', name: app, app, url: `https://${app}.internal.harbor.example/api/orders` }, unitMap: { EA: 'EACH', CA: 'CASE', PK: 'PACK' } }
+            ? { receive: 'AS2', validate: Boolean(form.validate), ack997: Boolean(form.ack997), target: { kind: 'API', name: app, app, url: `https://${app}.internal.brightmart.example/api/orders` }, unitMap: { EA: 'EACH', CA: 'CASE', PK: 'PACK' } }
             : { send: 'AS2', source: { kind: 'API', name: app, app } }),
           alerts: { rejected997: false, negativeMdn: false, to: '' },
           ackWindowMin: null,

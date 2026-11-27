@@ -80,17 +80,17 @@ const lab = {
   group: 'Chained incidents',
   title: 'Stock that never arrived',
   minutes: 30,
-  scenario: `Tuesday 08:54 at Harbor. The stores of Dublin see far more stock of H-300 and H-100 on its way than the trucks of Tidewell Foods bring, and promise it to customers. Tidewell mails an advance ship notice (ASN) for each truck to ${BOX}. ${INTAKE} reads that mailbox and publishes each ASN to the Kafka topic ${TOPIC}. ${WMS} books it as inbound stock in the WMS. Trace the extra stock back to its cause, stop it at every layer, and correct the stock.`,
+  scenario: `Tuesday 08:54 at Brightmart. The stores of Dublin see far more stock of H-300 and H-100 on its way than the trucks of Tidewell Foods bring, and promise it to customers. Tidewell mails an advance ship notice (ASN) for each truck to ${BOX}. ${INTAKE} reads that mailbox and publishes each ASN to the Kafka topic ${TOPIC}. ${WMS} books it as inbound stock in the WMS. Trace the extra stock back to its cause, stop it at every layer, and correct the stock.`,
   start() {
     let s = newPlatform({
       clock: at(0, 15),
       apps: [
         newApp(INTAKE, {
-          props: { 'mail.protocol': 'imaps', 'mail.host': 'mail.harbor.lab', 'mail.port': '993', 'mail.user': BOX, 'kafka.cluster': CLUSTER, 'kafka.topic': TOPIC, 'kafka.acks': 'NONE', 'after.publish': 'none' },
+          props: { 'mail.protocol': 'imaps', 'mail.host': 'mail.brightmart.lab', 'mail.port': '993', 'mail.user': BOX, 'kafka.cluster': CLUSTER, 'kafka.topic': TOPIC, 'kafka.acks': 'NONE', 'after.publish': 'none' },
           secrets: { 'mail.password': APP_PASSWORD },
           store: {},
         }),
-        newApp(WMS, { props: { 'kafka.cluster': CLUSTER, 'kafka.topic': TOPIC, 'kafka.groupId': GROUP, 'wms.url': 'https://wms.harbor.lab/api/v2', 'idempotency.key': 'none' }, store: {} }),
+        newApp(WMS, { props: { 'kafka.cluster': CLUSTER, 'kafka.topic': TOPIC, 'kafka.groupId': GROUP, 'wms.url': 'https://wms.brightmart.lab/api/v2', 'idempotency.key': 'none' }, store: {} }),
       ],
       kafka: newKafka({ clusters: { [CLUSTER]: newCluster(CLUSTER, 3) } }),
       mailServer: mailServer(),
@@ -105,8 +105,8 @@ const lab = {
       t: s.clock,
       to: OPS,
       subject: 'Dublin stores: inbound stock does not match the trucks',
-      body: `Good morning. The store app shows ${inbound['H-300'] ?? 0} cases of H-300 and ${inbound['H-100'] ?? 0} of H-100 on the way to DUB-1 today. The Tidewell notices say 336 of H-300 (240 and 96) and 120 of H-100. Stores have promised the difference to customers. Please fix the numbers before the lunch orders. Harbor store operations`,
-      source: 'Harbor store operations',
+      body: `Good morning. The store app shows ${inbound['H-300'] ?? 0} cases of H-300 and ${inbound['H-100'] ?? 0} of H-100 on the way to DUB-1 today. The Tidewell notices say 336 of H-300 (240 and 96) and 120 of H-100. Stores have promised the difference to customers. Please fix the numbers before the lunch orders. Brightmart store operations`,
+      source: 'Brightmart store operations',
     })
     s = restart(until(s, at(1, 8, 52)), 'JVM exited after OutOfMemoryError. The replica is restarted.')
     return until(s, at(1, 8, 54))

@@ -32,7 +32,7 @@ export const DEPLOY_COMMANDS = [
   { id: 'clean-deploy', name: 'mvn clean deploy', note: 'No muleDeploy: uploads to the repository in distributionManagement.' },
 ]
 
-// Where the deploy stage sends the application. CloudHub 2.0 is the default. The other two reach Harbor's own Windows
+// Where the deploy stage sends the application. CloudHub 2.0 is the default. The other two reach Brightmart's own Windows
 // servers, which are registered in Runtime Manager.
 export const DEPLOY_TARGETS = [
   { id: 'cloudhub2', name: 'CloudHub 2.0 (cloudhub2Deployment)', note: 'MuleSoft runs the replicas. The app is deployed from Exchange.' },
@@ -44,7 +44,7 @@ export const RUNNER_TYPES = [
   { id: 'github-hosted', name: 'GitHub-hosted runner (ubuntu-latest)' },
   { id: 'self-hosted', name: 'Self-hosted runner in the data center' },
 ]
-export const SERVER_RUNTIME = '4.6.0' // the Mule runtime on Harbor's servers in the lab
+export const SERVER_RUNTIME = '4.6.0' // the Mule runtime on Brightmart's servers in the lab
 const TYPE_NAMES = { server: 'server', serverGroup: 'server group', cluster: 'cluster' }
 
 export const PROPERTY_MODES = [
@@ -469,7 +469,7 @@ function copyToApps(state, run, envName, notes) {
         ...notes,
         failure(
           'The runner cannot reach the servers',
-          `A GitHub-hosted runner is a machine on GitHub's network, outside the Harbor data center. Copying into ${share} needs a network path from the runner to every server, such as a VPN.`,
+          `A GitHub-hosted runner is a machine on GitHub's network, outside the Brightmart data center. Copying into ${share} needs a network path from the runner to every server, such as a VPN.`,
           'Do not open the data center to the runner. Deploy with armDeployment: the runner then needs only HTTPS to Anypoint Platform, and the agent on each server keeps its own outbound connection.',
           { basis: 'assumed', docs: AGENT_HOSTS, code: 'runner-no-route', assumption: 'GitHub-hosted runners run outside your network. The error text is made up by the lab.' },
         ),
@@ -838,7 +838,7 @@ export const SCENARIOS = [
   { id: 'no-extensions', title: 'Plugin declared without extensions', patch: { pluginExtensions: false }, expect: { stage: 'build', status: 'failed' }, fix: { pluginExtensions: true } },
   { id: 'connected-app-scope', title: 'Connected App without the required scope', patch: { authMode: 'connected-app', connectedAppScope: false }, expect: { stage: 'Sandbox', status: 'failed' }, fix: { connectedAppScope: true, publishStage: false } },
   { id: 'rebuild-production', title: 'Production packaged again', patch: { deployCommand: 'clean-deploy-mule' }, expect: { stage: 'Production', status: 'warned' }, fix: { deployCommand: 'mule-deploy', publishStage: false } },
-  { id: 'hybrid-target-missing', title: 'Own servers: a target name that does not exist', patch: { deployTarget: 'hybrid', sandboxTarget: 'harbor-sandbox' }, expect: { stage: 'Sandbox', status: 'failed' }, fix: { sandboxTarget: 'sbx-group', publishStage: false } },
+  { id: 'hybrid-target-missing', title: 'Own servers: a target name that does not exist', patch: { deployTarget: 'hybrid', sandboxTarget: 'brightmart-sandbox' }, expect: { stage: 'Sandbox', status: 'failed' }, fix: { sandboxTarget: 'sbx-group', publishStage: false } },
   { id: 'hybrid-target-type', title: 'Own servers: the wrong targetType', patch: { deployTarget: 'hybrid', sandboxTargetType: 'cluster' }, expect: { stage: 'Sandbox', status: 'failed' }, fix: { sandboxTargetType: 'serverGroup', publishStage: false } },
   { id: 'hybrid-mule-version', title: 'Own servers: muleVersion above the server runtime', patch: { deployTarget: 'hybrid', muleVersion: '4.8.0' }, expect: { stage: 'Sandbox', status: 'failed' }, fix: { muleVersion: SERVER_RUNTIME, publishStage: false } },
   { id: 'hybrid-copy-hosted', title: 'Own servers: a GitHub-hosted runner copies to the apps folder', patch: { deployTarget: 'copy' }, expect: { stage: 'Sandbox', status: 'failed' }, fix: { deployTarget: 'hybrid', publishStage: false } },

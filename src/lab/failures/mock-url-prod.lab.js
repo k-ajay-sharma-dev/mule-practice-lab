@@ -15,7 +15,7 @@ const RAML = `#%RAML 1.0
 title: Partner Orders API
 version: v1
 mediaType: application/json
-description: Partners of Harbor Foods create and read their orders.
+description: Partners of Brightmart create and read their orders.
 types:
   Order:
     properties:
@@ -54,14 +54,14 @@ const realOrder = (s) => {
   return logged && seen
 }
 
-const mail = (t, subject, body, source) => ({ t, to: 'integration@harbor.example', subject, body, source })
+const mail = (t, subject, body, source) => ({ t, to: 'integration@brightmart.example', subject, body, source })
 
 const lab = {
   id: 'p-fail-mock-url-prod',
   group: 'More production failures',
   title: 'A partner went live on the mocking service',
   minutes: 15,
-  scenario: `It is Friday 09:00. Three weeks ago, while ${PROJECT} was still in design, a partner of Harbor Foods, Bayside Grocers, got a URL to start building early. They went live on Tuesday. Their system says every order was created with 201. Sales says not one Bayside order has arrived since Tuesday.`,
+  scenario: `It is Friday 09:00. Three weeks ago, while ${PROJECT} was still in design, a partner of Brightmart, Bayside Grocers, got a URL to start building early. They went live on Tuesday. Their system says every order was created with 201. Sales says not one Bayside order has arrived since Tuesday.`,
   start() {
     const c = creds({ creds: newPlatform().creds }, ENV)
     let s = newPlatform({
@@ -75,7 +75,7 @@ const lab = {
         newApp(NAME, {
           pkg: NAME,
           env: ENV,
-          props: { 'db.host': 'orders-db.harbor.lab', 'api.id': API_ID, ...c.props },
+          props: { 'db.host': 'orders-db.brightmart.lab', 'api.id': API_ID, ...c.props },
           secrets: c.secrets,
           autodiscovery: { apiId: '${api.id}', flowRef: `${NAME}-main` },
         }),
@@ -94,7 +94,7 @@ const lab = {
     ]
     s.mail = [
       mail(at(4, 7, 55), 'No Bayside Grocers orders since Tuesday', 'Bayside Grocers say they send us about 40 orders a day since Tuesday. Not one is in the order database. Their system shows each order as created. Can you look?', 'Sales operations'),
-      mail(at(4, 8, 20), 'RE: Our orders are created fine', `Hello Harbor team. Our side is fine: every POST /orders answers 201 Created. Our settings are base URL ${MOCK}, no client ID, no secret, as we got them during your design phase. Each answer has orderId ${EXAMPLE_ID}, which we store as your reference. Regards, Bayside Grocers integration team.`, 'Bayside Grocers'),
+      mail(at(4, 8, 20), 'RE: Our orders are created fine', `Hello Brightmart team. Our side is fine: every POST /orders answers 201 Created. Our settings are base URL ${MOCK}, no client ID, no secret, as we got them during your design phase. Each answer has orderId ${EXAMPLE_ID}, which we store as your reference. Regards, Bayside Grocers integration team.`, 'Bayside Grocers'),
     ]
     return advance(s, 60 * MINUTE)
   },

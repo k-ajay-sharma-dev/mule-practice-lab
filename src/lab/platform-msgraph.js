@@ -36,14 +36,14 @@ const MINUTE = 60000
 const HOUR = 60 * MINUTE
 export const DAY = 24 * HOUR
 
-export const TENANT = 'harborretail.onmicrosoft.com'
+export const TENANT = 'brightmartretail.onmicrosoft.com'
 export const TENANT_ID = '5d1f7e2a-8c3b-4e6f-a1d2-3b4c5d6e7f80'
-export const TENANT_NAME = 'Harbor Retail'
+export const TENANT_NAME = 'Brightmart Retail'
 export const LOGIN_URL = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`
-export const ORG_URL = 'https://harbor.crm.dynamics.com'
+export const ORG_URL = 'https://brightmart.crm.dynamics.com'
 export const API_PATH = '/api/data/v9.2'
 export const GRAPH_URL = 'https://graph.microsoft.com'
-export const SP_HOST = 'harborretail.sharepoint.com'
+export const SP_HOST = 'brightmartretail.sharepoint.com'
 export const DV_SCOPE = `${ORG_URL}/.default`
 export const GRAPH_SCOPE = `${GRAPH_URL}/.default`
 export const KIB = 1024
@@ -88,10 +88,10 @@ const WRITE_ALL = ['Sites.ReadWrite.All', 'Sites.FullControl.All', 'Files.ReadWr
 // The three tables of the lab: entity set, primary key, object type code, schema name and column lengths
 export const TABLES = {
   account: { label: 'Account', set: 'accounts', id: 'accountid', otc: 1, schema: 'Account', primary: 'name', cols: { name: 160, accountnumber: 20, address1_city: 80, telephone1: 50, emailaddress1: 100 } },
-  contact: { label: 'Contact', set: 'contacts', id: 'contactid', otc: 2, schema: 'Contact', primary: 'lastname', cols: { firstname: 50, lastname: 50, emailaddress1: 100, telephone1: 50, harbor_customerno: 20 } },
-  salesorder: { label: 'Sales Order', set: 'salesorders', id: 'salesorderid', otc: 1088, schema: 'SalesOrder', primary: 'name', cols: { name: 300, ordernumber: 100, harbor_weborderid: 40, totalamount: 0 } },
+  contact: { label: 'Contact', set: 'contacts', id: 'contactid', otc: 2, schema: 'Contact', primary: 'lastname', cols: { firstname: 50, lastname: 50, emailaddress1: 100, telephone1: 50, brightmart_customerno: 20 } },
+  salesorder: { label: 'Sales Order', set: 'salesorders', id: 'salesorderid', otc: 1088, schema: 'SalesOrder', primary: 'name', cols: { name: 300, ordernumber: 100, brightmart_weborderid: 40, totalamount: 0 } },
 }
-const COL_LABELS = { name: 'Name', accountnumber: 'Account Number', address1_city: 'City', telephone1: 'Phone', emailaddress1: 'Email', firstname: 'First Name', lastname: 'Last Name', harbor_customerno: 'Customer No', ordernumber: 'Order Number', harbor_weborderid: 'Web Order ID', totalamount: 'Total Amount' }
+const COL_LABELS = { name: 'Name', accountnumber: 'Account Number', address1_city: 'City', telephone1: 'Phone', emailaddress1: 'Email', firstname: 'First Name', lastname: 'Last Name', brightmart_customerno: 'Customer No', ordernumber: 'Order Number', brightmart_weborderid: 'Web Order ID', totalamount: 'Total Amount' }
 export const colLabel = (c) => COL_LABELS[c] ?? c
 const setToTable = Object.fromEntries(Object.entries(TABLES).map(([k, v]) => [v.set, k]))
 
@@ -142,7 +142,7 @@ export function newRegistration(m, { name, appId, t = 0, secrets = [], certs = [
   m.apps.push(reg)
   return reg
 }
-export function newRow(m, table, fields, t = 0, by = 'Harbor Admin') {
+export function newRow(m, table, fields, t = 0, by = 'Brightmart Admin') {
   const d = TABLES[table]
   const row = { [d.id]: next(m, table), ...fields, createdon: t, modifiedon: t, by }
   m.dv.tables[table].rows.push(row)
@@ -154,7 +154,7 @@ export function newSite(m, name, drives = []) {
   m.sites.push(site)
   return site
 }
-export function newItem(drive, name, size, t = 0, by = 'Harbor Admin') {
+export function newItem(drive, name, size, t = 0, by = 'Brightmart Admin') {
   const item = { id: `01${hexOf(`item:${drive.id}:${name}`, 32).toUpperCase()}`, name, size, t, by }
   const i = drive.items.findIndex((x) => x.name === name)
   if (i >= 0) drive.items[i] = { ...item, id: drive.items[i].id }
@@ -177,24 +177,24 @@ export function emptyMsgraph(now = 0) {
 export function newMsgraph(now = 0) {
   const m = emptyMsgraph(now)
   const t0 = now - 120 * DAY
-  const sync = newRegistration(m, { name: 'harbor-d365-sync', t: t0, secrets: [{ desc: 'mule-sandbox', start: t0, end: t0 + 365 * DAY }] })
+  const sync = newRegistration(m, { name: 'brightmart-d365-sync', t: t0, secrets: [{ desc: 'mule-sandbox', start: t0, end: t0 + 365 * DAY }] })
   newRegistration(m, {
-    name: 'harbor-sp-archive',
+    name: 'brightmart-sp-archive',
     t: t0,
     secrets: [{ desc: 'mule-sandbox', start: t0, end: now + 20 * DAY }],
     perms: [{ api: 'Microsoft Graph', name: 'Sites.Selected', type: 'Application' }],
     granted: ['Microsoft Graph|Sites.Selected|Application'],
   })
-  m.dv.roles['Harbor Integration'] = { system: false, privs: { account: ['Create', 'Read', 'Write'], contact: ['Create', 'Read', 'Write'], salesorder: ['Create', 'Read', 'Write'] } }
-  m.dv.users.push({ id: guidOf(`user:${sync.appId}`), appId: sync.appId, name: sync.name, roles: ['Harbor Integration'], t: t0 })
+  m.dv.roles['Brightmart Integration'] = { system: false, privs: { account: ['Create', 'Read', 'Write'], contact: ['Create', 'Read', 'Write'], salesorder: ['Create', 'Read', 'Write'] } }
+  m.dv.users.push({ id: guidOf(`user:${sync.appId}`), appId: sync.appId, name: sync.name, roles: ['Brightmart Integration'], t: t0 })
   for (const [no, name, city] of [
     ['C-1001', 'Northgate Grocers', 'Leeds'],
     ['C-1002', 'Bluebay Kitchens', 'Bristol'],
     ['C-1003', 'Larch and Pine Stores', 'York'],
   ])
     newRow(m, 'account', { accountnumber: no, name, address1_city: city }, t0)
-  newRow(m, 'contact', { firstname: 'Mara', lastname: 'Okafor', emailaddress1: 'mara@northgate-grocers.example', harbor_customerno: 'C-1001' }, t0)
-  newRow(m, 'salesorder', { name: 'Web order W-5001', ordernumber: 'ORD-01001-H7K2', harbor_weborderid: 'W-5001', totalamount: 129.5 }, now - DAY)
+  newRow(m, 'contact', { firstname: 'Mara', lastname: 'Okafor', emailaddress1: 'mara@northgate-grocers.example', brightmart_customerno: 'C-1001' }, t0)
+  newRow(m, 'salesorder', { name: 'Web order W-5001', ordernumber: 'ORD-01001-H7K2', brightmart_weborderid: 'W-5001', totalamount: 129.5 }, now - DAY)
   const ops = newSite(m, 'Operations', ['Documents'])
   newItem(ops.drives[0], 'Runbook.docx', 48211, t0)
   const merch = newSite(m, 'Merchandising', ['Product sheets'])
@@ -378,7 +378,7 @@ function dataverseCall(s, m, who, token, method, path, body, headers) {
   if (!user) return done(dvError(403, '0x80072560', 'The user is not a member of the organization.'))
   if (!full.startsWith(API_PATH)) return done(dvError(404, '0x8006088a', `Resource not found for the segment '${full.split('/')[1] ?? ''}'.`))
   const [rest, query = ''] = full.slice(API_PATH.length + 1).split('?')
-  if (rest === 'WhoAmI' && verb === 'GET') return done({ ok: true, status: 200, code: '', body: { '@odata.context': `${ORG_URL}${API_PATH}/$metadata#Microsoft.Dynamics.CRM.WhoAmIResponse`, BusinessUnitId: guidOf('bu:harbor'), UserId: user.id, OrganizationId: guidOf('org:harbor') }, headers: {}, ms: 40 })
+  if (rest === 'WhoAmI' && verb === 'GET') return done({ ok: true, status: 200, code: '', body: { '@odata.context': `${ORG_URL}${API_PATH}/$metadata#Microsoft.Dynamics.CRM.WhoAmIResponse`, BusinessUnitId: guidOf('bu:brightmart'), UserId: user.id, OrganizationId: guidOf('org:brightmart') }, headers: {}, ms: 40 })
   if (rest === '$batch' && verb === 'POST') {
     const list = Array.isArray(body?.requests) ? body.requests : null
     if (!list) return done(dvError(400, '0x80048d19', 'The batch request body could not be read.')) // lab-made wording
@@ -734,7 +734,7 @@ export function msgraphTick(s) {
         t: now,
         to: reg.notify.to,
         subject: `${now >= x.end ? 'Expired' : 'Expiring'} client secret on ${reg.name}`,
-        body: `The client secret "${x.desc}" (ID ${x.id}) of the app registration ${reg.name} (${reg.appId}) ${now >= x.end ? 'has expired' : `expires within ${reg.notify.days} days`}. Add a new secret, update the apps that use it, then delete the old one. Harbor Entra ID notifications`,
+        body: `The client secret "${x.desc}" (ID ${x.id}) of the app registration ${reg.name} (${reg.appId}) ${now >= x.end ? 'has expired' : `expires within ${reg.notify.days} days`}. Add a new secret, update the apps that use it, then delete the old one. Brightmart Entra ID notifications`,
         source: 'Microsoft Entra ID',
       })
       if (s.mail?.length > 40) s.mail.shift()
@@ -803,7 +803,7 @@ export const addCert = (state, appId, { desc, days }) =>
   edit(state, (s, m, now) => {
     const reg = regOf(m, appId)
     if (!reg) return null
-    const c = { thumb: thumbOf(`${appId}:${m.n++}`), desc: word(desc) || 'CN=harbor-mule', start: now, end: now + (Number(days) || 365) * DAY }
+    const c = { thumb: thumbOf(`${appId}:${m.n++}`), desc: word(desc) || 'CN=brightmart-mule', start: now, end: now + (Number(days) || 365) * DAY }
     reg.certs.push(c)
     return c.thumb
   })
@@ -901,7 +901,7 @@ export const addKey = (state, table, { name, cols }) =>
     if (!tbl || !list.length) return { error: 'Pick at least one column.' }
     if (keyOn(m, table, list)) return { error: 'A key with these columns exists already.' }
     if (tbl.keys.length >= 10) return { error: 'A table can have at most 10 alternate keys.' }
-    tbl.keys.push({ name: word(name) || `harbor_${list.join('_')}_key`, cols: list, status: 'Pending', t: now })
+    tbl.keys.push({ name: word(name) || `brightmart_${list.join('_')}_key`, cols: list, status: 'Pending', t: now })
     return { ok: true }
   })
 export const reactivateKey = (state, table, name) =>

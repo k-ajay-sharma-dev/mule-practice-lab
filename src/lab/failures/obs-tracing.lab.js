@@ -15,7 +15,7 @@ const lab = {
   group: 'Observability',
   title: 'Slow checkout, healthy dashboards',
   minutes: 25,
-  scenario: `The Harbor web shop calls ${EAPI}, which calls ${PAPI} for stock, a shipping quote from the carrier Seaway Freight, and a payment reservation. It is Tuesday 09:00. Since about 08:00 the shop team says the p95 of checkout rose from about 450 ms to almost 3 seconds, and big baskets time out in the browser. The built-in dashboard of each app shows an average response time that looks fine. Find the slow part, fix it and prove the fix with a dashboard.`,
+  scenario: `The Brightmart web shop calls ${EAPI}, which calls ${PAPI} for stock, a shipping quote from the carrier Seaway Freight, and a payment reservation. It is Tuesday 09:00. Since about 08:00 the shop team says the p95 of checkout rose from about 450 ms to almost 3 seconds, and big baskets time out in the browser. The built-in dashboard of each app shows an average response time that looks fine. Find the slow part, fix it and prove the fix with a dashboard.`,
   start() {
     const traffic = [
       { app: EAPI, env: 'Sandbox', perMinute: 3, method: 'POST', path: '/checkout', body: basket(1) },
@@ -31,7 +31,7 @@ const lab = {
     // the release of 08:02: the carrier's per item endpoint, because the batch endpoint is going away next year
     s = withProp(s, PAPI, 'shipping.quote.mode', 'per-item')
     s = until(s, at(1, 8, 55))
-    s.mail.push({ t: at(1, 8, 55), to: OPS, subject: 'Checkout p95 is up', body: `Our real user monitoring shows checkout p95 at about 2.9 s since 08:00, it was 450 ms. Big baskets time out in the browser. ${EAPI} and ${PAPI} look normal on their dashboards. Harbor web shop team`, source: 'Harbor web shop' })
+    s.mail.push({ t: at(1, 8, 55), to: OPS, subject: 'Checkout p95 is up', body: `Our real user monitoring shows checkout p95 at about 2.9 s since 08:00, it was 450 ms. Big baskets time out in the browser. ${EAPI} and ${PAPI} look normal on their dashboards. Brightmart web shop team`, source: 'Brightmart web shop' })
     return until(s, at(1, 9))
   },
   steps: [

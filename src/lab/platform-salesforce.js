@@ -131,7 +131,7 @@ export function newObjects() {
         f('BillingCity', 'Billing City', 'string', { length: 40 }),
         f('BillingCountry', 'Billing Country', 'string', { length: 80 }),
         f('Industry', 'Industry', 'picklist', { values: ['Food and Beverage', 'Retail', 'Hospitality', 'Other'] }),
-        f('Harbor_Customer_Id__c', 'Harbor Customer Id', 'string', { length: 20, custom: true, externalId: true, unique: true }),
+        f('Brightmart_Customer_Id__c', 'Brightmart Customer Id', 'string', { length: 20, custom: true, externalId: true, unique: true }),
         f('Loyalty_Tier__c', 'Loyalty Tier', 'picklist', { custom: true, values: ['Bronze', 'Silver', 'Gold'], restricted: true }),
         f('Credit_Limit__c', 'Credit Limit', 'currency', { custom: true }),
       ],
@@ -141,7 +141,7 @@ export function newObjects() {
     Contact: {
       label: 'Contact',
       prefix: '003',
-      fields: [...SYSTEM, f('FirstName', 'First Name', 'string', { length: 40 }), f('LastName', 'Last Name', 'string', { length: 80, required: true }), f('Email', 'Email', 'email'), f('Phone', 'Business Phone', 'phone'), f('AccountId', 'Account ID', 'reference', { to: 'Account' }), f('Harbor_Contact_Id__c', 'Harbor Contact Id', 'string', { length: 20, custom: true, externalId: true, unique: true })],
+      fields: [...SYSTEM, f('FirstName', 'First Name', 'string', { length: 40 }), f('LastName', 'Last Name', 'string', { length: 80, required: true }), f('Email', 'Email', 'email'), f('Phone', 'Business Phone', 'phone'), f('AccountId', 'Account ID', 'reference', { to: 'Account' }), f('Brightmart_Contact_Id__c', 'Brightmart Contact Id', 'string', { length: 20, custom: true, externalId: true, unique: true })],
       rules: [{ name: 'Email_Or_Phone', active: true, errorField: 'Email', formula: 'AND(ISBLANK(Email), ISBLANK(Phone))', when: [{ field: 'Email', blank: true }, { field: 'Phone', blank: true }], message: 'Give an email address or a phone number.' }],
     },
     Order: {
@@ -154,7 +154,7 @@ export function newObjects() {
         f('EffectiveDate', 'Order Start Date', 'date', { required: true }),
         f('Status', 'Status', 'picklist', { values: ['Draft', 'Activated'], required: true, restricted: true }),
         f('TotalAmount', 'Order Amount', 'currency'),
-        f('Harbor_Order_Id__c', 'Harbor Order Id', 'string', { length: 20, custom: true, externalId: true, unique: true }),
+        f('Brightmart_Order_Id__c', 'Brightmart Order Id', 'string', { length: 20, custom: true, externalId: true, unique: true }),
       ],
       rules: [],
     },
@@ -188,14 +188,14 @@ export const PUBLISH_BEHAVIORS = ['Publish After Commit', 'Publish Immediately']
 // the objects that Change Data Capture offers in this lab (the real list is much longer)
 export const CDC_AVAILABLE = ['Account', 'Contact', 'Order', 'Loyalty_Member__c']
 export const channelOfEntity = (type) => `/data/${type.replace(/__c$/, '__')}ChangeEvent`
-export const PROFILES = ['System Administrator', 'Standard User', 'Minimum Access - API Only Integrations', 'Harbor Integration User']
-export const LICENSES = { 'Minimum Access - API Only Integrations': 'Salesforce Integration', 'Harbor Integration User': 'Salesforce Integration', 'System Administrator': 'Salesforce', 'Standard User': 'Salesforce' }
+export const PROFILES = ['System Administrator', 'Standard User', 'Minimum Access - API Only Integrations', 'Brightmart Integration User']
+export const LICENSES = { 'Minimum Access - API Only Integrations': 'Salesforce Integration', 'Brightmart Integration User': 'Salesforce Integration', 'System Administrator': 'Salesforce', 'Standard User': 'Salesforce' }
 
 const SEED = [
   ['Quay Deli', 'HC-10001', 'Customer', 'Harborview', 'Norway', 'Gold'],
   ['Pier Cafe', 'HC-10002', 'Customer', 'Harborview', 'Norway', 'Silver'],
   ['Dock Bakery', 'HC-10003', 'Customer', 'Saltmere', 'Denmark', 'Bronze'],
-  ['Harbor Bistro', 'HC-10004', 'Customer', 'Harborview', 'Norway', 'Gold'],
+  ['Maple Bistro', 'HC-10004', 'Customer', 'Harborview', 'Norway', 'Gold'],
   ['Lantern Books', 'HC-10005', 'Customer', 'Saltmere', 'Denmark', null],
   ['Seaglass Florist', 'HC-10006', 'Customer', 'Brightwater', 'Sweden', 'Silver'],
 ]
@@ -203,13 +203,13 @@ const SEED = [
 // ---------- the orgs ----------
 
 const ORGS = {
-  Production: { myDomain: 'harbor.my.salesforce.com', loginHost: 'login.salesforce.com', orgId: '00DHb0000001aQ2EAI', edition: 'Enterprise Edition', instance: 'NA224', pod: 'Hb0', userSuffix: '', max: 100000, password: 'Hrb-Int-Prod-26', token: 'labTokenProd7x2', key: 'Prod' },
-  Sandbox: { myDomain: 'harbor--uat.sandbox.my.salesforce.com', loginHost: 'test.salesforce.com', orgId: '00DHu0000002cW7EAI', edition: 'Full Sandbox', instance: 'CS204', pod: 'Hu0', userSuffix: '.uat', max: 5000000, password: 'Hrb-Int-Uat-26', token: 'labTokenUat4k9', key: 'Uat' },
+  Production: { myDomain: 'brightmart.my.salesforce.com', loginHost: 'login.salesforce.com', orgId: '00DHb0000001aQ2EAI', edition: 'Enterprise Edition', instance: 'NA224', pod: 'Hb0', userSuffix: '', max: 100000, password: 'Hrb-Int-Prod-26', token: 'labTokenProd7x2', key: 'Prod' },
+  Sandbox: { myDomain: 'brightmart--uat.sandbox.my.salesforce.com', loginHost: 'test.salesforce.com', orgId: '00DHu0000002cW7EAI', edition: 'Full Sandbox', instance: 'CS204', pod: 'Hu0', userSuffix: '.uat', max: 5000000, password: 'Hrb-Int-Uat-26', token: 'labTokenUat4k9', key: 'Uat' },
 }
 export const orgNames = () => Object.keys(ORGS)
-export const INTEGRATION_USER = 'mule.integration@harbor.example'
+export const INTEGRATION_USER = 'mule.integration@brightmart.example'
 export const userIn = (orgName, base) => `${base}${ORGS[orgName]?.userSuffix ?? ''}`
-export const ADMIN = 'amira.lund@harbor.example'
+export const ADMIN = 'amira.lund@brightmart.example'
 
 const ALL = 'CRED' // Create, Read, Edit, Delete
 export function newOrg(name, extra = {}) {
@@ -234,7 +234,7 @@ export function newOrg(name, extra = {}) {
     },
     usage: [],
     bulkUsage: [],
-    // the other integrations of Harbor: calls per hour in office hours (from to to) and at night
+    // the other integrations of Brightmart: calls per hour in office hours (from to to) and at night
     feeds:
       name === 'Production'
         ? [
@@ -250,37 +250,37 @@ export function newOrg(name, extra = {}) {
     virtual: {},
     largeObject: 200000,
     users: [
-      { username: u(INTEGRATION_USER), name: 'Mule Integration', profile: 'Harbor Integration User', license: 'Salesforce Integration', permsets: ['Harbor_Mule_Integration'], password: o.password, token: o.token, active: true },
+      { username: u(INTEGRATION_USER), name: 'Mule Integration', profile: 'Brightmart Integration User', license: 'Salesforce Integration', permsets: ['Brightmart_Mule_Integration'], password: o.password, token: o.token, active: true },
       { username: u(ADMIN), name: 'Amira Lund', profile: 'System Administrator', license: 'Salesforce', permsets: [], password: 'lab-admin', token: 'labTokenAdmin', active: true },
-      { username: u('sales.ops@harbor.example'), name: 'Sales Operations', profile: 'Standard User', license: 'Salesforce', permsets: [], password: 'lab-sales', token: 'labTokenSales', active: true },
+      { username: u('sales.ops@brightmart.example'), name: 'Sales Operations', profile: 'Standard User', license: 'Salesforce', permsets: [], password: 'lab-sales', token: 'labTokenSales', active: true },
     ],
     profiles: {
       'System Administrator': { apiEnabled: true, modifyAll: true, loginIpRanges: [] },
       'Standard User': { apiEnabled: true, allObjects: 'CRE', allFields: 'edit', loginIpRanges: [] },
       // the profile Salesforce gives a user of the Salesforce Integration license: API only, no object access of its own
       'Minimum Access - API Only Integrations': { apiEnabled: true, apiOnly: true, objects: {}, fields: {}, loginIpRanges: [] },
-      // a clone of that profile for the integration users of Harbor: object and field access come from permission sets
-      'Harbor Integration User': { apiEnabled: true, apiOnly: true, objects: {}, fields: {}, loginIpRanges: [] },
+      // a clone of that profile for the integration users of Brightmart: object and field access come from permission sets
+      'Brightmart Integration User': { apiEnabled: true, apiOnly: true, objects: {}, fields: {}, loginIpRanges: [] },
     },
     permsets: {
-      Harbor_Mule_Integration: { label: 'Harbor Mule Integration', apiEnabled: true, allObjects: ALL, allFields: 'edit', fields: {} },
+      Brightmart_Mule_Integration: { label: 'Brightmart Mule Integration', apiEnabled: true, allObjects: ALL, allFields: 'edit', fields: {} },
     },
     network: { trustedIps: [] },
     passwordPolicy: { maxInvalid: 10, lockoutMinutes: 15 },
     connectedApps: [
       {
-        name: 'Harbor MuleSoft Integration',
-        consumerKey: `3MVG9lab.HarborMule.${o.key}`,
+        name: 'Brightmart MuleSoft Integration',
+        consumerKey: `3MVG9lab.BrightmartMule.${o.key}`,
         oauth: true,
         scopes: ['Manage user data via APIs (api)', 'Perform requests at any time (refresh_token, offline_access)'],
-        certificate: { name: 'harbor-mule-jwt-2027', expires: Date.UTC(2027, 7, 31) - BASE },
+        certificate: { name: 'brightmart-mule-jwt-2027', expires: Date.UTC(2027, 7, 31) - BASE },
         permittedUsers: 'Admin approved users are pre-authorized',
         ipRelaxation: 'Relax IP restrictions',
         profiles: [],
-        permsets: ['Harbor_Mule_Integration'],
+        permsets: ['Brightmart_Mule_Integration'],
       },
     ],
-    certificates: [{ name: 'harbor-mule-jwt-2027', expires: Date.UTC(2027, 7, 31) - BASE }],
+    certificates: [{ name: 'brightmart-mule-jwt-2027', expires: Date.UTC(2027, 7, 31) - BASE }],
     loginHistory: [],
     sessions: {},
     jobs: [],
@@ -305,13 +305,13 @@ export function newOrg(name, extra = {}) {
 function seedRecords(org, now) {
   const t = iso(now - 30 * DAY)
   const ids = SEED.map(([name, hc, type, city, country, tier]) => {
-    const r = { Id: newId(org, 'Account'), Name: name, Type: type, BillingCity: city, BillingCountry: country, Harbor_Customer_Id__c: hc, Loyalty_Tier__c: tier, Phone: '+47 5550 ' + hc.slice(-4), CreatedDate: t, LastModifiedDate: t, SystemModstamp: t }
+    const r = { Id: newId(org, 'Account'), Name: name, Type: type, BillingCity: city, BillingCountry: country, Brightmart_Customer_Id__c: hc, Loyalty_Tier__c: tier, Phone: '+47 5550 ' + hc.slice(-4), CreatedDate: t, LastModifiedDate: t, SystemModstamp: t }
     org.records.Account.push(r)
     return r.Id
   })
-  org.records.Contact.push({ Id: newId(org, 'Contact'), FirstName: 'Mia', LastName: 'Strand', Email: 'mia@harbor-bistro.example', AccountId: ids[3], CreatedDate: t, LastModifiedDate: t, SystemModstamp: t })
+  org.records.Contact.push({ Id: newId(org, 'Contact'), FirstName: 'Mia', LastName: 'Strand', Email: 'mia@brightmart-bistro.example', AccountId: ids[3], CreatedDate: t, LastModifiedDate: t, SystemModstamp: t })
   org.records.Contact.push({ Id: newId(org, 'Contact'), FirstName: 'Olav', LastName: 'Berg', Email: 'olav@quay-deli.example', AccountId: ids[0], CreatedDate: t, LastModifiedDate: t, SystemModstamp: t })
-  org.records.Order.push({ Id: newId(org, 'Order'), OrderNumber: '00000101', AccountId: ids[0], EffectiveDate: '2026-10-28', Status: 'Activated', TotalAmount: 412.5, Harbor_Order_Id__c: 'O-1001', CreatedDate: t, LastModifiedDate: t, SystemModstamp: t })
+  org.records.Order.push({ Id: newId(org, 'Order'), OrderNumber: '00000101', AccountId: ids[0], EffectiveDate: '2026-10-28', Status: 'Activated', TotalAmount: 412.5, Brightmart_Order_Id__c: 'O-1001', CreatedDate: t, LastModifiedDate: t, SystemModstamp: t })
   org.records.Loyalty_Member__c.push({ Id: newId(org, 'Loyalty_Member__c'), Name: 'Quay Deli', Member_Number__c: 'LM-5001', Account__c: ids[0], Tier__c: 'Gold', Points__c: 1840, CreatedDate: t, LastModifiedDate: t, SystemModstamp: t })
 }
 
@@ -319,20 +319,40 @@ export const newSalesforce = ({ orgs, ...extra } = {}) => ({ created: extra.crea
 // the open console: a placeholder; the orgs are filled in when something first writes to them
 export const defaultSalesforce = (now = 0) => ({ created: now })
 
+// The retail customers of the Brightmart web shop, read by customers-sys-api of the open console by their External ID.
+// Only the open console has them: its placeholder fills with them, a lab that builds its own orgs does not.
+export const BRIGHTMART_CUSTOMERS = [
+  ['Mara Quinn', 'C-7', 'Gold', 'Harborview', 'Norway', 'mara.quinn@mail.example'],
+  ['Tess Harlow', 'C-8', 'Silver', 'Saltmere', 'Denmark', 'tess.harlow@mail.example'],
+  ['Noel Brandt', 'C-9', null, 'Brightwater', 'Sweden', 'noel.brandt@mail.example'],
+]
+function consoleOrgs(created) {
+  const orgs = newSalesforce({ created }).orgs
+  const t = iso(created - 20 * DAY)
+  for (const org of Object.values(orgs))
+    for (const [name, hc, tier, city, country, email] of BRIGHTMART_CUSTOMERS) {
+      const id = newId(org, 'Account')
+      org.records.Account.push({ Id: id, Name: name, Type: 'Customer', BillingCity: city, BillingCountry: country, Brightmart_Customer_Id__c: hc, Loyalty_Tier__c: tier, CreatedDate: t, LastModifiedDate: t, SystemModstamp: t })
+      const [first, last] = name.split(' ')
+      org.records.Contact.push({ Id: newId(org, 'Contact'), FirstName: first, LastName: last, Email: email, AccountId: id, CreatedDate: t, LastModifiedDate: t, SystemModstamp: t })
+    }
+  return orgs
+}
+
 // Reads see a placeholder as the default orgs (cached per object, so a read never changes the state)
 const DEFAULTS = new WeakMap()
 const orgsRead = (s) => {
   const y = s?.salesforce
   if (!y) return null
   if (y.orgs) return y.orgs
-  if (!DEFAULTS.has(y)) DEFAULTS.set(y, newSalesforce({ created: y.created ?? 0 }).orgs)
+  if (!DEFAULTS.has(y)) DEFAULTS.set(y, consoleOrgs(y.created ?? 0))
   return DEFAULTS.get(y)
 }
 export const orgOf = (s, name = 'Production') => orgsRead(s)?.[name] ?? null
 export const orgsOf = (s) => Object.values(orgsRead(s) ?? {})
 // writes the default orgs into a draft that holds the placeholder
 export function ensureOrgs(s) {
-  if (s?.salesforce && !s.salesforce.orgs) s.salesforce.orgs = newSalesforce({ created: s.salesforce.created ?? s.clock ?? 0 }).orgs
+  if (s?.salesforce && !s.salesforce.orgs) s.salesforce.orgs = consoleOrgs(s.salesforce.created ?? s.clock ?? 0)
   return s
 }
 export const upgradeSalesforce = ensureOrgs
@@ -1075,9 +1095,12 @@ export const eventDef = (org, name) => {
 
 // ---------- the context of an app ----------
 
-export function salesforceCtx(s, app) {
+// `over` gives connector properties that win over those of the app: ctx.salesforce.withConfig(props) is the connector
+// with a configuration of its own, the way a flow names a second Salesforce config
+export function salesforceCtx(s, app, over) {
+  if (!over) return { ...salesforceCtx(s, app, {}), withConfig: (props) => salesforceCtx(s, app, props) }
   const client = app?.name ?? 'app'
-  const cfg = configOf({ ...app?.props, ...app?.secrets })
+  const cfg = configOf({ ...app?.props, ...app?.secrets, ...over })
   const now = s?.clock ?? 0
   const key = `${client}:${app?.config ?? 1}`
   // connects (or reuses the session of this configuration); `free` calls (inside a composite request) count nothing
@@ -1504,7 +1527,7 @@ export function salesforceTick(s) {
         ed.n = (ed.n ?? 0) + 1
         const r = list[ed.n % list.length]
         const tiers = ['Bronze', 'Silver', 'Gold']
-        writeOne(org, 'update', 'Account', ed.n % 2 ? { Id: r.Id, Phone: `+47 5551 ${String(1000 + (ed.n % 9000)).slice(-4)}` } : { Id: r.Id, Loyalty_Tier__c: tiers[ed.n % 3] }, null, ed.by ?? 'sales.ops@harbor.example', now)
+        writeOne(org, 'update', 'Account', ed.n % 2 ? { Id: r.Id, Phone: `+47 5551 ${String(1000 + (ed.n % 9000)).slice(-4)}` } : { Id: r.Id, Loyalty_Tier__c: tiers[ed.n % 3] }, null, ed.by ?? 'sales.ops@brightmart.example', now)
       }
     }
   }
@@ -1519,7 +1542,7 @@ export function seedAccounts(s, orgName, records, type = 'Account', by = ADMIN) 
   const org = s.salesforce.orgs[orgName]
   return records.map((r) => writeOne(org, 'create', type, r, null, by, s.clock ?? 0))
 }
-export const editRecord = (s, orgName, type, rec, by = 'sales.ops@harbor.example') => {
+export const editRecord = (s, orgName, type, rec, by = 'sales.ops@brightmart.example') => {
   ensureOrgs(s)
   return writeOne(s.salesforce.orgs[orgName], 'update', type, rec, null, by, s.clock ?? 0)
 }
@@ -1529,7 +1552,7 @@ export const callsSince = (s, orgName, client, from) => (orgOf(s, orgName)?.usag
 export const rejectedSince = (s, orgName, client, from) => (orgOf(s, orgName)?.usage ?? []).filter((b) => b.h >= hourOf(from)).reduce((k, b) => k + (b.rej?.[client] ?? 0), 0)
 export const jobsOf = (s, orgName = 'Production') => orgOf(s, orgName)?.jobs ?? []
 export const loginsOf = (s, orgName = 'Production') => orgOf(s, orgName)?.loginHistory ?? []
-export function duplicateGroups(org, type = 'Account', key = 'Harbor_Customer_Id__c') {
+export function duplicateGroups(org, type = 'Account', key = 'Brightmart_Customer_Id__c') {
   const m = new Map()
   for (const r of recordsOf(org, type)) {
     if (blank(r[key])) continue
@@ -1613,7 +1636,7 @@ export const mergeAccounts = (state, orgName, masterId, otherIds) =>
 const tokenMail = (s, org, u, why) => {
   u.token = `labToken${org.name === 'Production' ? 'P' : 'U'}${(org.seq++ % 9000) + 1000}`
   s.mail ??= []
-  s.mail.push({ t: s.clock ?? 0, to: 'ops@harbor.example', subject: 'Your new Salesforce security token', body: `${why} The security token of ${u.username} in ${org.myDomain} was reset. New security token (case sensitive): ${u.token}. Apps that log in with the old token get INVALID_LOGIN.`, source: 'Salesforce' })
+  s.mail.push({ t: s.clock ?? 0, to: 'ops@brightmart.example', subject: 'Your new Salesforce security token', body: `${why} The security token of ${u.username} in ${org.myDomain} was reset. New security token (case sensitive): ${u.token}. Apps that log in with the old token get INVALID_LOGIN.`, source: 'Salesforce' })
   if (s.mail.length > 40) s.mail.shift()
 }
 // Users, Reset Password: Salesforce resets the security token too and mails it (lab made: to the operations inbox,
@@ -1650,7 +1673,7 @@ export function createUser(state, orgName, { username, name, profile, password }
   const org = orgOf(state, orgName)
   const e = []
   const un = String(username ?? '').trim().toLowerCase()
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(un)) e.push('Username must be in the form of an email address, for example mule.sync@harbor.example.')
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(un)) e.push('Username must be in the form of an email address, for example mule.sync@brightmart.example.')
   else if (userOf(org, un)) e.push(`Duplicate Username. The username already exists in this or another Salesforce organization.`)
   if (blank(name)) e.push('Enter the last name of the user.')
   if (!org?.profiles?.[profile]) e.push('Choose a profile.')

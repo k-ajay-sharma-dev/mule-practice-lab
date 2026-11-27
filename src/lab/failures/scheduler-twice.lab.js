@@ -14,8 +14,8 @@ const lab = {
   minutes: 10,
   scenario: 'It is 09:00. Finance says every customer got each invoice twice last night. invoice-mailer emails the open invoices at 01:00. Last week it went from 1 to 2 replicas for the invoice API, and clustering was left off. Nothing failed and the logs have no ERROR line.',
   start() {
-    const s = until(newPlatform({ clock: at(0, 12), apps: [newApp(NAME, { replicas: 2, vCores: 0.2, props: { 'smtp.host': 'smtp.harbor.lab' } })] }), at(1, 9))
-    s.mail.push({ t: at(1, 8, 40), to: OPS, subject: 'Invoices sent twice', body: 'Good morning. Harbor Foods customers write that they got each invoice of last night two times, a few seconds apart. Please make sure it does not happen tonight.', source: 'Finance' })
+    const s = until(newPlatform({ clock: at(0, 12), apps: [newApp(NAME, { replicas: 2, vCores: 0.2, props: { 'smtp.host': 'smtp.brightmart.lab' } })] }), at(1, 9))
+    s.mail.push({ t: at(1, 8, 40), to: OPS, subject: 'Invoices sent twice', body: 'Good morning. Brightmart customers write that they got each invoice of last night two times, a few seconds apart. Please make sure it does not happen tonight.', source: 'Finance' })
     return s
   },
   steps: [

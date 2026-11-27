@@ -1,8 +1,8 @@
-// AWS: an AWS Management Console style screen of the Harbor account in US East (Ohio). S3 keeps buckets, objects, Block
+// AWS: an AWS Management Console style screen of the Brightmart account in US East (Ohio). S3 keeps buckets, objects, Block
 // Public Access, default encryption and bucket policies; SQS keeps queues with their redrive policy, Send and receive
 // messages and Start DLQ redrive; SNS keeps topics, SQS subscriptions with filter policies and Publish message; IAM keeps
 // users, access keys, roles, trust policies, policies and the Policy simulator; KMS keeps the key policies; CloudTrail
-// lists the event history. A lab tool: the console user harbor-admin does everything.
+// lists the event history. A lab tool: the console user brightmart-admin does everything.
 import { useEffect, useState } from 'react'
 import { mark, stamp } from '../../lab/platform.js'
 import {
@@ -109,7 +109,7 @@ export default function AwsConsole({ state, update, place }) {
         <span className="aws-region">
           {REGION_NAME} <small>{REGION}</small>
         </span>
-        <span className="aws-acct">harbor-admin @ {ACCOUNT_TEXT}</span>
+        <span className="aws-acct">brightmart-admin @ {ACCOUNT_TEXT}</span>
       </header>
       <div className="aws-page">
         {svc === 'S3' && <S3 key="s3" {...props} />}
@@ -1511,7 +1511,7 @@ const record = (e) => ({
   eventName: e.name,
   awsRegion: REGION,
   sourceIPAddress: e.ip,
-  userAgent: e.app ? `aws-sdk-java/2.x Mule app ${e.app}` : e.user === 'harbor-admin' ? 'AWS Internal (console)' : 'aws-cli/2.x',
+  userAgent: e.app ? `aws-sdk-java/2.x Mule app ${e.app}` : e.user === 'brightmart-admin' ? 'AWS Internal (console)' : 'aws-cli/2.x',
   requestParameters: { resource: e.res },
   ...(e.code ? { errorCode: e.code, errorMessage: e.msg } : { responseElements: e.msg ? { detail: e.msg } : null }),
   eventID: e.id,
@@ -1531,7 +1531,7 @@ function Trail({ y, update }) {
     <section>
       <Crumbs items={[['CloudTrail'], ['Event history']]} />
       <h2>Event history ({list.length})</h2>
-      <p className="pc-dim">The last events of the trail harbor-trail, with S3 and SQS data events on. Lab-made: the history keeps the newest 60 events.</p>
+      <p className="pc-dim">The last events of the trail brightmart-trail, with S3 and SQS data events on. Lab-made: the history keeps the newest 60 events.</p>
       <div className="aws-card aws-inline">
         <Field label="Lookup attributes">
           <Select value={by} onChange={setBy} options={LOOKUPS} />

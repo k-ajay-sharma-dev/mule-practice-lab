@@ -3,7 +3,7 @@
 import { info, muleError, needs } from '../platform-log.js'
 import { awsCfg } from '../platform-aws.js'
 
-export const MEDIA_SYNC = 'harbor-media-s3-sync'
+export const MEDIA_SYNC = 'brightmart-media-s3-sync'
 export const SYNC_FLOW = 'sync-images-flow'
 const keep = (arr, item, n = 30) => [...(arr ?? []), item].slice(-n)
 const el = {

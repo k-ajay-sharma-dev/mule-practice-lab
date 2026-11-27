@@ -11,17 +11,17 @@ const store = (password, entries) => ({ password, entries })
 const entry = (alias, cn, issuer, key = false) => ({ alias, cn, issuer, key })
 
 export const STORES = {
-  'orders-papi-server.jks': store('Papi-Server-26', [entry('b2b-orders-papi', 'orders-papi.harbor.lab', 'Harbor Internal CA', true)]),
-  'orders-sapi-server.jks': store('Sapi-Server-26', [entry('b2b-orders-sapi', 'orders-sapi.harbor.lab', 'Harbor Internal CA', true)]),
-  'orders-papi-client.jks': store('Papi-Client-26', [entry('orders-papi-client-2025', 'orders-papi-client', 'Harbor Old Internal CA', true), entry('orders-papi-client', 'orders-papi-client', 'Harbor Internal CA', true)]),
-  'partners-2025.jks': store('Partners-Lab-25', [entry('harbor-partner-ca', 'Harbor Partner CA', 'Harbor Partner CA')]),
-  'partners-2026.jks': store('Partners-Lab-26', [entry('harbor-partner-ca', 'Harbor Partner CA', 'Harbor Partner CA'), entry('bayline-root-ca', 'Bayline Root CA', 'Bayline Root CA')]),
-  'internal-ca.jks': store('Internal-Lab-26', [entry('harbor-internal-ca', 'Harbor Internal CA', 'Harbor Internal CA')]),
+  'orders-papi-server.jks': store('Papi-Server-26', [entry('b2b-orders-papi', 'orders-papi.brightmart.lab', 'Brightmart Internal CA', true)]),
+  'orders-sapi-server.jks': store('Sapi-Server-26', [entry('b2b-orders-sapi', 'orders-sapi.brightmart.lab', 'Brightmart Internal CA', true)]),
+  'orders-papi-client.jks': store('Papi-Client-26', [entry('orders-papi-client-2025', 'orders-papi-client', 'Brightmart Old Internal CA', true), entry('orders-papi-client', 'orders-papi-client', 'Brightmart Internal CA', true)]),
+  'partners-2025.jks': store('Partners-Lab-25', [entry('brightmart-partner-ca', 'Brightmart Partner CA', 'Brightmart Partner CA')]),
+  'partners-2026.jks': store('Partners-Lab-26', [entry('brightmart-partner-ca', 'Brightmart Partner CA', 'Brightmart Partner CA'), entry('bayline-root-ca', 'Bayline Root CA', 'Bayline Root CA')]),
+  'internal-ca.jks': store('Internal-Lab-26', [entry('brightmart-internal-ca', 'Brightmart Internal CA', 'Brightmart Internal CA')]),
 }
 
 // The client certificate each partner sends, with the chain up to its root
 export const PARTNERS = {
-  COASTAL: { name: 'Coastal Grocers', clientId: 'cst-11a4', clientSecret: 'cst-secret-36', cert: { cn: 'coastal-grocers-b2b', chain: ['Harbor Partner CA'] } },
+  COASTAL: { name: 'Coastal Grocers', clientId: 'cst-11a4', clientSecret: 'cst-secret-36', cert: { cn: 'coastal-grocers-b2b', chain: ['Brightmart Partner CA'] } },
   BAYLINE: { name: 'Bayline Logistics', clientId: 'bay-72d0', clientSecret: 'bay-secret-85', cert: { cn: 'bayline-orders', chain: ['Bayline Issuing CA G2', 'Bayline Root CA'] } },
   NONE: { name: 'No Certificate Tester', clientId: 'tst-9e31', clientSecret: 'tst-secret-02', cert: null },
 }
@@ -30,7 +30,7 @@ const CERT_OF = Object.fromEntries(Object.values(PARTNERS).map((p) => [p.name, p
 const text = (v) => String(v ?? '').trim()
 const trusted = (file, chain) => STORES[file].entries.some((e) => chain.includes(e.cn))
 const cas = (file) => STORES[file].entries.map((e) => `${e.alias} (CN=${e.cn})`).join(', ')
-const LOGGER = 'harbor.lab.tls'
+const LOGGER = 'brightmart.lab.tls'
 
 // Checks one store property and its password at start, the way a TLS context fails to load
 function storeError(props, key, { alias } = {}) {
@@ -56,7 +56,7 @@ const handshake = () => ({ status: 0, ms: 15, error: 'TLS:HANDSHAKE', flow: 'htt
 
 export const PACKAGES = {
   'b2b-orders-papi': {
-    note: 'The order Process API of Harbor Foods. Partners call it with a client certificate, and it calls b2b-orders-sapi over TLS.',
+    note: 'The order Process API of Brightmart. Partners call it with a client certificate, and it calls b2b-orders-sapi over TLS.',
     sample: { method: 'GET', path: '/orders/O-5521' },
     boot: ({ props }) =>
       firstError(
@@ -102,7 +102,7 @@ export const PACKAGES = {
     },
   },
   'b2b-orders-sapi': {
-    note: 'The order System API of Harbor Foods. Only applications of the network reach it.',
+    note: 'The order System API of Brightmart. Only applications of the network reach it.',
     sample: { method: 'GET', path: '/orders/O-5521' },
     boot: ({ props }) =>
       firstError(!text(props['tls.keystore']) && 'tls.keystore is empty. The HTTPS listener needs a key store with its server certificate.', storeError(props, 'tls.keystore'), storeError(props, 'tls.truststore')),

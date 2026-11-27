@@ -20,7 +20,7 @@ const lab = {
   title: 'Register a Windows server with Runtime Manager',
   minutes: 20,
   scenario:
-    'Harbor runs Mule 4.9.0 on its own Windows server HBR-MULE-01 in the data center. Anypoint is the control plane: you deploy from Runtime Manager, and the runtime on the server runs the application. Yesterday a colleague ran amc_setup on the server and restarted it. Today Runtime Manager, Servers, shows no server in Sandbox, and the team wants to deploy dock-booking-sapi there for testing.',
+    'Brightmart runs Mule 4.9.0 on its own Windows server HBR-MULE-01 in the data center. Anypoint is the control plane: you deploy from Runtime Manager, and the runtime on the server runs the application. Yesterday a colleague ran amc_setup on the server and restarted it. Today Runtime Manager, Servers, shows no server in Sandbox, and the team wants to deploy dock-booking-sapi there for testing.',
   start() {
     const x = newServer(HOST, { ip: '10.20.1.11', agent: { env: 'Production', name: NAME } })
     x.log = [
@@ -96,7 +96,7 @@ const lab = {
     ),
     {
       title: 'Call it through the load balancer',
-      how: 'API client, dock-booking-sapi, GET /docks. The address is the Harbor load balancer, and the answer has the header X-Lab-Server: mule-01.',
+      how: 'API client, dock-booking-sapi, GET /docks. The address is the Brightmart load balancer, and the answer has the header X-Lab-Server: mule-01.',
       done: (s) => Boolean(deployed(s)) && (s.lastCalls ?? []).some((c) => c.app === APP && c.env === 'Sandbox' && c.status === 200 && c.t > deployed(s).updated),
     },
   ],

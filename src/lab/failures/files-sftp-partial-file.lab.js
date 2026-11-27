@@ -4,7 +4,7 @@ import { app, ask, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { clientDo, defaultSystems, fileRec, finishWrite, putFile, removeFile, transfer } from '../platform-systems.js'
 import { APP, settingsOf } from './files-sftp-partial-file.pkg.js'
 
-const HOST = 'sftp.harbor.lab'
+const HOST = 'sftp.brightmart.lab'
 const LATE = 'stock-2026-11-03-b.csv'
 const ROWS = 12
 const FULL = `sku,warehouse,available\n${Array.from({ length: ROWS }, (_, i) => `H-${101 + i},ROT-2,${(i * 37 + 11) % 90}`).join('\n')}\n`
@@ -55,7 +55,7 @@ const lab = {
       to: OPS,
       subject: 'ROT-2 stock levels are old',
       body: `Good morning. Our system sent ${LATE} at 07:58 with ${ROWS} products. Only the first ones were updated. H-107 to H-112 still show the stock of yesterday, so orders are promised from shelves we cannot check. The upload over our line takes a few minutes.`,
-      source: 'Harbor Foods Rotterdam warehouse',
+      source: 'Brightmart Rotterdam warehouse',
     })
     return s
   },

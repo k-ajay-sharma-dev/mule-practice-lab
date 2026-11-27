@@ -14,14 +14,14 @@ export function contactFile(accountIds) {
   for (let k = 0; k < PER_ACCOUNT; k++)
     accountIds.forEach((id, a) => {
       const n = a * PER_ACCOUNT + k + 1
-      rows.push({ Harbor_Contact_Id__c: `HCT-${String(n).padStart(4, '0')}`, LastName: `Contact ${n}`, Email: `contact${n}@larkspur-stores.example`, AccountId: id })
+      rows.push({ Brightmart_Contact_Id__c: `HCT-${String(n).padStart(4, '0')}`, LastName: `Contact ${n}`, Email: `contact${n}@larkspur-stores.example`, AccountId: id })
     })
   return rows
 }
 const strip = (r) => Object.fromEntries(Object.entries(r).filter(([k]) => !k.startsWith('sf__')))
 
 const el = {
-  job: { at: 2, name: 'Create job bulk api v2', dsl: '<salesforce:create-job-bulk-api-v2 doc:name="Create job bulk api v2" config-ref="Salesforce_Config" objectType="Contact" operation="upsert" externalIdFieldName="Harbor_Contact_Id__c">' },
+  job: { at: 2, name: 'Create job bulk api v2', dsl: '<salesforce:create-job-bulk-api-v2 doc:name="Create job bulk api v2" config-ref="Salesforce_Config" objectType="Contact" operation="upsert" externalIdFieldName="Brightmart_Contact_Id__c">' },
   failed: { at: 1, name: 'Get failed results', dsl: '<salesforce:get-failed-results-bulk-api-v2 doc:name="Get failed results" config-ref="Salesforce_Config">' },
 }
 const block = (where, type, message) => muleError({ flow: FLOW, file: NAME, ...el[where], type, message })
@@ -29,7 +29,7 @@ const block = (where, type, message) => muleError({ flow: FLOW, file: NAME, ...e
 export const PACKAGES = {
   [NAME]: {
     note:
-      'Every 20 minutes loads the contact file of the CRM export into Salesforce with a Bulk API 2.0 upsert job on Harbor_Contact_Id__c. The file is in the order of the export. load.sortByParent true sorts the rows by AccountId first, so the contacts of one account travel together. load.retryFailed true makes the next run read the failedResults of the last job and load only the rows that failed, instead of the whole file. The account IDs of the file are in contacts.accounts.',
+      'Every 20 minutes loads the contact file of the CRM export into Salesforce with a Bulk API 2.0 upsert job on Brightmart_Contact_Id__c. The file is in the order of the export. load.sortByParent true sorts the rows by AccountId first, so the contacts of one account travel together. load.retryFailed true makes the next run read the failedResults of the last job and load only the rows that failed, instead of the whole file. The account IDs of the file are in contacts.accounts.',
     boot: needs('salesforce.url', 'salesforce.username', 'salesforce.password', 'salesforce.securityToken', 'contacts.accounts'),
     schedules: [{ flow: FLOW, type: 'fixed', value: '20', unit: 'minutes', enabled: true }],
     run: {
@@ -55,7 +55,7 @@ export const PACKAGES = {
           }
         }
         if (yes(props['load.sortByParent'])) rows = [...rows].sort((a, b) => (a.AccountId < b.AccountId ? -1 : a.AccountId > b.AccountId ? 1 : 0))
-        const j = sf.bulkCreateJob({ object: 'Contact', operation: 'upsert', externalIdFieldName: 'Harbor_Contact_Id__c' })
+        const j = sf.bulkCreateJob({ object: 'Contact', operation: 'upsert', externalIdFieldName: 'Brightmart_Contact_Id__c' })
         if (!j.ok) return { ok: false, ms: 500, errorType: j.type, log: [...log, block('job', j.type, j.error)] }
         sf.uploadData(j.job.id, rows)
         sf.closeJob(j.job.id)

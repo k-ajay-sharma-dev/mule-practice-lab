@@ -30,13 +30,13 @@ const lab = {
   group: 'HR, ITSM and CRM',
   title: 'The new hire nobody gave a badge',
   minutes: 25,
-  scenario: `${ACCESS} opens and closes the accounts of Harbor workers, badge, mail and store till, from the hire and termination events of Workday. Every 15 minutes it asks the report ${REPORT} for the events completed since its last run. It runs without errors. Today Mara Quill started at the Pier 02 store, and she has no account at all. Find out why, fix the delta, and repair what it missed.`,
+  scenario: `${ACCESS} opens and closes the accounts of Brightmart workers, badge, mail and store till, from the hire and termination events of Workday. Every 15 minutes it asks the report ${REPORT} for the events completed since its last run. It runs without errors. Today Mara Quill started at the Pier 02 store, and she has no account at all. Find out why, fix the delta, and repair what it missed.`,
   start() {
     const s = newPlatform({
       clock: at(0, 8),
       apps: [
         newApp(ACCESS, {
-          props: { 'workday.host': WD_HOST, 'workday.tenant': TENANT, 'workday.username': 'ISU_HARBOR_HCM', 'raas.owner': 'lhart', 'raas.report': REPORT, 'delta.mode': 'entry', 'delta.replayFrom': '' },
+          props: { 'workday.host': WD_HOST, 'workday.tenant': TENANT, 'workday.username': 'ISU_BRIGHTMART_HCM', 'raas.owner': 'lhart', 'raas.report': REPORT, 'delta.mode': 'entry', 'delta.replayFrom': '' },
           secrets: { 'workday.password': 'Hcm-Lab-Pass-0826' },
           store: { accounts: Object.fromEntries(['21001', '21002', '21003', '21004', '21005', '21006', '21008', '21009', '21010'].map((id) => [id, 'active'])), applied: [], watermark: at(0, 8) },
         }),

@@ -9,7 +9,7 @@ const el = { at: 3, name: 'Post bookings to Larkspur', dsl: '<http:request metho
 
 export const PACKAGES = {
   [NAME]: {
-    note: 'Every 5 minutes it posts the new freight bookings of Harbor to the booking API of Larkspur Freight at https://partner.host + partner.path. Larkspur lets in only the IP addresses on its allowlist.',
+    note: 'Every 5 minutes it posts the new freight bookings of Brightmart to the booking API of Larkspur Freight at https://partner.host + partner.path. Larkspur lets in only the IP addresses on its allowlist.',
     boot: needs('partner.host', 'partner.path'),
     schedules: [{ flow: FLOW, type: 'fixed', value: '5', unit: 'minutes', enabled: true }],
     run: {

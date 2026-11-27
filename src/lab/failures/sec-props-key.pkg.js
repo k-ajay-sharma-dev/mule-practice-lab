@@ -4,9 +4,9 @@ import { secureBootError } from '../platform-access.js'
 
 export const LEDGER = 'payout-ledger-sapi'
 // lab keys, 16 characters for AES-128. Never real keys.
-export const SBX_KEY = 'HarborSbx2026Key'
-export const PRD_KEY = 'HarborPrd2026Key'
-export const PLAIN = { 'db.host': 'ledger-db.prd.harbor.lab', 'db.password': 'lab-ledger-db-4', 'bank.api.secret': 'lab-bank-api-8' }
+export const SBX_KEY = 'BrightSbx2026Key'
+export const PRD_KEY = 'BrightPrd2026Key'
+export const PLAIN = { 'db.host': 'ledger-db.prd.brightmart.lab', 'db.password': 'lab-ledger-db-4', 'bank.api.secret': 'lab-bank-api-8' }
 export const SECRET_KEYS = ['db.password', 'bank.api.secret']
 // The file of one environment. `secret` turns a plain value into what goes in the file, for example ![...].
 export const ledgerFile = (env, secret = (v) => v) =>

@@ -4,7 +4,7 @@ import { app, ask, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { labStore, SHOP } from '../platform-shopify.js'
 import { RECEIVER, RECEIVER_PATH } from './shopify-hmac.pkg.js'
 
-const APP_NAME = 'Harbor ERP Connector'
+const APP_NAME = 'Brightmart ERP Connector'
 const shopApp = (s) => (s.shopify?.apps ?? []).find((a) => a.name === APP_NAME)
 const a = (s) => app(s, RECEIVER)
 const running = (s) => a(s)?.status === 'Running'
@@ -36,8 +36,8 @@ function start() {
         t: at(1, 9, 20),
         to: OPS,
         subject: 'No web orders in the ERP since last night',
-        body: `Good morning. The ERP has no web shop order after #1003. Shopify shows many new orders this morning. Last night ${RECEIVER} got a new release that moved its settings into properties. Can you look? Harbor finance`,
-        source: 'Harbor finance',
+        body: `Good morning. The ERP has no web shop order after #1003. Shopify shows many new orders this morning. Last night ${RECEIVER} got a new release that moved its settings into properties. Can you look? Brightmart finance`,
+        source: 'Brightmart finance',
       },
     ],
   })
@@ -49,10 +49,10 @@ const lab = {
   group: 'Data and cloud',
   title: 'Shopify webhooks rejected with 401',
   minutes: 25,
-  scenario: `${RECEIVER} receives the orders/create webhooks of the Harbor web store ${SHOP} and books each order in the ERP. Since a release last night every webhook is answered with 401, so Shopify keeps retrying and no web order reaches the ERP. Find why the signature check fails, fix it, and see the retried orders arrive.`,
+  scenario: `${RECEIVER} receives the orders/create webhooks of the Brightmart web store ${SHOP} and books each order in the ERP. Since a release last night every webhook is answered with 401, so Shopify keeps retrying and no web order reaches the ERP. Find why the signature check fails, fix it, and see the retried orders arrive.`,
   start,
   steps: [
-    { title: 'Read the mails', how: 'Open the Inbox. Read the mail of Harbor finance and the warning of Shopify about the failing webhook.', done: (s) => Boolean(s.seen.inbox) },
+    { title: 'Read the mails', how: 'Open the Inbox. Read the mail of Brightmart finance and the warning of Shopify about the failing webhook.', done: (s) => Boolean(s.seen.inbox) },
     {
       title: 'Look at the deliveries',
       how: `Shopify from the console menu, Apps, ${APP_NAME}, Webhooks. The subscription for orders/create points at the app. Under Deliveries every attempt has the response 401 Unauthorized. Open one: the headers X-Shopify-Hmac-Sha256, X-Shopify-Webhook-Id, X-Shopify-Triggered-At and the raw body.`,

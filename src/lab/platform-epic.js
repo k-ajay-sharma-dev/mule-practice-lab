@@ -6,7 +6,7 @@
 //   created, base, tokenUrl,
 //   apps: [{ clientId, prodId, name, audience, scopes: ['system/Patient.read'], keys: [{ kid, thumb, alg, t }], jwksUrl, t, by }]
 //         (the backend app registrations of Bayview, as on the Build Apps page of Epic on FHIR)
-//   keystore: [{ alias, kid, thumb, t, jwks }] (lab tool: the signing keys of Harbor; jwks means published on HARBOR_JWKS)
+//   keystore: [{ alias, kid, thumb, t, jwks }] (lab tool: the signing keys of Brightmart; jwks means published on BRIGHTMART_JWKS)
 //   patients: [{ id, mrn, family, given, gender, birthDate }],
 //   practitioners: [{ id, name }],
 //   encounters: [[id, pid, class, status, start, end, type]],
@@ -32,7 +32,7 @@ export const ORG = 'Bayview Health'
 export const HOST = 'fhir.bayview.example'
 export const TOKEN_URL = `https://${HOST}/interconnect-fhir-oauth/oauth2/token`
 export const BASE = `https://${HOST}/interconnect-fhir-oauth/api/FHIR/R4`
-export const HARBOR_JWKS = 'https://keys.harbor.example/epic/jwks.json'
+export const BRIGHTMART_JWKS = 'https://keys.brightmart.example/epic/jwks.json'
 export const ASSERTION_TYPE = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
 // a made up OID under the Epic root for the MRN of Bayview
 export const MRN_SYSTEM = 'urn:oid:1.2.840.114350.1.13.861.1.7.5.737384.14'
@@ -239,8 +239,8 @@ export const patientByMrn = (y, mrn) => (y?.patients ?? []).find((p) => p.mrn ==
 export const patientById = (y, id) => (y?.patients ?? []).find((p) => p.id === word(id).replace(/^Patient\//, ''))
 export const categoryOf = (code) => LOINC[code]?.[5] ?? 'laboratory'
 export const obsOf = (y, pid, category) => (y?.obs ?? []).filter((o) => o[1] === pid && (!category || categoryOf(o[2]) === category))
-// the public keys Epic has for an app: the uploaded ones and, with a JWK Set URL of Harbor, the published keys of Harbor
-export const publicKeysOf = (y, a) => [...(a?.keys ?? []), ...(word(a?.jwksUrl) === HARBOR_JWKS ? (y?.keystore ?? []).filter((k) => k.jwks).map((k) => ({ kid: k.kid, thumb: k.thumb, alg: 'RS384', jwks: true })) : [])]
+// the public keys Epic has for an app: the uploaded ones and, with a JWK Set URL of Brightmart, the published keys of Brightmart
+export const publicKeysOf = (y, a) => [...(a?.keys ?? []), ...(word(a?.jwksUrl) === BRIGHTMART_JWKS ? (y?.keystore ?? []).filter((k) => k.jwks).map((k) => ({ kid: k.kid, thumb: k.thumb, alg: 'RS384', jwks: true })) : [])]
 export const publicJwk = (k) => ({ kty: 'RSA', alg: 'RS384', use: 'sig', kid: k.kid, n: `${b62(`n${k.thumb}`, 40)}...`, e: 'AQAB' })
 export const grants = (scopes, need) => (scopes ?? []).includes(need) || (need.endsWith('.read') && (scopes ?? []).includes('system/*.read'))
 
@@ -594,7 +594,7 @@ export const createBackendApp = (state, { name, audience = 'Backend Systems' }) 
     if (n.length < 3) return { ok: false, text: 'Enter an application name of at least 3 characters' }
     if (y.apps.some((a) => a.name.toLowerCase() === n.toLowerCase())) return { ok: false, text: `An app named ${n} exists already` }
     if (audience !== 'Backend Systems') return { ok: false, text: 'Only backend apps are part of the lab' }
-    const a = { clientId: uuidOf(`np${n}${now}`), prodId: uuidOf(`pr${n}${now}`), name: n, audience, scopes: [], keys: [], jwksUrl: '', t: now, by: 'harbor.integration' }
+    const a = { clientId: uuidOf(`np${n}${now}`), prodId: uuidOf(`pr${n}${now}`), name: n, audience, scopes: [], keys: [], jwksUrl: '', t: now, by: 'brightmart.integration' }
     y.apps.push(a)
     return { ok: true, text: `App ${n} created. Non-production client ID ${a.clientId}`, clientId: a.clientId }
   })
@@ -605,7 +605,7 @@ export const setAppScopes = (state, clientId, scopes) =>
     a.scopes = SCOPE_NAMES.filter((x) => scopes.includes(x))
     return { ok: true, text: `Incoming APIs saved: ${a.scopes.join(', ') || 'none'}` }
   })
-// upload a public key from the Harbor key store. In Epic you paste the public key; the lab picks it by kid.
+// upload a public key from the Brightmart key store. In Epic you paste the public key; the lab picks it by kid.
 export const addPublicKey = (state, clientId, kid) =>
   edit(state, (s, y, now) => {
     const a = appOf(y, clientId)
@@ -631,7 +631,7 @@ export const setJwksUrl = (state, clientId, url) =>
     a.jwksUrl = u
     return { ok: true, text: u ? `JWK Set URL saved. Epic reads the keys from ${u}` : 'JWK Set URL removed' }
   })
-// lab tool: Harbor makes a key pair in the key store of the app. Only the public key ever leaves Harbor.
+// lab tool: Brightmart makes a key pair in the key store of the app. Only the public key ever leaves Brightmart.
 export const generateKeyPair = (state, { alias, kid }) =>
   edit(state, (s, y, now) => {
     const a = word(alias)
@@ -647,7 +647,7 @@ export const setInJwks = (state, alias, on) =>
     const k = keyOf(y, alias)
     if (!k) return { ok: false, text: 'No such key' }
     k.jwks = Boolean(on)
-    return { ok: true, text: on ? `${k.kid} is published at ${HARBOR_JWKS}` : `${k.kid} is no longer published` }
+    return { ok: true, text: on ? `${k.kid} is published at ${BRIGHTMART_JWKS}` : `${k.kid} is no longer published` }
   })
 
 // the FHIR browser of the Bayview analyst: runs a query without a token or a rate limit, and is not audited (lab tool)
@@ -672,7 +672,7 @@ export function seedKey(y, { alias, kid = alias, t = 0, jwks = false }) {
   return k
 }
 export function seedApp(y, { name, scopes = [], kids = [], jwksUrl = '', t = 0 }) {
-  const a = { clientId: uuidOf(`np${name}${t}`), prodId: uuidOf(`pr${name}${t}`), name, audience: 'Backend Systems', scopes, keys: [], jwksUrl, t, by: 'harbor.integration' }
+  const a = { clientId: uuidOf(`np${name}${t}`), prodId: uuidOf(`pr${name}${t}`), name, audience: 'Backend Systems', scopes, keys: [], jwksUrl, t, by: 'brightmart.integration' }
   for (const kid of kids) {
     const k = y.keystore.find((x) => x.kid === kid)
     if (k) a.keys.push({ kid, thumb: k.thumb, alg: 'RS384', t })

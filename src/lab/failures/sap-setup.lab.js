@@ -55,7 +55,7 @@ const lab = {
   group: 'Salesforce and SAP',
   title: 'Set up the SAP connection of the IDoc bridge',
   minutes: 35,
-  scenario: `Harbor connects its web shop to SAP ${SID} client ${SAP_CLIENT} on ${SAP_HOST}. The app ${BRIDGE} is built: it sends ORDERS05 IDocs to SAP and listens for the INVOIC02 IDocs SAP sends back, as program ${PROGRAM_ID}. Nothing is configured yet, neither in SAP nor in Anypoint. The jar is in Runtime Manager. Set up both sides, prove an order posts and an invoice arrives, and add an alert.`,
+  scenario: `Brightmart connects its web shop to SAP ${SID} client ${SAP_CLIENT} on ${SAP_HOST}. The app ${BRIDGE} is built: it sends ORDERS05 IDocs to SAP and listens for the INVOIC02 IDocs SAP sends back, as program ${PROGRAM_ID}. Nothing is configured yet, neither in SAP nor in Anypoint. The jar is in Runtime Manager. Set up both sides, prove an order posts and an invoice arrives, and add an alert.`,
   start() {
     return newPlatform({
       clock: at(1, 9),
@@ -66,8 +66,8 @@ const lab = {
           t: at(1, 8, 40),
           to: OPS,
           subject: 'SAP connection for the IDoc bridge',
-          body: `Hello. For the IDoc bridge we agreed: RFC user of type System for the Mule app, program ID ${PROGRAM_ID} on gateway ${SAP_HOST} ${GW_SERVICE}, logical system ${WEB_PARTNER} for the web shop. Inbound ORDERS with process code ORDE, outbound INVOIC with basic type INVOIC02. Harbor SAP basis team`,
-          source: 'Harbor SAP basis team',
+          body: `Hello. For the IDoc bridge we agreed: RFC user of type System for the Mule app, program ID ${PROGRAM_ID} on gateway ${SAP_HOST} ${GW_SERVICE}, logical system ${WEB_PARTNER} for the web shop. Inbound ORDERS with process code ORDE, outbound INVOIC with basic type INVOIC02. Brightmart SAP basis team`,
+          source: 'Brightmart SAP basis team',
         },
       ],
     })
@@ -136,10 +136,10 @@ const lab = {
   solve(start) {
     let s = mark(start, 'sap:SU01')
     s = createUser(s, { name: 'MULE_RFC', type: 'System', password: PASSWORD }).state
-    s = createDestination(s, { name: 'MULE_HARBOR_DEST', programId: PROGRAM_ID, gwhost: SAP_HOST, gwserv: GW_SERVICE, text: 'Mule IDoc bridge' }).state
-    s = createPort(s, { name: 'MULEPORT', dest: 'MULE_HARBOR_DEST' }).state
+    s = createDestination(s, { name: 'MULE_BRIGHTMART_DEST', programId: PROGRAM_ID, gwhost: SAP_HOST, gwserv: GW_SERVICE, text: 'Mule IDoc bridge' }).state
+    s = createPort(s, { name: 'MULEPORT', dest: 'MULE_BRIGHTMART_DEST' }).state
     s = createLogicalSystem(s, WEB_PARTNER).state
-    s = createPartner(s, WEB_PARTNER, 'Harbor web shop').state
+    s = createPartner(s, WEB_PARTNER, 'Brightmart web shop').state
     s = addInbound(s, WEB_PARTNER, { mestyp: 'ORDERS', process: 'ORDE', trigger: 'immediately' }).state
     s = addOutbound(s, WEB_PARTNER, { mestyp: 'INVOIC', idoctp: 'INVOIC02', port: 'MULEPORT', mode: 'immediately' }).state
     const form = {

@@ -28,12 +28,12 @@ const lab = {
   group: 'Mule XML',
   title: 'An API that says 200 when the order was lost',
   minutes: 25,
-  scenario: `${NAME} takes orders from the shop of Harbor Foods with POST /orders and sends each one to the warehouse system. The warehouse has had a bad week and refuses some calls. The shop shows every order as confirmed, but the warehouse never got some of them, and no error is in the logs. A colleague started a fix of the error handler in the Flow editor and could not deploy it. Find out why the failures are hidden, finish the fix in the Mule XML and prove that callers now see the truth.`,
+  scenario: `${NAME} takes orders from the shop of Brightmart with POST /orders and sends each one to the warehouse system. The warehouse has had a bad week and refuses some calls. The shop shows every order as confirmed, but the warehouse never got some of them, and no error is in the logs. A colleague started a fix of the error handler in the Flow editor and could not deploy it. Find out why the failures are hidden, finish the fix in the Mule XML and prove that callers now see the truth.`,
   start() {
     const s = newPlatform({
       clock: at(1, 8),
       nextId: 10,
-      apps: [newApp(NAME, { props: { 'http.port': '8081', 'warehouse.host': 'wms.harbor.lab' }, xml: START_XML, store: {} })],
+      apps: [newApp(NAME, { props: { 'http.port': '8081', 'warehouse.host': 'wms.brightmart.lab' }, xml: START_XML, store: {} })],
       xmlDrafts: { [NAME]: DRAFT_XML },
       traffic: [{ app: NAME, env: 'Sandbox', method: 'POST', path: '/orders', body: ORDER, perMinute: 3 }],
       mail: [
@@ -42,7 +42,7 @@ const lab = {
           to: OPS,
           subject: 'Confirmed orders that never reached us',
           body: 'Since Monday the shop shows orders as confirmed that the warehouse never received. Today it is about one order in three. The shop got 200 OK for each of them, so it did not retry. Customers call us about missing deliveries. Please find out what the order API does.',
-          source: 'Harbor Foods Warehouse',
+          source: 'Brightmart Warehouse',
         },
       ],
     })

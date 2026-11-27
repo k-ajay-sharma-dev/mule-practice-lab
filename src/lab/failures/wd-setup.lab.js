@@ -6,11 +6,11 @@ import {
 } from '../platform-workday.js'
 import { FEED, FEED_FLOW, FEED_JAR } from './wd-setup.pkg.js'
 
-const ISU = 'ISU_HARBOR_FEED'
+const ISU = 'ISU_BRIGHTMART_FEED'
 const GROUP = 'ISSG_Worker_Feed'
 const REPORT = 'INT_Worker_Feed'
 const TEST_WORKER = '21012'
-const ALERT_TO = 'hr-integrations@harbor.example'
+const ALERT_TO = 'hr-integrations@brightmart.example'
 const PASSWORD = 'Feed-Lab-Pass-1103'
 const NEED = ['Employee_ID', 'Worker', 'Email', 'Location']
 const y = (s) => s.workday ?? {}
@@ -63,14 +63,14 @@ const MAIL = {
     '4. The password kept out of plain properties.',
     `5. Test with worker ${TEST_WORKER} Quinn Testa, our test record: a worker without a work email must be rejected, not sent empty.`,
     `6. Failures alert ${ALERT_TO}.`,
-    'Harbor HR systems',
+    'Brightmart HR systems',
   ].join('\n\n'),
-  source: 'Harbor HR systems',
+  source: 'Brightmart HR systems',
 }
 
 function workday(now) {
   const x = newWorkday(now)
-  x.workers[TEST_WORKER] = { name: 'Quinn Testa', job: 'JP_PICKER', loc: 'LOC_DOCK_01', org: 'Integration Test', email: 'quinn.testa@harbor.example', hire: now - 30 * 86400000, term: null, upd: now - 30 * 86400000 }
+  x.workers[TEST_WORKER] = { name: 'Quinn Testa', job: 'JP_PICKER', loc: 'LOC_DOCK_01', org: 'Integration Test', email: 'quinn.testa@brightmart.example', hire: now - 30 * 86400000, term: null, upd: now - 30 * 86400000 }
   return x
 }
 
@@ -79,7 +79,7 @@ const lab = {
   group: 'HR, ITSM and CRM',
   title: 'Set up the Workday worker feed to the identity hub',
   minutes: 35,
-  scenario: `It is 09:00. HR systems want the active workers of Workday in the new identity hub of Harbor. The app ${FEED} is built and its jar is in Runtime Manager, but nothing exists for it yet: no integration system user, no security group, no report, no properties. Done means the full load matches the head count of Workday, a worker without an email is rejected, and failures reach the right team. The Inbox has the request.`,
+  scenario: `It is 09:00. HR systems want the active workers of Workday in the new identity hub of Brightmart. The app ${FEED} is built and its jar is in Runtime Manager, but nothing exists for it yet: no integration system user, no security group, no report, no properties. Done means the full load matches the head count of Workday, a worker without an email is rejected, and failures reach the right team. The Inbox has the request.`,
   start() {
     const s = newPlatform({ clock: at(1, 8, 30), jars: [{ pkg: FEED, jar: FEED_JAR }], workday: workday(at(1, 8)), mail: [MAIL] })
     return until(s, at(1, 9))
@@ -97,7 +97,7 @@ const lab = {
       [
         'Get and Put on every Worker Data domain, so later feeds work too',
         `Get on Worker Data: Public Worker Reports, Person Data: Work Contact Information and Worker Data: Current Staffing Information. Nothing on compensation or personal data, and no Put: the feed only reads`,
-        `Make ${ISU} a member of ISSG_Harbor_HCM, which works already`,
+        `Make ${ISU} a member of ISSG_Brightmart_HCM, which works already`,
         'Get on Worker Data: Public Worker Reports only; Workday shows the other fields anyway',
       ],
       1,

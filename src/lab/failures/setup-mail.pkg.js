@@ -3,9 +3,9 @@
 // reads the mailbox over IMAP, so every command shows in the server log.
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const NAME = 'harbor-order-mailer'
+export const NAME = 'brightmart-order-mailer'
 export const JAR = `${NAME}-1.0.0-mule-application.jar`
-export const BOX = 'webshop@harbor.example'
+export const BOX = 'webshop@brightmart.example'
 export const FLOW = 'customer-mail-flow'
 const SEND_FLOW = 'post:\\orders\\(orderId)\\confirmation:application\\json:order-mailer-config'
 const keep = (list, item, n = 30) => [...(list ?? []), item].slice(-n)
@@ -25,7 +25,7 @@ export function readReturn(text) {
 }
 
 const el = {
-  send: { at: 2, name: 'Send confirmation', dsl: '<email:send doc:name="Send confirmation" config-ref="Email_SMTP" fromAddress="${smtp.user}" subject="#[\'Your Harbor order \' ++ vars.orderId]">' },
+  send: { at: 2, name: 'Send confirmation', dsl: '<email:send doc:name="Send confirmation" config-ref="Email_SMTP" fromAddress="${smtp.user}" subject="#[\'Your Brightmart order \' ++ vars.orderId]">' },
   source: { at: 0, name: 'Customer mailbox', dsl: '<email:listener-imap doc:name="Customer mailbox" config-ref="Email_IMAP" folder="INBOX">' },
   move: { at: 4, name: 'Move to Processed', dsl: '<email:move-to-folder config-ref="Email_IMAP" emailId="#[attributes.number]" sourceFolder="INBOX" targetFolder="Processed">' },
   error: { at: 6, name: 'Move to Error', dsl: '<email:move-to-folder config-ref="Email_IMAP" emailId="#[attributes.number]" sourceFolder="INBOX" targetFolder="Error">' },
@@ -50,7 +50,7 @@ export const PACKAGES = {
       }
       if (!b || !/@/.test(String(b.email ?? ''))) return { status: 400, ms: 5, error: 'APIKIT:BAD_REQUEST', log: [warn('APIKIT:BAD_REQUEST: the body needs the email of the customer')], body: json({ message: 'Bad request: email is required' }) }
       const cfg = smtpOf(ctx.props)
-      const r = ctx.mailbox.send(cfg, { from: `Harbor Webshop <${cfg.user}>`, to: String(b.email).trim(), subject: `Your Harbor order ${m[1]}`, text: `Hello ${b.name ?? 'customer'},\n\nthank you for your order ${m[1]}. We are packing it now and send a tracking link when it ships.\n\nHarbor Webshop` })
+      const r = ctx.mailbox.send(cfg, { from: `Brightmart Webshop <${cfg.user}>`, to: String(b.email).trim(), subject: `Your Brightmart order ${m[1]}`, text: `Hello ${b.name ?? 'customer'},\n\nthank you for your order ${m[1]}. We are packing it now and send a tracking link when it ships.\n\nBrightmart Webshop` })
       if (!r.ok) return { status: 500, ms: 900, error: r.type, log: [block(SEND_FLOW, 'send', r.type, r.error)], body: json({ message: 'The confirmation could not be sent' }) }
       store.sent = keep(store.sent, { order: m[1], to: String(b.email).trim().toLowerCase(), messageId: r.messageId, t: ctx.now })
       return { status: 202, ms: 420, log: [info(`Confirmation for ${m[1]} to ${b.email}: ${r.reply}`)], body: json({ orderId: m[1], sent: true }) }

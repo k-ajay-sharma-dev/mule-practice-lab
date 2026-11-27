@@ -30,7 +30,7 @@
 //                               { ok: false, type: 'WSC:SOAP_FAULT', error, fault: { code, string, errors }, ms }.
 
 export const WD_HOST = 'wd5-impl-services1.workday.lab'
-export const TENANT = 'harbor1'
+export const TENANT = 'brightmart1'
 export const WWS = 'v43.0'
 export const SCREEN_USER = 'kbrand' // Kofi Brand, the integration developer the screen signs in as
 export const DAY = 86400000
@@ -113,7 +113,7 @@ export const OPERATIONS = {
 
 // ---------- builders ----------
 
-const w = (name, job, loc, org, hire, upd = hire, extra = {}) => ({ name, job, loc, org, email: `${name.split(' ')[0].toLowerCase()}.${name.split(' ')[1].toLowerCase()}@harbor.example`, hire, term: null, upd, ...extra })
+const w = (name, job, loc, org, hire, upd = hire, extra = {}) => ({ name, job, loc, org, email: `${name.split(' ')[0].toLowerCase()}.${name.split(' ')[1].toLowerCase()}@brightmart.example`, hire, term: null, upd, ...extra })
 export function newWorkday(now = 0, extra = {}) {
   const old = now - 400 * DAY
   return {
@@ -121,21 +121,21 @@ export function newWorkday(now = 0, extra = {}) {
     tenant: TENANT,
     host: WD_HOST,
     workers: {
-      21001: w('Lena Hart', 'JP_HR_ANALYST', 'LOC_HARBOR_HQ', 'Human Resources', old),
+      21001: w('Lena Hart', 'JP_HR_ANALYST', 'LOC_BRIGHTMART_HQ', 'Human Resources', old),
       21002: w('Omar Feld', 'JP_STORE_MANAGER', 'LOC_PIER_02', 'Stores', old),
       21003: w('Ruth Okafor', 'JP_WAREHOUSE_LEAD', 'LOC_DOCK_01', 'Warehouse', old),
       21004: w('Tobin Reyes', 'JP_PICKER', 'LOC_DOCK_01', 'Warehouse', old),
-      21005: w('Ines Calder', 'JP_BUYER', 'LOC_HARBOR_HQ', 'Purchasing', old),
+      21005: w('Ines Calder', 'JP_BUYER', 'LOC_BRIGHTMART_HQ', 'Purchasing', old),
       21006: w('Pavel Marsh', 'JP_DRIVER', 'LOC_DOCK_01', 'Warehouse', old),
       21008: w('Joan Vey', 'JP_SALES_ASSOCIATE', 'LOC_PIER_01', 'Stores', old),
-      21009: w('Kofi Brand', 'JP_INTEGRATION_DEV', 'LOC_HARBOR_HQ', 'Information Technology', old),
+      21009: w('Kofi Brand', 'JP_INTEGRATION_DEV', 'LOC_BRIGHTMART_HQ', 'Information Technology', old),
       21010: w('Sana Dorr', 'JP_CASHIER', 'LOC_PIER_01', 'Stores', old),
     },
     pop: { n: 2440, hire: old, upd: now - 30 * DAY },
     bulk: [],
     events: [],
     reports: {
-      INT_All_Workers: { name: 'INT_All_Workers', owner: 'lhart', source: 'All Active Workers', fields: ['Employee_ID', 'Worker', 'Email', 'Job_Profile', 'Location', 'Supervisory_Organization', 'Last_Functionally_Updated'], prompts: [], ws: true, share: ['ISSG_Harbor_HCM'] },
+      INT_All_Workers: { name: 'INT_All_Workers', owner: 'lhart', source: 'All Active Workers', fields: ['Employee_ID', 'Worker', 'Email', 'Job_Profile', 'Location', 'Supervisory_Organization', 'Last_Functionally_Updated'], prompts: [], ws: true, share: ['ISSG_Brightmart_HCM'] },
       INT_Worker_Events: {
         name: 'INT_Worker_Events',
         owner: 'lhart',
@@ -146,21 +146,21 @@ export function newWorkday(now = 0, extra = {}) {
           { name: 'Entry_To', field: 'Completed_On', op: 'to' },
         ],
         ws: true,
-        share: ['ISSG_Harbor_HCM'],
+        share: ['ISSG_Brightmart_HCM'],
       },
     },
-    isus: { ISU_HARBOR_HCM: { password: 'Hcm-Lab-Pass-0826', set: now - 20 * DAY, requireNew: false, noUi: true, timeout: 0 } },
+    isus: { ISU_BRIGHTMART_HCM: { password: 'Hcm-Lab-Pass-0826', set: now - 20 * DAY, requireNew: false, noUi: true, timeout: 0 } },
     groups: {
-      ISSG_Harbor_HCM: {
+      ISSG_Brightmart_HCM: {
         type: GROUP_TYPE,
-        members: ['ISU_HARBOR_HCM'],
+        members: ['ISU_BRIGHTMART_HCM'],
         domains: { [DOMAINS.PUBLIC]: ['Get'], [DOMAINS.STAFFING]: ['Get', 'Put'], [DOMAINS.CONTACT]: ['Get', 'Put'] },
       },
     },
     pending: [],
     activations: [],
-    rules: { expiryDays: 90, exempt: ['ISU_HARBOR_HCM'] },
-    locations: { LOC_HARBOR_HQ: 'Harbor HQ', LOC_PIER_01: 'Pier 01 store', LOC_PIER_02: 'Pier 02 store', LOC_DOCK_01: 'Dock 01 warehouse' },
+    rules: { expiryDays: 90, exempt: ['ISU_BRIGHTMART_HCM'] },
+    locations: { LOC_BRIGHTMART_HQ: 'Brightmart HQ', LOC_PIER_01: 'Pier 01 store', LOC_PIER_02: 'Pier 02 store', LOC_DOCK_01: 'Dock 01 warehouse' },
     jobs: { JP_HR_ANALYST: 'HR Analyst', JP_STORE_MANAGER: 'Store Manager', JP_WAREHOUSE_LEAD: 'Warehouse Lead', JP_PICKER: 'Picker', JP_BUYER: 'Buyer', JP_DRIVER: 'Driver', JP_SALES_ASSOCIATE: 'Sales Associate', JP_INTEGRATION_DEV: 'Integration Developer', JP_CASHIER: 'Cashier' },
     log: [],
     signons: [],
@@ -218,7 +218,7 @@ function workersAt(y, t, { from = -Infinity, to = Infinity } = {}) {
   }
   return out
 }
-const popWorker = (id, hire, upd, loc, org) => ({ id: String(id), name: `Worker ${id}`, job: 'JP_PICKER', loc, org, email: `w${id}@harbor.example`, hire, term: null, upd, synthetic: true })
+const popWorker = (id, hire, upd, loc, org) => ({ id: String(id), name: `Worker ${id}`, job: 'JP_PICKER', loc, org, email: `w${id}@brightmart.example`, hire, term: null, upd, synthetic: true })
 export const activeCount = (y, t) => (isFilled(y) ? workersAt(y, t).length : 0)
 // how many active workers changed in [from, to): the rows a delta of Last_Functionally_Updated must bring
 export const updatedCount = (y, from, to, t = to) => (isFilled(y) ? workersAt(y, t, { from, to }).length : 0)
@@ -512,7 +512,7 @@ export const createIsu = (state, { user, password, requireNew = false, noUi = tr
     const n = word(user)
     if (!ISU_NAME.test(n)) return { ok: false, text: 'Enter a user name of letters, digits and _' }
     if (y.isus[n] || n === SCREEN_USER) return { ok: false, text: `User Name ${n} is already in use.` }
-    if (String(password ?? '').length < 8) return { ok: false, text: 'The password does not meet the password rules: at least 8 characters.' } // lab-made: the minimum of the Harbor tenant
+    if (String(password ?? '').length < 8) return { ok: false, text: 'The password does not meet the password rules: at least 8 characters.' } // lab-made: the minimum of the Brightmart tenant
     y.isus[n] = { password: String(password), set: t, requireNew: Boolean(requireNew), noUi: Boolean(noUi), timeout: Math.max(0, Number(timeout) || 0) }
     return { ok: true, text: `Integration System User ${n} created.` }
   })

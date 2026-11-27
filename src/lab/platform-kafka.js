@@ -711,33 +711,33 @@ export const topicCount = (t) => t.partitions.reduce((n, p) => n + p.messages.le
 
 // ---------- the seed of the open console ----------
 
-const ORDER_V1 = { type: 'record', name: 'Order', namespace: 'lab.harbor.orders', fields: [{ name: 'orderId', type: 'string' }, { name: 'customerId', type: 'string' }, { name: 'total', type: 'double' }] }
+const ORDER_V1 = { type: 'record', name: 'Order', namespace: 'lab.brightmart.orders', fields: [{ name: 'orderId', type: 'string' }, { name: 'customerId', type: 'string' }, { name: 'total', type: 'double' }] }
 const ORDER_V2 = { ...ORDER_V1, fields: [...ORDER_V1.fields, { name: 'currency', type: 'string', default: 'USD' }] }
-const PAYMENT_V1 = { type: 'record', name: 'Payment', namespace: 'lab.harbor.payments', fields: [{ name: 'paymentId', type: 'string' }, { name: 'orderId', type: 'string' }, { name: 'amount', type: 'double' }, { name: 'status', type: 'string' }] }
+const PAYMENT_V1 = { type: 'record', name: 'Payment', namespace: 'lab.brightmart.payments', fields: [{ name: 'paymentId', type: 'string' }, { name: 'orderId', type: 'string' }, { name: 'amount', type: 'double' }, { name: 'status', type: 'string' }] }
 
-// harbor-events: three brokers, orders.v1 with 3 partitions, payments.v1, a compacted customers.v1, and the group of
+// brightmart-events: three brokers, orders.v1 with 3 partitions, payments.v1, a compacted customers.v1, and the group of
 // warehouse-consumer, which has read part of orders.v1 and is not running against Kafka yet
-export function harborKafka(now = 0) {
-  const c = newCluster('harbor-events', 3)
+export function brightmartKafka(now = 0) {
+  const c = newCluster('brightmart-events', 3)
   placeTopic(c, 'orders.v1', 3, 3, { 'min.insync.replicas': '2' }, now)
   placeTopic(c, 'payments.v1', 2, 3, { 'min.insync.replicas': '2', 'retention.ms': '259200000' }, now)
   placeTopic(c, 'customers.v1', 1, 3, { 'cleanup.policy': 'compact' }, now)
-  const s = { clock: now, apps: [], kafka: { clusters: { 'harbor-events': c } } }
+  const s = { clock: now, apps: [], kafka: { clusters: { 'brightmart-events': c } } }
   const ctx = kafkaCtx(s, null)
   const customers = ['C-7', 'C-12', 'C-31', 'C-44']
   for (let i = 0; i < 12; i++) {
     s.clock = now - (12 - i) * 7 * MINUTE
     const order = `O-${1001 + i}`
     const customerId = customers[i % 4]
-    ctx.produce('harbor-events', 'orders.v1', { key: order, value: { orderId: order, customerId, total: 12 + i * 3.5, currency: 'USD' }, headers: { source: 'order-fulfilment-papi', 'content-type': 'application/json' } })
-    if (i % 3 === 0) ctx.produce('harbor-events', 'payments.v1', { key: order, value: { paymentId: `P-${501 + i}`, orderId: order, amount: 12 + i * 3.5, status: 'CAPTURED' }, headers: { source: 'payments-gateway' } })
+    ctx.produce('brightmart-events', 'orders.v1', { key: order, value: { orderId: order, customerId, total: 12 + i * 3.5, currency: 'USD' }, headers: { source: 'order-fulfilment-papi', 'content-type': 'application/json' } })
+    if (i % 3 === 0) ctx.produce('brightmart-events', 'payments.v1', { key: order, value: { paymentId: `P-${501 + i}`, orderId: order, amount: 12 + i * 3.5, status: 'CAPTURED' }, headers: { source: 'payments-gateway' } })
   }
   for (const [i, id] of customers.entries()) {
     s.clock = now - (90 - i) * MINUTE
-    ctx.produce('harbor-events', 'customers.v1', { key: id, value: { id, name: ['Harbor Deli', 'Pier Market', 'Dockside Cafe', 'Lighthouse Foods'][i], tier: 'Standard' } })
+    ctx.produce('brightmart-events', 'customers.v1', { key: id, value: { id, name: ['Maple Deli', 'Pier Market', 'Dockside Cafe', 'Lighthouse Foods'][i], tier: 'Standard' } })
   }
   s.clock = now - 30 * MINUTE
-  ctx.produce('harbor-events', 'customers.v1', { key: 'C-7', value: { id: 'C-7', name: 'Harbor Deli', tier: 'Gold' } })
+  ctx.produce('brightmart-events', 'customers.v1', { key: 'C-7', value: { id: 'C-7', name: 'Maple Deli', tier: 'Gold' } })
   // warehouse-consumer committed part of each partition earlier, so it has lag
   const g = (c.groups['warehouse-consumer'] = newGroup())
   g.topics = ['orders.v1']
@@ -758,5 +758,5 @@ export function harborKafka(now = 0) {
     { principal: 'User:warehouse-consumer', resource: 'GROUP', name: 'warehouse-consumer', pattern: 'LITERAL', operation: 'READ', permission: 'ALLOW', host: '*' },
     { principal: 'User:payments-gateway', resource: 'TOPIC', name: 'payments.', pattern: 'PREFIXED', operation: 'WRITE', permission: 'ALLOW', host: '*' },
   ]
-  return newKafka({ clusters: { 'harbor-events': c } })
+  return newKafka({ clusters: { 'brightmart-events': c } })
 }

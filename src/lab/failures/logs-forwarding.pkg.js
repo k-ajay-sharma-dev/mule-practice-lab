@@ -24,7 +24,7 @@ export const PACKAGES = {
           error: 'HTTP:TIMEOUT',
           flow: FLOW,
           body: json({ message: 'Payment check failed' }),
-          log: [muleError({ message: `HTTP POST on resource 'https://payments.harbor.lab/v2/authorizations' failed: Timeout exceeded after 10000 ms. Order ${id} was not booked.`, type: 'HTTP:TIMEOUT', flow: FLOW, file: NAME, at: 2, name: 'Authorize payment', dsl: '<http:request method="POST" doc:name="Authorize payment" config-ref="Payments_HTTP" path="/v2/authorizations">' })],
+          log: [muleError({ message: `HTTP POST on resource 'https://payments.brightmart.lab/v2/authorizations' failed: Timeout exceeded after 10000 ms. Order ${id} was not booked.`, type: 'HTTP:TIMEOUT', flow: FLOW, file: NAME, at: 2, name: 'Authorize payment', dsl: '<http:request method="POST" doc:name="Authorize payment" config-ref="Payments_HTTP" path="/v2/authorizations">' })],
         }
       }
       return { status: 201, ms: 180, flow: FLOW, body: json({ orderId: id, status: 'BOOKED' }), log: [info(`Order ${id} booked`)] }

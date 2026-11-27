@@ -4,7 +4,7 @@ import { app, ask, change, OPS, sawLogs, until, withSecret } from '../platform-k
 import { addIpRange, DEFAULT_IP, inRanges, INTEGRATION_USER, newOrg, newSalesforce, orgOf, setPassword, unlockUser, userOf } from '../platform-salesforce.js'
 import { FLOW, NAME } from './sf-login.pkg.js'
 
-const PROFILE = 'Harbor Integration User'
+const PROFILE = 'Brightmart Integration User'
 const NEW_PASSWORD = 'Hrb-Int-Prod-27'
 const props = (s) => ({ ...app(s, NAME)?.props, ...app(s, NAME)?.secrets })
 const running = (s) => app(s, NAME)?.status === 'Running'
@@ -23,7 +23,7 @@ const lab = {
   group: 'Salesforce and SAP',
   title: 'New password, still INVALID_LOGIN',
   minutes: 20,
-  scenario: `${NAME} pushes order statuses to the Harbor org every 5 minutes as ${INTEGRATION_USER}. The password of that user expired, so at 08:00 the Salesforce admin set a new one and sent it to the integration team, who put it in the secure property salesforce.password at 08:05. It is 09:00. Since the change every run fails with INVALID_LOGIN, and now the admin says the user is locked out.`,
+  scenario: `${NAME} pushes order statuses to the Brightmart org every 5 minutes as ${INTEGRATION_USER}. The password of that user expired, so at 08:00 the Salesforce admin set a new one and sent it to the integration team, who put it in the secure property salesforce.password at 08:05. It is 09:00. Since the change every run fails with INVALID_LOGIN, and now the admin says the user is locked out.`,
   start() {
     let s = newPlatform({
       clock: at(1, 7),
@@ -71,7 +71,7 @@ const lab = {
     ask(
       'Logging in to the Sandbox',
       'The team points the UAT copy of the app at the Sandbox of the org. What must change in its connector config?',
-      ['Nothing, the same URL and user work for every org', 'The authorization URL goes to test.salesforce.com (or the sandbox My Domain), and the username gets the sandbox suffix, here mule.integration@harbor.example.uat, with the password and token of the sandbox user', 'Only the API version', 'The username stays, only the token changes'],
+      ['Nothing, the same URL and user work for every org', 'The authorization URL goes to test.salesforce.com (or the sandbox My Domain), and the username gets the sandbox suffix, here mule.integration@brightmart.example.uat, with the password and token of the sandbox user', 'Only the API version', 'The username stays, only the token changes'],
       1,
       'A sandbox is a separate org with its own users, copied from production with the sandbox name added to each username. Logins go to test.salesforce.com or the My Domain of the sandbox. Sending a sandbox username to login.salesforce.com gives INVALID_LOGIN, and the production org has no Login History line for it, because the user does not exist there.',
     ),

@@ -41,6 +41,7 @@ import { LabOutcome } from './ExchangeScreen.jsx'
 import './exchange.css'
 import ExplainAloud from './ExplainAloud.jsx'
 import { setHideHow, useHideHow } from './lab-prefs.js'
+import { rebrandText } from '../../lab/rebrand.js'
 
 const STATE_KEY = 'pl.lab.pipeline'
 const GUIDED_KEY = 'pl.lab.cicd' // the guided lab in progress, one at a time
@@ -55,7 +56,8 @@ const freshFor = (guided) => ({ lab: newState(), config: { ...newConfig(), ...st
 function loadSaved(guided) {
   const fresh = freshFor(guided)
   try {
-    const saved = JSON.parse(localStorage.getItem(guided ? GUIDED_KEY : STATE_KEY))
+    // a save from before the retailer was renamed gets the new names
+    const saved = JSON.parse(rebrandText(localStorage.getItem(guided ? GUIDED_KEY : STATE_KEY)))
     const valid = saved?.lab?.envs?.Sandbox && saved.lab.envs.Production && Array.isArray(saved.lab.runs) && saved.lab.exchange && saved.config && (!guided || saved.id === guided.id)
     if (!valid) return fresh
     // saves from before the hybrid targets existed get the sample servers
@@ -161,7 +163,7 @@ export default function PipelineScreen({ guided, solved, onSolved }) {
       <header className="gh-repo">
         <div className="gh-repo-title">
           <Icon name="repo" />
-          <span className="gh-owner">harbor-foods</span>
+          <span className="gh-owner">brightmart-foods</span>
           <span className="gh-slash">/</span>
           <b>orders-papi</b>
           <span className="gh-pill">Private</span>
@@ -463,7 +465,7 @@ function RunPage({ run, active, onBack, onSkip, onSeen, onView }) {
   )
 }
 
-// Who talks to whom in a deploy job to Harbor's own servers.
+// Who talks to whom in a deploy job to Brightmart's own servers.
 function DeployPath({ config }) {
   const targets = ENVIRONMENTS.map((e) => targetFor(config, e).name).filter(Boolean).join(', ')
   if (config.deployTarget === 'copy') {

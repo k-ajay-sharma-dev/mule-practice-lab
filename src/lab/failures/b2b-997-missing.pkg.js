@@ -2,14 +2,14 @@
 // that leaves the warehouse. Imports only platform-log.js, so the engine can load it without a cycle.
 import { info, muleError } from '../platform-log.js'
 
-export const NAME = 'harbor-asn-dispatch'
+export const NAME = 'brightmart-asn-dispatch'
 export const FLOW = 'asn-dispatch-flow'
 const keep = (list, item, n = 30) => [...(list ?? []), item].slice(-n)
 
 export const PACKAGES = {
   [NAME]: {
     note:
-      'Every 15 minutes a truck leaves the Harbor warehouse. The app builds the ship notice and hands it to Partner Manager with the outbound flow Ship notice 856 to Bayline. When Partner Manager answers that the AS2 message was sent, the app marks the shipment as notified. It never looks at the MDN or the 997.',
+      'Every 15 minutes a truck leaves the Brightmart warehouse. The app builds the ship notice and hands it to Partner Manager with the outbound flow Ship notice 856 to Bayline. When Partner Manager answers that the AS2 message was sent, the app marks the shipment as notified. It never looks at the MDN or the 997.',
     schedules: [{ flow: FLOW, type: 'fixed', value: '15', unit: 'minutes', enabled: true }],
     run: {
       [FLOW]: (ctx) => {

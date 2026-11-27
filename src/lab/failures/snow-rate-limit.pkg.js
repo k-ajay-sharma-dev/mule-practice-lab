@@ -1,9 +1,9 @@
 // The sample application of the snow-rate-limit lab. Imports only platform-log.js and the import free ServiceNow engine,
-// so the engine can load it without a cycle. A scheduler keeps the ticket list of the Harbor store portal up to date.
+// so the engine can load it without a cycle. A scheduler keeps the ticket list of the Brightmart store portal up to date.
 import { info, muleError, needs, warn } from '../platform-log.js'
 import { cfgOf, dt } from '../platform-servicenow.js'
 
-export const PORTAL = 'harbor-store-ticket-portal-sync'
+export const PORTAL = 'brightmart-store-ticket-portal-sync'
 export const PORTAL_FLOW = 'store-portal-sync-flow'
 export const GROUP = 'Store Systems'
 const el = { flow: PORTAL_FLOW, at: 2, name: 'Read incident', dsl: '<http:request doc:name="Read incident" method="GET" config-ref="ServiceNow_Config" path="/api/now/table/incident/{sys_id}">' }
@@ -15,7 +15,7 @@ const BASE = Date.UTC(2026, 10, 2)
 
 export const PACKAGES = {
   [PORTAL]: {
-    note: `Every minute the flow ${PORTAL_FLOW} copies the open incidents of the group ${GROUP} to the Harbor store portal. With sync.mode per-record it lists the sys_ids of the open incidents of the group, then sends one GET /api/now/table/incident/{sys_id} per incident. With sync.mode changed-since it sends one GET /api/now/table/incident?sysparm_query=assignment_group=${GROUP}^sys_updated_on>=<watermark>^ORDERBYsys_updated_on&sysparm_fields=${FIELDS} and keeps the watermark in its object store. snow.on429 says what a 429 Too Many Requests does: fail raises HTTP:TOO_MANY_REQUESTS and the portal misses that run; wait reads X-RateLimit-Reset, keeps the watermark and makes no call until that time.`,
+    note: `Every minute the flow ${PORTAL_FLOW} copies the open incidents of the group ${GROUP} to the Brightmart store portal. With sync.mode per-record it lists the sys_ids of the open incidents of the group, then sends one GET /api/now/table/incident/{sys_id} per incident. With sync.mode changed-since it sends one GET /api/now/table/incident?sysparm_query=assignment_group=${GROUP}^sys_updated_on>=<watermark>^ORDERBYsys_updated_on&sysparm_fields=${FIELDS} and keeps the watermark in its object store. snow.on429 says what a 429 Too Many Requests does: fail raises HTTP:TOO_MANY_REQUESTS and the portal misses that run; wait reads X-RateLimit-Reset, keeps the watermark and makes no call until that time.`,
     boot: needs('snow.instance', 'snow.username', 'snow.password'),
     schedules: [{ flow: PORTAL_FLOW, type: 'fixed', value: '1', unit: 'minutes', enabled: true }],
     run: {

@@ -51,7 +51,7 @@ const lab = {
     s = until(s, at(3, 8, 50))
     s.mail = [
       ...s.mail.slice(-10),
-      { t: at(3, 8, 50), to: OPS, subject: 'Customers say their orders fail', body: `Support has 23 tickets since Tuesday evening: the shop says "Payment check failed". Our Splunk alert ${ALERT} has not mailed us once since Tuesday 15:00, and Runtime Manager shows no logs for ${NAME} either. Please find out why. Harbor support`, source: 'Harbor support' },
+      { t: at(3, 8, 50), to: OPS, subject: 'Customers say their orders fail', body: `Support has 23 tickets since Tuesday evening: the shop says "Payment check failed". Our Splunk alert ${ALERT} has not mailed us once since Tuesday 15:00, and Runtime Manager shows no logs for ${NAME} either. Please find out why. Brightmart support`, source: 'Brightmart support' },
     ]
     return until(s, at(3, 9))
   },

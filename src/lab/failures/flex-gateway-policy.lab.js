@@ -24,7 +24,7 @@ const lab = {
   group: 'Runtime Fabric and gateways',
   title: 'A new JWT policy on Flex and every partner gets 401',
   minutes: 25,
-  scenario: `The Partner Shipments API runs on the Flex Gateway ${FLEX} in the Harbor data center, in front of a .NET shipments service. At 07:00 a change added JWT Validation, so partners must send a token of the Harbor identity provider, and Rate Limiting, to protect the service from scanners. Since then partner calls fail with 401, and a few with 429. It is 08:10. Find out why and make the partner calls work again.`,
+  scenario: `The Partner Shipments API runs on the Flex Gateway ${FLEX} in the Brightmart data center, in front of a .NET shipments service. At 07:00 a change added JWT Validation, so partners must send a token of the Brightmart identity provider, and Rate Limiting, to protect the service from scanners. Since then partner calls fail with 401, and a few with 429. It is 08:10. Find out why and make the partner calls work again.`,
   start() {
     const clock = at(1, 6)
     let s = newPlatform({
@@ -32,7 +32,7 @@ const lab = {
       clients: structuredClone(CLIENTS),
       apis: [
         flexApi(API, {
-          name: 'Partner Shipments API', assetId: 'partner-shipments-api', label: 'flex', basePath: '/partner-shipments', upstream: 'http://shipments-svc.harbor.local:8080/api', consumer: 'https://flex-dc.harbor.example/partner-shipments', t: clock,
+          name: 'Partner Shipments API', assetId: 'partner-shipments-api', label: 'flex', basePath: '/partner-shipments', upstream: 'http://shipments-svc.brightmart.local:8080/api', consumer: 'https://flex-dc.brightmart.example/partner-shipments', t: clock,
           policies: [policy('client-id')],
           contracts: [{ client: PARTNER, tier: '', status: 'approved', t: clock }],
         }),
@@ -41,7 +41,7 @@ const lab = {
         created: clock,
         gateways: { [FLEX]: newGateway(FLEX, { since: clock, lastSeen: clock }) },
         traffic: [
-          { api: API, n: 6, ip: '198.51.100.7', client: PARTNER, jwt: 'partner', path: '/shipments?status=OPEN', ua: 'harbor-partner-portal/2.1' },
+          { api: API, n: 6, ip: '198.51.100.7', client: PARTNER, jwt: 'partner', path: '/shipments?status=OPEN', ua: 'brightmart-partner-portal/2.1' },
           // anonymous scanners from the internet, a burst every third minute
           { api: API, n: 30, every: 3, ip: '203.0.113.66', path: '/shipments', ua: 'python-requests/2.31' },
         ],
@@ -62,14 +62,14 @@ const lab = {
         t: at(1, 7, 20),
         to: OPS,
         subject: 'Reminder: the legacy sign on is retired',
-        body: `Hello. Since 1 November all Harbor tokens are issued by ${IDP}. Its key set is published at ${NEW_JWKS}. The old ${OLD_IDP} does not issue tokens any more and its key set only holds the retired key. Partner tokens carry aud api://partner-shipments for the shipments API. Harbor identity team`,
-        source: 'Harbor identity team',
+        body: `Hello. Since 1 November all Brightmart tokens are issued by ${IDP}. Its key set is published at ${NEW_JWKS}. The old ${OLD_IDP} does not issue tokens any more and its key set only holds the retired key. Partner tokens carry aud api://partner-shipments for the shipments API. Brightmart identity team`,
+        source: 'Brightmart identity team',
       },
       {
         t: at(1, 7, 38),
         to: OPS,
         subject: 'Shipments API answers 401 since 07:00',
-        body: 'Our portal calls the Partner Shipments API with a fresh token from the Harbor identity provider and the client ID you gave us, as always. Since about 07:00 every call answers 401 Unauthorized, and a few 429 Too Many Requests. Our drivers cannot see their open shipments. Please fix it soon. Partner integration team',
+        body: 'Our portal calls the Partner Shipments API with a fresh token from the Brightmart identity provider and the client ID you gave us, as always. Since about 07:00 every call answers 401 Unauthorized, and a few 429 Too Many Requests. Our drivers cannot see their open shipments. Please fix it soon. Partner integration team',
         source: 'Partner Portal',
       },
     )

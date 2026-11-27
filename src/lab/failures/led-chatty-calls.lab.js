@@ -40,7 +40,7 @@ const lab = {
   title: 'A chatty Process API calls once per line',
   minutes: 20,
   scenario:
-    'Yesterday Harbor Foods released a partner endpoint: GET /partner-orders/{orderId}/lines lists the lines of an order with the stock of each line. Partners call it 4 times a minute for the 40 line order O-2040. Since then partners get 504 and 503, and the mobile app gets 503 on order status too. Nothing is down. Find out how many calls one partner request makes, and fix it without raising the quota of the Inventory System API.',
+    'Yesterday Brightmart released a partner endpoint: GET /partner-orders/{orderId}/lines lists the lines of an order with the stock of each line. Partners call it 4 times a minute for the 40 line order O-2040. Since then partners get 504 and 503, and the mobile app gets 503 on order status too. Nothing is down. Find out how many calls one partner request makes, and fix it without raising the quota of the Inventory System API.',
   start() {
     let s = ledProject({
       traffic: [

@@ -8,7 +8,7 @@ import { killSession, newSqlServer, serverOf } from '../platform-db.js'
 import { fileRec, newServerSys, systemsOf } from '../platform-systems.js'
 import { DB, EAPI, fileOf, HOST, IMPORT, PAPI, PRICE_DIR, SAPI, settingsOf } from './chain-db-to-api.pkg.js'
 
-const DB_PROPS = { 'db.host': 'sql.harbor.lab', 'db.port': '1433', 'db.database': 'HarborOrders' }
+const DB_PROPS = { 'db.host': 'sql.brightmart.lab', 'db.port': '1433', 'db.database': 'BrightmartOrders' }
 const CHAIN = [EAPI, PAPI, SAPI]
 const ALERT_METRICS = ['Message Error Count', 'Average Response Time']
 
@@ -69,7 +69,7 @@ const lab = {
   group: 'Chained incidents',
   title: 'Price unavailable at 10:15',
   minutes: 30,
-  scenario: `Tuesday 10:15 at Harbor. The mobile app shows "price unavailable" on product pages and checkout errors climb. Nobody deployed anything today. ${EAPI} calls ${PAPI}, which calls ${SAPI} on SQL Server. ${IMPORT} loads the price file of the pricing system each night. Trace the symptom down to its cause, end it, and make each layer stop the next incident from spreading.`,
+  scenario: `Tuesday 10:15 at Brightmart. The mobile app shows "price unavailable" on product pages and checkout errors climb. Nobody deployed anything today. ${EAPI} calls ${PAPI}, which calls ${SAPI} on SQL Server. ${IMPORT} loads the price file of the pricing system each night. Trace the symptom down to its cause, end it, and make each layer stop the next incident from spreading.`,
   start() {
     const s = newPlatform({
       clock: at(1, 9, 50),
@@ -89,8 +89,8 @@ const lab = {
           t: at(1, 10, 12),
           to: OPS,
           subject: 'Mobile app: price unavailable, checkout failing',
-          body: 'Since about 10:00 the Harbor app shows "price unavailable" on most product pages and checkout spins for 10 seconds and fails. The morning promotion started at 10:00 and the store teams are calling. Nothing was released today on our side. Harbor mobile team',
-          source: 'Harbor mobile team',
+          body: 'Since about 10:00 the Brightmart app shows "price unavailable" on most product pages and checkout spins for 10 seconds and fails. The morning promotion started at 10:00 and the store teams are calling. Nothing was released today on our side. Brightmart mobile team',
+          source: 'Brightmart mobile team',
         },
       ],
       databases: { created: at(1, 9), servers: { [DB]: newSqlServer(DB, { tables: { 'dbo.prices': pricesTable() }, nextSpid: 61 }) } },

@@ -19,7 +19,7 @@ const lab = {
   group: 'Governance and access',
   title: 'The pipeline logged in as someone who left',
   minutes: 20,
-  scenario: `The CI pipeline of ${PROJECT} publishes to Exchange and deploys to Sandbox and Production in the Ecommerce business group. It logs in with the Anypoint username and password of Marco Reyes. Marco left Harbor on Friday and his account was disabled. Since then every run fails with 401. Move the pipeline to a login that belongs to no person.`,
+  scenario: `The CI pipeline of ${PROJECT} publishes to Exchange and deploys to Sandbox and Production in the Ecommerce business group. It logs in with the Anypoint username and password of Marco Reyes. Marco left Brightmart on Friday and his account was disabled. Since then every run fails with 401. Move the pipeline to a login that belongs to no person.`,
   start() {
     const clock = at(1, 9)
     const access = newAccess(at(0, 9), {

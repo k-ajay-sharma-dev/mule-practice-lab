@@ -90,7 +90,7 @@ function GatewayList({ state, go }) {
 // ---------- Add a Flex Gateway ----------
 
 function AddGateway({ state, go }) {
-  const [name, setName] = useState('harbor-flex-edge')
+  const [name, setName] = useState('brightmart-flex-edge')
   const [tab, setTab] = useState('Linux')
   const api = apisOn(state, FLEX)[0]
   const n = name.trim() || 'my-gateway'
@@ -412,7 +412,7 @@ function HostNetwork({ state, gw, readOnly, update }) {
   return (
     <>
       <p className="pc-dim">
-        The firewall of the Harbor data center for the gateway hosts {gw.replicas.map((r) => `${r.id} (${r.ip})`).join(' and ')}. It is a lab tool and not part of Anypoint. Outbound rules are checked from the top; the first match wins, and anything without a match is denied.
+        The firewall of the Brightmart data center for the gateway hosts {gw.replicas.map((r) => `${r.id} (${r.ip})`).join(' and ')}. It is a lab tool and not part of Anypoint. Outbound rules are checked from the top; the first match wins, and anything without a match is denied.
       </p>
       <h3 className="pc-h3">Outbound rules</h3>
       <Table

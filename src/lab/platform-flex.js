@@ -1,4 +1,4 @@
-// Anypoint Flex Gateway in the Platform Lab: self-managed gateways in the data center of Harbor, their replicas, the API
+// Anypoint Flex Gateway in the Platform Lab: self-managed gateways in the data center of Brightmart, their replicas, the API
 // Manager instances whose runtime is Flex Gateway, and the policies they enforce. Pure and import free. Lives in state.flex.
 //
 // What is modelled (Sources: gateway/latest flex-conn-reg-run, flex-local-reg-run, flex-review-prerequisites):
@@ -31,7 +31,7 @@ const BASE = Date.UTC(2026, 10, 2) // the epoch of the lab clock, the same as pl
 const MAX_CALLS = 300
 const MAX_LOG = 40
 
-export const FLEX = 'harbor-flex-dc'
+export const FLEX = 'brightmart-flex-dc'
 export const FLEX_VERSION = '1.9.3' // a sample 1.x version
 export const FLEX_RUNTIME = 'Flex Gateway'
 export const CONF_DIR = '/usr/local/share/mulesoft/flex-gateway/conf.d'
@@ -43,9 +43,9 @@ export const CONTROL_HOSTS = ['anypoint.mulesoft.com', 'runtime-manager.anypoint
 // The policies of the Flex catalog the lab models, with the names of their policy definitions in a local configuration
 export const FLEX_CATALOG = { 'rate-limit': 'rate-limiting-flex', 'client-id': 'client-id-enforcement-flex', jwt: 'jwt-validation-flex', 'ip-allow': 'ip-allowlist-flex', 'header-inject': 'header-injection-flex', cors: 'cors-flex', spike: 'spike-control-flex' }
 
-// Identity providers of Harbor and the key IDs their JWKS endpoints publish (lab made)
-export const IDP = 'https://login.harbor-id.example'
-export const OLD_IDP = 'https://sso-legacy.harbor-id.example'
+// Identity providers of Brightmart and the key IDs their JWKS endpoints publish (lab made)
+export const IDP = 'https://login.brightmart-id.example'
+export const OLD_IDP = 'https://sso-legacy.brightmart-id.example'
 export const JWKS = {
   [`${IDP}/oauth2/v1/keys`]: ['hid-2026-11'],
   [`${OLD_IDP}/oauth2/keys`]: ['legacy-2024-03'],
@@ -91,7 +91,7 @@ export const newGateway = (name, extra = {}) => ({
     { id: `${name}-01`, ip: '10.20.4.21', seen: 0 },
     { id: `${name}-02`, ip: '10.20.4.22', seen: 0 },
   ],
-  egress: [{ dest: 'any', port: 443, action: 'Allow', note: 'HTTPS out from the DMZ' }, { dest: '*.harbor.local', port: 'any', action: 'Allow', note: 'Internal services' }],
+  egress: [{ dest: 'any', port: 443, action: 'Allow', note: 'HTTPS out from the DMZ' }, { dest: '*.brightmart.local', port: 'any', action: 'Allow', note: 'Internal services' }],
   applied: {},
   log: [],
   ...extra,
@@ -105,20 +105,20 @@ export const flexApi = (id, extra = {}) => ({
   policies: [], tiers: [], contracts: [], alerts: [], seen: false, runtime: FLEX_RUNTIME, gateway: FLEX, basePath: '/', port: 8081, ...extra,
 })
 
-// The console of the lab: harbor-flex-dc with one API. It is filled on first use, so the saved console stays small.
+// The console of the lab: brightmart-flex-dc with one API. It is filled on first use, so the saved console stays small.
 const OPEN_API = '19600101'
 function consoleFlex(now) {
   return newFlex({
     created: now,
     gateways: { [FLEX]: newGateway(FLEX, { since: now, lastSeen: now }) },
-    traffic: [{ api: OPEN_API, n: 1, every: 2, ip: '198.51.100.7', client: 'Partner Portal', path: '/rates?zip=10001', ua: 'harbor-partner-portal/2.1' }],
+    traffic: [{ api: OPEN_API, n: 1, every: 2, ip: '198.51.100.7', client: 'Partner Portal', path: '/rates?zip=10001', ua: 'brightmart-partner-portal/2.1' }],
     // the practice console runs for weeks, so it keeps a shorter access log than a lab
     maxCalls: 60,
   })
 }
 const consoleApi = (now) =>
   flexApi(OPEN_API, {
-    name: 'Carrier Rates API', assetId: 'carrier-rates-api', label: 'flex', upstream: 'http://carrier-rates.harbor.local:8080/api', consumer: 'https://flex-dc.harbor.example/carrier-rates', basePath: '/carrier-rates', t: now,
+    name: 'Carrier Rates API', assetId: 'carrier-rates-api', label: 'flex', upstream: 'http://carrier-rates.brightmart.local:8080/api', consumer: 'https://flex-dc.brightmart.example/carrier-rates', basePath: '/carrier-rates', t: now,
     policies: [
       { id: 'flex-po-1', type: 'client-id', settings: { origin: 'Custom Expression', secret: 'Required' } },
       { id: 'flex-po-2', type: 'rate-limit', settings: { requests: 100, periodMs: 60000, extraLimits: [], identifier: '(not configured)', distributed: 'Yes', expose: 'No' } },
@@ -411,7 +411,7 @@ export function accessLine(s, c) {
   const api = apiOf(s, c.a)
   const up = urlParts(api?.upstream)
   const reached = c.f === '-' && c.s === 200
-  return `[${iso(c.t)}] "${c.m} ${c.p} HTTP/1.1" ${c.s} ${c.f} 0 ${c.s === 200 ? 96 : c.s >= 500 ? 91 : 24} ${c.ms} ${reached ? c.ms - 2 : '-'} "${c.ip}" "${c.ua ?? 'Java-http-client/17'}" "${reqId(c)}" "${api?.consumer ? urlParts(api.consumer)?.host : 'flex-dc.harbor.example'}:${api?.port ?? 8081}" "${reached && up ? `${up.host}:${up.port}` : '-'}"`
+  return `[${iso(c.t)}] "${c.m} ${c.p} HTTP/1.1" ${c.s} ${c.f} 0 ${c.s === 200 ? 96 : c.s >= 500 ? 91 : 24} ${c.ms} ${reached ? c.ms - 2 : '-'} "${c.ip}" "${c.ua ?? 'Java-http-client/17'}" "${reqId(c)}" "${api?.consumer ? urlParts(api.consumer)?.host : 'flex-dc.brightmart.example'}:${api?.port ?? 8081}" "${reached && up ? `${up.host}:${up.port}` : '-'}"`
 }
 // The lines of the Logs panel, newest first: access lines, the policy messages behind them, and the agent log
 export function logLines(s, name, { kind = 'all', limit = 80 } = {}) {

@@ -5,8 +5,8 @@ import { allowed, arnBucket, arnKey, arnUser, newAwsAccount, policyDoc, putPolic
 import { ARCHIVER } from './aws-s3-denied.pkg.js'
 
 const USER = 'svc-invoice-archiver'
-const BUCKET = 'harbor-finance-archive'
-const KMS_ALIAS = 'alias/harbor-finance'
+const BUCKET = 'brightmart-finance-archive'
+const KMS_ALIAS = 'alias/brightmart-finance'
 const KEY_ID = 'AKIA_LAB_0002204'
 const SECRET = 'lab-only/invoice-archiver-2204'
 const SEC = 'lena.okafor'
@@ -34,7 +34,7 @@ function account(now) {
     keys: [{ alias: KMS_ALIAS, created: at(-2, 15) }],
     buckets: [
       { name: BUCKET, created: at(-200, 9), objects: { 'invoices/2026/10/INV-88101.pdf': { body: '%PDF-1.7 invoice INV-88101 (lab copy)', t: at(-1, 17), by: USER }, 'invoices/2026/11/INV-88400.pdf': { body: '%PDF-1.7 invoice INV-88400 (lab copy)', t: at(1, 7, 35), by: USER } } },
-      { name: 'harbor-web-assets', created: at(-300, 9) },
+      { name: 'brightmart-web-assets', created: at(-300, 9) },
     ],
   })
 }
@@ -46,7 +46,7 @@ function securityChange(s) {
   b.encryption = { type: 'SSE-KMS', key: KMS_ALIAS }
   b.policy = BUCKET_POLICY
   for (const [m, name, msg] of [
-    [3, 'PutBucketEncryption', 'Change SEC-2290: default encryption SSE-KMS with alias/harbor-finance'],
+    [3, 'PutBucketEncryption', 'Change SEC-2290: default encryption SSE-KMS with alias/brightmart-finance'],
     [5, 'PutBucketPolicy', 'Change SEC-2290: deny uploads without SSE-KMS, deny plain HTTP'],
   ])
     x.aws.trail.push({ id: `5ec2290${m}-0000-4000-a000-00000000000${m}`, t: at(1, 8, m), ip: '198.51.100.40', src: 's3', name, user: SEC, arn: arnUser(SEC), key: '', res: arnBucket(BUCKET), code: '', msg })
@@ -58,7 +58,7 @@ const lab = {
   group: 'Data and cloud',
   title: 'S3 says Access Denied',
   minutes: 25,
-  scenario: `${ARCHIVER} writes every closed invoice of Harbor as a PDF to the S3 bucket ${BUCKET}, as IAM user ${USER}. Since about 08:05 each run fails and the backlog grows. Finance asks why no invoice of today is in the archive. At 08:05 the security team ran change SEC-2290 on the bucket. Find why S3 refuses the uploads, fix it with the least rights, and get the backlog archived.`,
+  scenario: `${ARCHIVER} writes every closed invoice of Brightmart as a PDF to the S3 bucket ${BUCKET}, as IAM user ${USER}. Since about 08:05 each run fails and the backlog grows. Finance asks why no invoice of today is in the archive. At 08:05 the security team ran change SEC-2290 on the bucket. Find why S3 refuses the uploads, fix it with the least rights, and get the backlog archived.`,
   start() {
     let s = newPlatform({
       clock: at(1, 7, 40),
@@ -75,8 +75,8 @@ const lab = {
           t: at(1, 9, 5),
           to: OPS,
           subject: 'Invoices missing in the archive',
-          body: `Good morning. The invoice archive in S3 has nothing from today after INV-88400. Our auditors pull from ${BUCKET} at noon. Can you check? Harbor finance`,
-          source: 'Harbor finance',
+          body: `Good morning. The invoice archive in S3 has nothing from today after INV-88400. Our auditors pull from ${BUCKET} at noon. Can you check? Brightmart finance`,
+          source: 'Brightmart finance',
         },
       ],
     })

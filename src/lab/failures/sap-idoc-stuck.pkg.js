@@ -4,7 +4,7 @@
 import { info, line, muleError, needs, warn } from '../platform-log.js'
 import { ordersIdoc } from '../platform-sap.js'
 
-export const SHOP = 'harbor-webshop-orders-sap'
+export const SHOP = 'brightmart-webshop-orders-sap'
 export const AUDIT_FLOW = 'aleaud-listener-flow'
 const ITEMS = [
   ['H-1250', 2],
@@ -34,7 +34,7 @@ const el = {
 
 export const PACKAGES = {
   [SHOP]: {
-    note: `The web shop of Harbor posts each order to POST /orders. The flow maps it to an ORDERS05 IDoc (sold-to 4711, sales area 1000 10 00) and sends it with the Send operation of the SAP connector, which is a tRFC call of IDOC_INBOUND_ASYNCHRONOUS. The connection is sap.applicationServerHost, sap.systemNumber, sap.client, sap.username and sap.password. The flow ${AUDIT_FLOW} has a Document listener on sap.gatewayHost, sap.gatewayService and sap.programId with sap.connectionCount connections. It runs only when idoc.statusCheck is aleaud: it reads the ALEAUD01 IDocs that SAP sends back and logs an error for each IDoc that did not post (lab-made: the property switches the flow on).`,
+    note: `The web shop of Brightmart posts each order to POST /orders. The flow maps it to an ORDERS05 IDoc (sold-to 4711, sales area 1000 10 00) and sends it with the Send operation of the SAP connector, which is a tRFC call of IDOC_INBOUND_ASYNCHRONOUS. The connection is sap.applicationServerHost, sap.systemNumber, sap.client, sap.username and sap.password. The flow ${AUDIT_FLOW} has a Document listener on sap.gatewayHost, sap.gatewayService and sap.programId with sap.connectionCount connections. It runs only when idoc.statusCheck is aleaud: it reads the ALEAUD01 IDocs that SAP sends back and logs an error for each IDoc that did not post (lab-made: the property switches the flow on).`,
     sample: { method: 'POST', path: '/orders', body: '{"source":"web","items":1}' },
     boot: needs('sap.applicationServerHost', 'sap.systemNumber', 'sap.client', 'sap.username', 'sap.password'),
     schedules: [{ flow: AUDIT_FLOW, type: 'fixed', value: '1', unit: 'minutes', enabled: true }],

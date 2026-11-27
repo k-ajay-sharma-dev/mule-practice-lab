@@ -4,7 +4,7 @@ import { app, ask, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { DAY, emptyMsgraph, guidOf, hitsOf, isoTime, newItem, newRegistration, newSite, TENANT_ID } from '../platform-msgraph.js'
 import { CATALOG } from './graph-throttle.pkg.js'
 
-const APP_ID = guidOf('reg:harbor-catalog-sync')
+const APP_ID = guidOf('reg:brightmart-catalog-sync')
 const BACKLOG = 240
 const IMPORT = at(1, 8, 45)
 const prop = (s, k) => String(app(s, CATALOG)?.props?.[k] ?? '').trim()
@@ -17,7 +17,7 @@ const drained = (s) => (store(s).wm ?? '') >= isoTime(IMPORT) && !store(s).pos
 function graph(now) {
   const m = emptyMsgraph(now)
   const reg = newRegistration(m, {
-    name: 'harbor-catalog-sync',
+    name: 'brightmart-catalog-sync',
     appId: APP_ID,
     t: now - 200 * DAY,
     secrets: [{ desc: 'mule-sandbox', start: now - 60 * DAY, end: now + 300 * DAY }],
@@ -56,8 +56,8 @@ const lab = {
           t: at(1, 9, 2),
           to: OPS,
           subject: 'New season product sheets not in the shop',
-          body: `Good morning. We imported ${BACKLOG} new product sheets into the Product sheets library at 08:45. The shop still shows the old sheets and the catalog sync looks stuck. Can you have a look? Harbor merchandising`,
-          source: 'Harbor merchandising',
+          body: `Good morning. We imported ${BACKLOG} new product sheets into the Product sheets library at 08:45. The shop still shows the old sheets and the catalog sync looks stuck. Can you have a look? Brightmart merchandising`,
+          source: 'Brightmart merchandising',
         },
       ],
     })

@@ -12,7 +12,7 @@ const broker = (s) => brokerOf(s, AMQ)
 const failoverOk = (s) => {
   const u = parseUrl(props(s)['jms.url'])
   const hosts = u.hosts.map((h) => h.host)
-  return running(s) && u.failover && hosts.includes('amq1.harbor.lab') && hosts.includes('amq2.harbor.lab') && !u.randomize
+  return running(s) && u.failover && hosts.includes('amq1.brightmart.lab') && hosts.includes('amq2.brightmart.lab') && !u.randomize
 }
 const reconnectOk = (s) => running(s) && connOf(props(s)).reconnect
 const scansWaiting = (s) => (broker(s)?.queues[QUEUE]?.messages ?? []).filter((m) => m.persistent).length
@@ -22,7 +22,7 @@ const lab = {
   group: 'ActiveMQ',
   title: 'Parcel tracking stopped after the patch night',
   minutes: 20,
-  scenario: `harbor-amq is an ActiveMQ Classic pair: amq1 and amq2 share one KahaDB store, and the one that holds the store lock is master. At 05:59 the operations team restarted amq1 for patching. ${FEED} kept sending parcel scans to ${QUEUE}, but ${TRACKER} has written nothing since, and it is 07:00. Find out why it did not come back, make it survive the next restart, and prove it by patching amq2.`,
+  scenario: `brightmart-amq is an ActiveMQ Classic pair: amq1 and amq2 share one KahaDB store, and the one that holds the store lock is master. At 05:59 the operations team restarted amq1 for patching. ${FEED} kept sending parcel scans to ${QUEUE}, but ${TRACKER} has written nothing since, and it is 07:00. Find out why it did not come back, make it survive the next restart, and prove it by patching amq2.`,
   start() {
     const clock = at(1, 5)
     const s = newPlatform({
@@ -38,7 +38,7 @@ const lab = {
       to: OPS,
       subject: 'Parcel tracking is stuck at 05:59',
       body: 'The tracking page shows no parcel scans after 05:59, although the depots scan as usual. Drivers and customers see old positions. Did the patch night break something?',
-      source: 'Harbor Foods Logistics',
+      source: 'Brightmart Logistics',
     })
     return until(later, at(1, 7))
   },
@@ -46,8 +46,8 @@ const lab = {
     { title: 'Read the mail of logistics', how: 'Open the Inbox from the menu under Lab tools.', done: (s) => Boolean(s.seen.inbox) },
     { ...sawLogs(TRACKER), how: `Runtime Manager, ${TRACKER}, Logs. Find the JMS:CONNECTIVITY error at 06:00 and note that nothing comes after it.` },
     {
-      title: 'Open the Home page of harbor-amq',
-      how: 'ActiveMQ, harbor-amq, Home. The nodes table shows which node is master now, and the broker history shows the restart and the NON_PERSISTENT messages it lost.',
+      title: 'Open the Home page of brightmart-amq',
+      how: 'ActiveMQ, brightmart-amq, Home. The nodes table shows which node is master now, and the broker history shows the restart and the NON_PERSISTENT messages it lost.',
       done: (s) => Boolean(s.seen[`jms:${AMQ}`]),
     },
     ask(
@@ -86,7 +86,7 @@ const lab = {
     ),
     {
       title: 'Patch amq2 and watch',
-      how: `When the backlog is gone, ActiveMQ, harbor-amq, Home: restart amq2, the master now. amq1 takes the lock and becomes master. Move the clock 5 minutes: ${TRACKER} reconnects through the failover URL and keeps writing scans.`,
+      how: `When the backlog is gone, ActiveMQ, brightmart-amq, Home: restart amq2, the master now. amq1 takes the lock and becomes master. Move the clock 5 minutes: ${TRACKER} reconnects through the failover URL and keeps writing scans.`,
       done: (s) => {
         const r = broker(s)?.lastRestart
         const a = tracker(s)

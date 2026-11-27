@@ -21,7 +21,7 @@ const lab = {
   group: 'Files, SFTP and batch',
   title: 'A green batch job with stale prices',
   minutes: 20,
-  scenario: `${NAME} runs the Batch Job ${JOB} at 02:00. It loads the nightly product file of five suppliers, ${number(TOTAL)} products, into the price table of the Harbor webshop. Every night the job ends SUCCESSFUL. The merchandising team says the prices of one supplier have not changed for days. Find the failed records in the batch view, see why they fail, keep the failures visible and fix the mapping.`,
+  scenario: `${NAME} runs the Batch Job ${JOB} at 02:00. It loads the nightly product file of five suppliers, ${number(TOTAL)} products, into the price table of the Brightmart webshop. Every night the job ends SUCCESSFUL. The merchandising team says the prices of one supplier have not changed for days. Find the failed records in the batch view, see why they fail, keep the failures visible and fix the mapping.`,
   start() {
     const s = newPlatform({
       clock: at(0, 1),
@@ -32,7 +32,7 @@ const lab = {
           to: OPS,
           subject: 'Nordvik prices are stuck',
           body: 'Nordvik Trading sent a new price list on Sunday, and the webshop still shows the old prices of all their products. The other suppliers are fine. Your sync job says SUCCESSFUL every night. Can you check what happens to the Nordvik products?',
-          source: 'Harbor Merchandising',
+          source: 'Brightmart Merchandising',
         },
       ],
     })

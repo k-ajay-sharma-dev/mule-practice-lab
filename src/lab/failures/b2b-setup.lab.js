@@ -17,7 +17,7 @@ function b2b(now) {
     { ...newCert(SIGN, ID, 'Signing', 'as2.bayside-foods.example', at(-20), at(345)), note: 'Sent by Bayside Foods with the onboarding sheet' },
     { ...newCert(ENC, ID, 'Encryption', 'as2.bayside-foods.example', at(-20), at(345)), note: 'Sent by Bayside Foods with the onboarding sheet' },
   ]
-  // lab made: what Bayside Foods really uses. Its test 850 is built from this, whatever Harbor typed in.
+  // lab made: what Bayside Foods really uses. Its test 850 is built from this, whatever Brightmart typed in.
   b.prospects = {
     [ID]: { id: ID, name: 'Bayside Foods', isaQual: '01', isaId: '987654321', gsId: 'BAYSIDE', as2Id: AS2, signCert: SIGN, test: { po: 'BF-10001', vendor: 'BF-VENDOR-12', lines: [line(48, 'EA', '2.10', 'BF-501', 'H-400', 'Oat biscuits 200 g'), line(5, 'CA', '36.00', 'BF-620', 'H-410', 'Sparkling water case of 24')] } },
   }
@@ -34,7 +34,7 @@ const lab = {
   title: 'Set up a new EDI partner from nothing',
   minutes: 30,
   scenario:
-    'Bayside Foods starts to send Harbor its purchase orders as X12 850 over AS2 next week. Partner Manager knows nothing about them yet. Their onboarding sheet is in the Inbox, and their two certificates wait in Partner Manager. The order API harbor-b2b-order-api runs and takes orders from any flow that delivers to it. Set up the partner and an inbound flow, take their test 850, and prove it ends as an order.',
+    'Bayside Foods starts to send Brightmart its purchase orders as X12 850 over AS2 next week. Partner Manager knows nothing about them yet. Their onboarding sheet is in the Inbox, and their two certificates wait in Partner Manager. The order API brightmart-b2b-order-api runs and takes orders from any flow that delivers to it. Set up the partner and an inbound flow, take their test 850, and prove it ends as an order.',
   start() {
     const now = at(1, 9)
     const s = newPlatform({
@@ -46,7 +46,7 @@ const lab = {
           t: at(1, 8, 30),
           to: OPS,
           subject: 'Bayside Foods EDI onboarding sheet',
-          body: `Hello Harbor. Our X12 identifiers: ISA qualifier 01 (DUNS), ISA ID 987654321, GS ID BAYSIDE, version 004010. AS2: our AS2 identifier is ${AS2}, our URL ${URL}. We sign with ${SIGN} and you encrypt for us with ${ENC}; both are uploaded to your Partner Manager. We want signed MDNs, synchronous. We expect a 997 for every 850. Contact edi@bayside-foods.example. When you are ready, ask us for a test 850. Bayside Foods EDI`,
+          body: `Hello Brightmart. Our X12 identifiers: ISA qualifier 01 (DUNS), ISA ID 987654321, GS ID BAYSIDE, version 004010. AS2: our AS2 identifier is ${AS2}, our URL ${URL}. We sign with ${SIGN} and you encrypt for us with ${ENC}; both are uploaded to your Partner Manager. We want signed MDNs, synchronous. We expect a 997 for every 850. Contact edi@bayside-foods.example. When you are ready, ask us for a test 850. Bayside Foods EDI`,
           source: 'Bayside Foods',
         },
       ],
@@ -69,13 +69,13 @@ const lab = {
       'Which certificate does what',
       'Bayside Foods sent two public certificates. What does Partner Manager do with each?',
       [
-        'Both encrypt what Harbor sends, one for each direction',
-        'Harbor verifies the signature of each Bayside message with the signing certificate, and encrypts what it sends to Bayside with the encryption certificate. Bayside encrypts for Harbor with Harbor\'s own certificate, and each side keeps its private keys',
-        'Harbor signs its messages with the Bayside signing certificate',
+        'Both encrypt what Brightmart sends, one for each direction',
+        'Brightmart verifies the signature of each Bayside message with the signing certificate, and encrypts what it sends to Bayside with the encryption certificate. Bayside encrypts for Brightmart with Brightmart\'s own certificate, and each side keeps its private keys',
+        'Brightmart signs its messages with the Bayside signing certificate',
         'They are only needed for SFTP',
       ],
       1,
-      'AS2 signs with the sender\'s private key and encrypts with the receiver\'s public certificate. So the partner profile holds the partner\'s public signing and encryption certificates, and the host profile holds Harbor\'s own. A wrong signing certificate gives a negative MDN with authentication-failed, a wrong encryption certificate gives decryption-failed on the partner side.',
+      'AS2 signs with the sender\'s private key and encrypts with the receiver\'s public certificate. So the partner profile holds the partner\'s public signing and encryption certificates, and the host profile holds Brightmart\'s own. A wrong signing certificate gives a negative MDN with authentication-failed, a wrong encryption certificate gives decryption-failed on the partner side.',
     ),
     {
       title: 'Create the inbound 850 flow',
@@ -103,7 +103,7 @@ const lab = {
     ),
     {
       title: 'Take the test 850 to an order',
-      how: 'Partners, Bayside Foods, press Request test 850. Move the clock 5 minutes. In Tracking the 850 BF-10001 is Acknowledged with a 997 A, and the logs of harbor-b2b-order-api show the order. If it failed, read its history, fix the setup and request the test again.',
+      how: 'Partners, Bayside Foods, press Request test 850. Move the clock 5 minutes. In Tracking the 850 BF-10001 is Acknowledged with a 997 A, and the logs of brightmart-b2b-order-api show the order. If it failed, read its history, fix the setup and request the test again.',
       done: (s) => {
         const tx = txOf(s.b2b).find((t) => t.dir === 'in' && t.partner === ID && t.type === '850' && t.status === 'Acknowledged' && t.ack?.code === 'A' && mdnOk(t.as2?.mdn))
         return Boolean(tx && app(s, NAME)?.store?.orders?.[tx.ref])

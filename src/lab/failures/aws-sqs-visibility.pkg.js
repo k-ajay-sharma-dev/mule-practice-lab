@@ -3,8 +3,8 @@
 import { info, muleError, needs, warn } from '../platform-log.js'
 import { awsCfg } from '../platform-aws.js'
 
-export const INTAKE = 'harbor-returns-sqs-intake'
-export const REFUNDS = 'harbor-returns-sqs-refunds'
+export const INTAKE = 'brightmart-returns-sqs-intake'
+export const REFUNDS = 'brightmart-returns-sqs-refunds'
 export const REFUND_FLOW = 'refund-listener-flow'
 // a refund calls the payment provider and the warehouse system and takes about 75 seconds
 export const REFUND_SECONDS = 75

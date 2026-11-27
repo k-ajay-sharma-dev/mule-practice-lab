@@ -4,7 +4,7 @@
 import { info, muleError, needs, warn } from '../platform-log.js'
 import { wdConfig } from '../platform-workday.js'
 
-export const JOBS = 'harbor-wd-job-change'
+export const JOBS = 'brightmart-wd-job-change'
 export const JOBS_FLOW = 'job-change-flow'
 const el = { flow: JOBS_FLOW, at: 2, name: 'Change_Job', dsl: '<wsc:consume doc:name="Change_Job" config-ref="Workday_Human_Resources" operation="Change_Job">' }
 const keep = (list, item, n = 20) => [...(list ?? []), item].slice(-n)

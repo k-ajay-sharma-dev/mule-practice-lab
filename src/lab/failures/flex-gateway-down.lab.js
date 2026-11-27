@@ -14,7 +14,7 @@ const lab = {
   group: 'Runtime Fabric and gateways',
   title: 'The gateway is Disconnected and the new policy is not there',
   minutes: 25,
-  scenario: `The Partner Tracking API runs on the Flex Gateway ${FLEX} in the Harbor data center. The client secret of the Partner Portal leaked and is used from ${LEAK_IP}. At 07:10 the security team added an IP Allowlist with the partner network to the API in API Manager and closed the incident. Since a data center firewall change at 06:30, Runtime Manager shows the gateway Disconnected, but partner traffic still flows. It is 08:20. Find out whether the allowlist works, and make it work.`,
+  scenario: `The Partner Tracking API runs on the Flex Gateway ${FLEX} in the Brightmart data center. The client secret of the Partner Portal leaked and is used from ${LEAK_IP}. At 07:10 the security team added an IP Allowlist with the partner network to the API in API Manager and closed the incident. Since a data center firewall change at 06:30, Runtime Manager shows the gateway Disconnected, but partner traffic still flows. It is 08:20. Find out whether the allowlist works, and make it work.`,
   start() {
     const clock = at(1, 5)
     let s = newPlatform({
@@ -22,7 +22,7 @@ const lab = {
       clients: structuredClone(CLIENTS),
       apis: [
         flexApi(API, {
-          name: 'Partner Tracking API', assetId: 'partner-tracking-api', label: 'flex', basePath: '/partner-tracking', upstream: 'http://tracking-svc.harbor.local:8080/api', consumer: 'https://flex-dc.harbor.example/partner-tracking', t: clock,
+          name: 'Partner Tracking API', assetId: 'partner-tracking-api', label: 'flex', basePath: '/partner-tracking', upstream: 'http://tracking-svc.brightmart.local:8080/api', consumer: 'https://flex-dc.brightmart.example/partner-tracking', t: clock,
           policies: [policy('client-id')],
           contracts: [{ client: PARTNER, tier: '', status: 'approved', t: clock }],
         }),
@@ -31,7 +31,7 @@ const lab = {
         created: clock,
         gateways: { [FLEX]: newGateway(FLEX, { since: clock, lastSeen: clock }) },
         traffic: [
-          { api: API, n: 4, ip: '198.51.100.7', client: PARTNER, path: '/parcels/HB-77120', ua: 'harbor-partner-portal/2.1' },
+          { api: API, n: 4, ip: '198.51.100.7', client: PARTNER, path: '/parcels/HB-77120', ua: 'brightmart-partner-portal/2.1' },
           { api: API, n: 2, ip: LEAK_IP, client: PARTNER, path: '/parcels?all=true', ua: 'Go-http-client/1.1' },
         ],
       }),
@@ -40,9 +40,9 @@ const lab = {
     // CHG 20417: the DMZ allows named destinations only. The broad HTTPS rule is gone and nobody listed the control plane.
     s = structuredClone(s)
     s.flex.gateways[FLEX].egress = [
-      { dest: 'tracking-svc.harbor.local', port: 8080, action: 'Allow', note: 'Upstream of the Partner Tracking API' },
-      { dest: 'repo.harbor.local', port: 443, action: 'Allow', note: 'Package mirror' },
-      { dest: 'ntp.harbor.local', port: 123, action: 'Allow', note: 'Time' },
+      { dest: 'tracking-svc.brightmart.local', port: 8080, action: 'Allow', note: 'Upstream of the Partner Tracking API' },
+      { dest: 'repo.brightmart.local', port: 443, action: 'Allow', note: 'Package mirror' },
+      { dest: 'ntp.brightmart.local', port: 123, action: 'Allow', note: 'Time' },
     ]
     s = until(s, at(1, 7, 10))
     s = setApi(s, API, { policies: [policy('ip-allow', { list: '198.51.100.0/24' }), ...api(s).policies] })
@@ -52,8 +52,8 @@ const lab = {
         t: at(1, 7, 15),
         to: OPS,
         subject: 'Incident closed: leaked partner secret',
-        body: `Hello. The Partner Tracking API now has an IP Allowlist with the partner network 198.51.100.0/24. Calls with the leaked secret from ${LEAK_IP} are refused. We closed the incident. The partner rotates the secret on Friday. Harbor security team`,
-        source: 'Harbor security team',
+        body: `Hello. The Partner Tracking API now has an IP Allowlist with the partner network 198.51.100.0/24. Calls with the leaked secret from ${LEAK_IP} are refused. We closed the incident. The partner rotates the secret on Friday. Brightmart security team`,
+        source: 'Brightmart security team',
       },
       {
         t: at(1, 8, 12),

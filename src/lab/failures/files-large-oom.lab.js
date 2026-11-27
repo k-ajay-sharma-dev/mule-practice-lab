@@ -21,7 +21,7 @@ const lab = {
   title: 'A 2 GB file takes the replica down every night',
   minutes: 20,
   scenario:
-    'pos-sales-nightly reads the sales file of every till of Harbor Outfitters from /in on sftp.harbor.lab at 02:00 and writes it as JSON for the data warehouse. Since the stores started to send every sale line, the file is 2 GB. Last night the replica restarted during the run and the warehouse has no sales for 2 November. The app runs on 0.5 vCores and the budget stays there.',
+    'pos-sales-nightly reads the sales file of every till of Brightmart Outfitters from /in on sftp.brightmart.lab at 02:00 and writes it as JSON for the data warehouse. Since the stores started to send every sale line, the file is 2 GB. Last night the replica restarted during the run and the warehouse has no sales for 2 November. The app runs on 0.5 vCores and the budget stays there.',
   start() {
     let s = newPlatform({
       clock: at(0, 12),
@@ -33,7 +33,7 @@ const lab = {
           to: OPS,
           subject: 'No sales in the warehouse for 2 November',
           body: 'The morning sales report is empty for every store. The file from the tills was on the SFTP server at 01:40 as usual. We need the numbers before the 11:00 meeting.',
-          source: 'Harbor Outfitters Finance',
+          source: 'Brightmart Outfitters Finance',
         },
       ],
     })

@@ -4,7 +4,7 @@ import { app, ask, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { addIncident, addUser, ciId, dt, explore, groupId, INSTANCE_URL, newServicenow, parseQuery, REST_ROLE } from '../platform-servicenow.js'
 import { pagingOf, SYNC, SYNC_FLOW } from './snow-paging.pkg.js'
 
-const SVC = 'svc_harbor_dwh'
+const SVC = 'svc_brightmart_dwh'
 const QUERY = 'stateIN1,2,3^ORDERBYDESCsys_updated_on'
 const a = (s) => app(s, SYNC)
 const running = (s) => a(s)?.status === 'Running'
@@ -22,7 +22,7 @@ const GROUPS = ['Store Systems', 'Warehouse Systems', 'Network', 'Service Desk']
 const CIS = ['STORE-0042-POS', 'WMS-APP-01', 'EDGE-RTR-07', 'WMS-DB-01']
 function instance(now) {
   const y = newServicenow(now)
-  addUser(y, { user_name: SVC, first_name: 'Harbor', last_name: 'Warehouse Sync', roles: [REST_ROLE, 'sn_incident_read'], pw: 'Dwh-Harbor-2611', web_service_access_only: true }, now)
+  addUser(y, { user_name: SVC, first_name: 'Brightmart', last_name: 'Warehouse Sync', roles: [REST_ROLE, 'sn_incident_read'], pw: 'Dwh-Brightmart-2611', web_service_access_only: true }, now)
   for (let i = 0; i < 140; i++) {
     const created = now - 10 * DAY + i * 97 * MINUTE
     const r = addIncident(y, { short_description: `${TEXTS[i % 10]} (${CIS[i % 4]})`, cmdb_ci: ciId(y, CIS[i % 4]), assignment_group: groupId(y, GROUPS[i % 4]), state: i % 7 === 3 ? '6' : String([1, 2, 3, 2][i % 4]), impact: String((i % 3) + 1), urgency: String(((i + 1) % 3) + 1) }, created, i % 2 ? 'beth.okafor' : 'sam.reyes')
@@ -38,14 +38,14 @@ const lab = {
   group: 'HR, ITSM and CRM',
   title: 'The warehouse sees 50 open incidents, ServiceNow has more',
   minutes: 25,
-  scenario: `${SYNC} copies the open ServiceNow incidents of ${INSTANCE_URL} to the Harbor data warehouse every 15 minutes, and the store managers read their open tickets there. The job is green in Runtime Manager. The reporting team says the warehouse never has more than 50 open incidents, while the incident list in ServiceNow shows many more. Find where the rows get lost and make the copy complete.`,
+  scenario: `${SYNC} copies the open ServiceNow incidents of ${INSTANCE_URL} to the Brightmart data warehouse every 15 minutes, and the store managers read their open tickets there. The job is green in Runtime Manager. The reporting team says the warehouse never has more than 50 open incidents, while the incident list in ServiceNow shows many more. Find where the rows get lost and make the copy complete.`,
   start() {
     const s = newPlatform({
       clock: at(1, 8),
       apps: [
         newApp(SYNC, {
           props: { 'snow.instance': INSTANCE_URL, 'snow.username': SVC, 'sync.query': QUERY, 'sync.pageSize': '50', 'sync.paging': 'none' },
-          secrets: { 'snow.password': 'Dwh-Harbor-2611' },
+          secrets: { 'snow.password': 'Dwh-Brightmart-2611' },
           store: {},
         }),
       ],
@@ -55,8 +55,8 @@ const lab = {
           t: at(1, 8, 50),
           to: OPS,
           subject: 'Open incidents in the warehouse are wrong',
-          body: 'Hello. The store report shows exactly 50 open incidents every morning, while the incident list in ServiceNow shows about 100 open ones. Store managers miss tickets that are open for days. The sync job reports no error. Harbor reporting team',
-          source: 'Harbor reporting team',
+          body: 'Hello. The store report shows exactly 50 open incidents every morning, while the incident list in ServiceNow shows about 100 open ones. Store managers miss tickets that are open for days. The sync job reports no error. Brightmart reporting team',
+          source: 'Brightmart reporting team',
         },
       ],
     })

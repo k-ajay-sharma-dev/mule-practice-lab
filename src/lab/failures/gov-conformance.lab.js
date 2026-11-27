@@ -11,21 +11,21 @@ const NAME = 'Store App Experience API'
 const RULESETS = ['Required Examples', 'OWASP API Security Top 10 2019 Checklist']
 const PROFILE = {
   id: 'gp-1', name: 'Experience API release gate', description: 'Every Experience API ships with examples and declared security answers.',
-  criteria: { by: 'category', value: 'Experience', lifecycles: ['development', 'stable'] }, rulesets: RULESETS, notify: true, recipients: 'api-review@harbor.example', block: true, created: at(-5, 10),
+  criteria: { by: 'category', value: 'Experience', lifecycles: ['development', 'stable'] }, rulesets: RULESETS, notify: true, recipients: 'api-review@brightmart.example', block: true, created: at(-5, 10),
 }
 
 const HEAD = `#%RAML 1.0
 title: ${NAME}
-description: The API behind the store app of Harbor. Store staff look up orders and start returns at the till.
+description: The API behind the store app of Brightmart. Store staff look up orders and start returns at the till.
 version: v1
-baseUri: https://store-app-exp.harbor.lab/api/{version}
+baseUri: https://store-app-exp.brightmart.lab/api/{version}
 mediaType: application/json
 securitySchemes:
   oauth_2_0:
     type: OAuth 2.0
-    description: Tokens of the Harbor identity provider for the store app
+    description: Tokens of the Brightmart identity provider for the store app
     settings:
-      accessTokenUri: https://auth.harbor.lab/oauth2/token
+      accessTokenUri: https://auth.brightmart.lab/oauth2/token
       authorizationGrants: [ client_credentials ]
 securedBy: [ oauth_2_0 ]
 types:

@@ -6,8 +6,8 @@ import { app, ask, call, called, OPS } from '../platform-kit.js'
 import { addAppPassword, addMailAccount, defaultMailServer, MAIL_HOST, mailboxCtx, newAccount, setMailAccount, webAddFolder, webOpen } from '../platform-mailserver.js'
 import { BOX, imapOf, JAR, NAME, smtpOf } from './setup-mail.pkg.js'
 
-const TEST = 'qa-shop@harbor.example'
-const TEAM = 'service-desk@harbor.example'
+const TEST = 'qa-shop@brightmart.example'
+const TEAM = 'service-desk@brightmart.example'
 const PASSWORD = 'Webshop-Mailbox-2611' // a made-up lab value
 const BODY = `{"email":"${TEST}","name":"QA shop"}`
 
@@ -54,7 +54,7 @@ const lab = {
   group: 'Email',
   title: 'Set up the order confirmation mailer and the web shop mailbox',
   minutes: 30,
-  scenario: `The service desk of Harbor wants two things before the spring sale: each web order gets a confirmation mail from ${BOX}, and customers who write to ${BOX} about a return get a return request without a person typing it. ${NAME} is built for both and its jar waits in Runtime Manager. The mailbox does not exist yet, so mail to it bounces today. Done means: confirmations go out over SMTP with STARTTLS, inbound mail is handled and moved, mail the app cannot read is kept for a person, and the service desk hears about errors. The Inbox has the request.`,
+  scenario: `The service desk of Brightmart wants two things before the spring sale: each web order gets a confirmation mail from ${BOX}, and customers who write to ${BOX} about a return get a return request without a person typing it. ${NAME} is built for both and its jar waits in Runtime Manager. The mailbox does not exist yet, so mail to it bounces today. Done means: confirmations go out over SMTP with STARTTLS, inbound mail is handled and moved, mail the app cannot read is kept for a person, and the service desk hears about errors. The Inbox has the request.`,
   start() {
     return newPlatform({
       clock: at(1, 9),
@@ -65,8 +65,8 @@ const lab = {
           t: at(1, 8, 30),
           to: OPS,
           subject: 'Web shop mailbox and order confirmations',
-          body: `Hello, please set up ${NAME}.\n\nMailbox ${BOX}, display name Harbor Webshop, on ${MAIL_HOST}. Only the app uses it, so it should take app passwords only.\nConfirmations: SMTP submission on port 587 with STARTTLS. Test them to ${TEST}, the mailbox of the QA team.\nInbound: IMAP over TLS on port 993. A handled mail goes to the folder Processed. A mail the app cannot read goes to Error, where we answer it by hand. Nothing may be deleted.\nAlerts on errors to ${TEAM}.\n\nThanks, Harbor service desk`,
-          source: 'Harbor service desk',
+          body: `Hello, please set up ${NAME}.\n\nMailbox ${BOX}, display name Brightmart Webshop, on ${MAIL_HOST}. Only the app uses it, so it should take app passwords only.\nConfirmations: SMTP submission on port 587 with STARTTLS. Test them to ${TEST}, the mailbox of the QA team.\nInbound: IMAP over TLS on port 993. A handled mail goes to the folder Processed. A mail the app cannot read goes to Error, where we answer it by hand. Nothing may be deleted.\nAlerts on errors to ${TEAM}.\n\nThanks, Brightmart service desk`,
+          source: 'Brightmart service desk',
         },
       ],
     })
@@ -75,7 +75,7 @@ const lab = {
     { title: 'Read the request', how: 'Open the Inbox from the menu under Lab tools. Note the mailbox, the ports, the folders, the test mailbox and the alert address.', done: (s) => Boolean(s.seen.inbox) },
     {
       title: 'Create the mailbox and its folders',
-      how: `Mail server from the console menu, tab Accounts, New account. Address ${BOX}, Display name Harbor Webshop, a password of at least 10 characters, Create account. Then tab Mail, Mailbox ${BOX}, and under the folder list create the folders Processed and Error. A move to a folder that does not exist fails with [TRYCREATE].`,
+      how: `Mail server from the console menu, tab Accounts, New account. Address ${BOX}, Display name Brightmart Webshop, a password of at least 10 characters, Create account. Then tab Mail, Mailbox ${BOX}, and under the folder list create the folders Processed and Error. A move to a folder that does not exist fails with [TRYCREATE].`,
       done: (s) => Boolean(acc(s)) && ['Processed', 'Error'].every((f) => Array.isArray(acc(s).folders[f])),
     },
     {
@@ -100,7 +100,7 @@ const lab = {
     },
     {
       title: 'Send a test confirmation and read it in the webmail',
-      how: `Lab tools, API client. Application ${NAME}, POST /orders/O-1007/confirmation with the body ${BODY}. It answers 202. Then Mail server, tab Mail, Mailbox ${TEST}: open the mail Your Harbor order O-1007 from ${BOX}.`,
+      how: `Lab tools, API client. Application ${NAME}, POST /orders/O-1007/confirmation with the body ${BODY}. It answers 202. Then Mail server, tab Mail, Mailbox ${TEST}: open the mail Your Brightmart order O-1007 from ${BOX}.`,
       done: (s) => {
         const sent = store(s).sent ?? []
         const inbox = s.mailServer?.accounts?.[TEST]?.folders?.INBOX ?? []
@@ -139,7 +139,7 @@ const lab = {
   docs: 'https://docs.mulesoft.com/email-connector/latest/',
   solve(start) {
     let s = mark(start, 'inbox')
-    s = addMailAccount(s, BOX, 'Harbor Webshop', PASSWORD)
+    s = addMailAccount(s, BOX, 'Brightmart Webshop', PASSWORD)
     s = webAddFolder(webAddFolder(s, BOX, 'Processed'), BOX, 'Error')
     s = addAppPassword(s, BOX, NAME)
     s = setMailAccount(s, BOX, { appOnly: true })

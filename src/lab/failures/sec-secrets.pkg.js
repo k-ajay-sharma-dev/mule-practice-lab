@@ -1,7 +1,7 @@
 // The sample applications of the sec-secrets lab. Imports only platform-log.js and platform-led.js, so the engine can load it without a cycle.
 import { info, line, muleError, needs } from '../platform-log.js'
 
-export const SFTP_HOST = 'sftp.harbor.lab'
+export const SFTP_HOST = 'sftp.brightmart.lab'
 export const SFTP_USER = 'mule_supplier'
 
 // The body of a Key Vault error as the HTTP connector logs it. A disabled secret has the inner code SecretDisabled.
@@ -10,7 +10,7 @@ const flowError = (at, name, dsl, type, message) => ({ flow: 'price-list-flow', 
 
 export const PACKAGES = {
   'supplier-file-pull': {
-    note: 'Every 15 minutes reads the SFTP password from Azure Key Vault (kv.name, kv.secret.name, and kv.secret.version when it is set), logs in to sftp.harbor.lab as mule_supplier, and moves each price list from /in to /archive after loading it. It calls Key Vault through the HTTP connector with an OAuth token of its app registration (kv.client.id and kv.client.secret). An empty kv.secret.version reads the current version.',
+    note: 'Every 15 minutes reads the SFTP password from Azure Key Vault (kv.name, kv.secret.name, and kv.secret.version when it is set), logs in to sftp.brightmart.lab as mule_supplier, and moves each price list from /in to /archive after loading it. It calls Key Vault through the HTTP connector with an OAuth token of its app registration (kv.client.id and kv.client.secret). An empty kv.secret.version reads the current version.',
     boot: needs('kv.name', 'kv.secret.name', 'kv.client.id', 'kv.client.secret', 'sftp.user'),
     schedules: [{ flow: 'price-list-flow', type: 'fixed', value: 15, unit: 'minutes', enabled: true }],
     run: {

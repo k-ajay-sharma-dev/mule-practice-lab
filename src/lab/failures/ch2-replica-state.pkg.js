@@ -1,7 +1,7 @@
 // The sample application of the ch2-replica-state lab. Imports only platform-log.js, so the engine can load it without a cycle.
 import { info, warn } from '../platform-log.js'
 
-export const CART_API = 'harbor-cart-eapi'
+export const CART_API = 'brightmart-cart-eapi'
 const MINUTE = 60000
 // lab-made shoppers: every minute each of 6 shoppers does one thing in the web shop, in an order that changes each
 // minute. Over 4 minutes a shopper adds 3 items and then checks out, and the next 4 minutes start a new cart.
@@ -31,7 +31,7 @@ const keyOf = (id) => `cart:${id}`
 
 export const PACKAGES = {
   [CART_API]: {
-    note: 'The cart Experience API of the Harbor web shop. It keeps each shopping cart in an object store named cartStore. The property cart.persistent sets the persistent attribute of os:object-store: false keeps the store in the memory of the replica.',
+    note: 'The cart Experience API of the Brightmart web shop. It keeps each shopping cart in an object store named cartStore. The property cart.persistent sets the persistent attribute of os:object-store: false keeps the store in the memory of the replica.',
     handle(ctx, req) {
       const { app, props, now, replica } = ctx
       const shared = sharedOf(app, props)

@@ -4,8 +4,8 @@ import { app, ask, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { arnQueue, editQueue, newAwsAccount, policyDoc, pollFromConsole, queueUrl, REGION, startRedrive } from '../platform-aws.js'
 import { INTAKE, REFUND_SECONDS, REFUNDS } from './aws-sqs-visibility.pkg.js'
 
-const QUEUE = 'harbor-returns'
-const DLQ = 'harbor-returns-dlq'
+const QUEUE = 'brightmart-returns'
+const DLQ = 'brightmart-returns-dlq'
 const USER = 'svc-returns'
 const KEY_ID = 'AKIA_LAB_0003310'
 const SECRET = 'lab-only/returns-3310'
@@ -48,8 +48,8 @@ const lab = {
           t: at(1, 8, 50),
           to: OPS,
           subject: 'Returns refunded three times',
-          body: 'Hello. Since this morning the payment provider shows three refunds for most returns, for example RMA-5101 and RMA-5102. We stopped the payout batch for now. Please find the cause before 11:00. Harbor finance',
-          source: 'Harbor finance',
+          body: 'Hello. Since this morning the payment provider shows three refunds for most returns, for example RMA-5101 and RMA-5102. We stopped the payout batch for now. Please find the cause before 11:00. Brightmart finance',
+          source: 'Brightmart finance',
         },
       ],
     })

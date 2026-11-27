@@ -17,7 +17,7 @@ const lab = {
   group: 'ActiveMQ',
   title: 'The order API hangs on a full broker',
   minutes: 25,
-  scenario: `${API} takes web orders and publishes each one to ORDERS.IN on the ActiveMQ Classic broker harbor-amq, where ${LOADER} picks it up. Since about 08:40 every POST /orders waits 30 seconds and ends in a gateway timeout, and no order gets through. Nothing was deployed today. Find what fills the broker, free it without losing anything that matters, and make sure you hear about it before it happens again.`,
+  scenario: `${API} takes web orders and publishes each one to ORDERS.IN on the ActiveMQ Classic broker brightmart-amq, where ${LOADER} picks it up. Since about 08:40 every POST /orders waits 30 seconds and ends in a gateway timeout, and no order gets through. Nothing was deployed today. Find what fills the broker, free it without losing anything that matters, and make sure you hear about it before it happens again.`,
   start() {
     const clock = at(1, 8)
     let s = newPlatform({
@@ -45,15 +45,15 @@ const lab = {
       to: OPS,
       subject: 'No web orders since 08:40',
       body: 'Every order on the web shop fails after a long wait since about 08:40. The shop shows "please try again". We lose sales every minute. Please help.',
-      source: 'Harbor Foods Web Shop',
+      source: 'Brightmart Web Shop',
     })
     return until(later, at(1, 9))
   },
   steps: [
     { title: 'Read the mail of the web shop', how: 'Open the Inbox from the menu under Lab tools.', done: (s) => Boolean(s.seen.inbox) },
     {
-      title: 'Open the Home page of harbor-amq',
-      how: 'ActiveMQ, harbor-amq, Home. Read Store percent used and Memory percent used. Then read the logs of order-intake-api.',
+      title: 'Open the Home page of brightmart-amq',
+      how: 'ActiveMQ, brightmart-amq, Home. Read Store percent used and Memory percent used. Then read the logs of order-intake-api.',
       done: (s) => Boolean(s.seen[`jms:${AMQ}`]),
     },
     ask(
@@ -70,7 +70,7 @@ const lab = {
     ),
     {
       title: 'Find what fills the store',
-      how: `ActiveMQ, harbor-amq, Queues. Look for queues with many pending messages and no consumers. Browse ${AUDIT} and ${DLQ} and look at the dates and the senders of the messages.`,
+      how: `ActiveMQ, brightmart-amq, Queues. Look for queues with many pending messages and no consumers. Browse ${AUDIT} and ${DLQ} and look at the dates and the senders of the messages.`,
       done: (s) => Boolean(s.seen[`jms-dest:${AUDIT}`]) && Boolean(s.seen[`jms-dest:${DLQ}`]),
     },
     {

@@ -1,4 +1,4 @@
-// Access Management: the organization Harbor, its business groups, users, teams, roles, connected apps, environments
+// Access Management: the organization Brightmart, its business groups, users, teams, roles, connected apps, environments
 // and the audit log. The rules live in lab/platform-access.js. Two lab tools sit at the end of the menu: Check access
 // on a user, which shows what the platform would answer, and a CI pipeline that deploys with the Mule Maven plugin.
 import { useEffect, useState } from 'react'
@@ -64,9 +64,9 @@ function Organization({ state, go }) {
         <dt>Name</dt>
         <dd>{root.name}</dd>
         <dt>Organization ID</dt>
-        <dd className="pc-mono">7c1f0e52-harbor-lab-0001</dd>
+        <dd className="pc-mono">7c1f0e52-brightmart-lab-0001</dd>
         <dt>Owner</dt>
-        <dd>harbor-admin</dd>
+        <dd>brightmart-admin</dd>
         <dt>Business groups</dt>
         <dd>{a.bgs.length - 1} below the root</dd>
         <dt>Users</dt>
@@ -129,7 +129,7 @@ function Users({ state, update, go }) {
     <>
       <div className="pc-title">
         <h2>Users</h2>
-        <Btn kind="primary" onClick={() => setInvite({ username: '', name: '', bg: 'harbor' })}>
+        <Btn kind="primary" onClick={() => setInvite({ username: '', name: '', bg: 'brightmart' })}>
           Invite Users
         </Btn>
       </div>
@@ -177,7 +177,7 @@ function UserPage({ state, update, go, username }) {
         <h2>{u.name}</h2>
         <Pill on={u.enabled}>{u.enabled ? 'Enabled' : 'Disabled'}</Pill>
         <span className="pc-grow" />
-        {u.username !== 'harbor-admin' && <Btn onClick={() => update((s) => setUserEnabled(s, u.username, !u.enabled))}>{u.enabled ? 'Disable' : 'Enable'}</Btn>}
+        {u.username !== 'brightmart-admin' && <Btn onClick={() => update((s) => setUserEnabled(s, u.username, !u.enabled))}>{u.enabled ? 'Disable' : 'Enable'}</Btn>}
       </div>
       <p className="pc-dim">
         {u.username}, {u.email}, business group {bgName(state, u.bg)}.
@@ -556,7 +556,7 @@ function ConnectedApps({ state, update, go }) {
                 </Check>
               ))}
               <Field label="Redirect URIs" hint="Needed for Authorization Code">
-                <Input value={form.redirect} onChange={(v) => setForm({ ...form, redirect: v })} placeholder="https://tools.harbor.example/callback" />
+                <Input value={form.redirect} onChange={(v) => setForm({ ...form, redirect: v })} placeholder="https://tools.brightmart.example/callback" />
               </Field>
             </>
           )}

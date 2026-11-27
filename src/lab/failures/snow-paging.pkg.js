@@ -1,16 +1,16 @@
 // The sample application of the snow-paging lab. Imports only platform-log.js and the import free ServiceNow engine,
-// so the engine can load it without a cycle. A scheduler copies the open incidents to the Harbor data warehouse.
+// so the engine can load it without a cycle. A scheduler copies the open incidents to the Brightmart data warehouse.
 import { info, line, muleError, needs } from '../platform-log.js'
 import { cfgOf } from '../platform-servicenow.js'
 
-export const SYNC = 'harbor-incident-warehouse-sync'
+export const SYNC = 'brightmart-incident-warehouse-sync'
 export const SYNC_FLOW = 'incident-warehouse-sync-flow'
 const el = { flow: SYNC_FLOW, at: 2, name: 'Read incidents', dsl: '<http:request doc:name="Read incidents" method="GET" config-ref="ServiceNow_Config" path="/api/now/table/incident">' }
 export const pagingOf = (p) => String(p?.['sync.paging'] ?? 'none').trim().toLowerCase()
 
 export const PACKAGES = {
   [SYNC]: {
-    note: `Every 15 minutes the flow ${SYNC_FLOW} reads the open incidents with GET /api/now/table/incident and writes them to the Harbor data warehouse, where the store and warehouse reports read them. The query is the property sync.query, the page size sync.pageSize (sysparm_limit). With sync.paging none it reads one page. With sync.paging offset it reads page after page with sysparm_offset until a page is short or the offset reaches X-Total-Count. It logs how many rows it wrote, how many it read twice and how many of X-Total-Count it never saw.`,
+    note: `Every 15 minutes the flow ${SYNC_FLOW} reads the open incidents with GET /api/now/table/incident and writes them to the Brightmart data warehouse, where the store and warehouse reports read them. The query is the property sync.query, the page size sync.pageSize (sysparm_limit). With sync.paging none it reads one page. With sync.paging offset it reads page after page with sysparm_offset until a page is short or the offset reaches X-Total-Count. It logs how many rows it wrote, how many it read twice and how many of X-Total-Count it never saw.`,
     boot: needs('snow.instance', 'snow.username', 'snow.password', 'sync.query', 'sync.pageSize'),
     schedules: [{ flow: SYNC_FLOW, type: 'fixed', value: '15', unit: 'minutes', enabled: true }],
     run: {

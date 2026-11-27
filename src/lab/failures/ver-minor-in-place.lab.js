@@ -9,7 +9,7 @@ const [MOBILE_APP, PARTNER_PORTAL] = CLIENTS
 const { mobile, partner, process: proc, customers } = LED
 const ASSET = 'customers-system-api'
 const JAR = { v10: jarOf('customers').jar, v11: 'customers-sapi-1.1.0-mule-application.jar' }
-const RAML_11 = customers.raml.replace('"email":"orders@harbordeli.example"}', '"email":"orders@harbordeli.example","phone":"+1 555 0100"}')
+const RAML_11 = customers.raml.replace('"email":"orders@mapledeli.example"}', '"email":"orders@mapledeli.example","phone":"+1 555 0100"}')
 const PAPI = ledClient('process').name
 
 const running = (s, name) => app(s, name)?.status === 'Running'

@@ -3,7 +3,7 @@
 import { info, line, muleError, needs, warn } from '../platform-log.js'
 import { awsCfg } from '../platform-aws.js'
 
-export const POD_BRIDGE = 'harbor-pod-aws-bridge'
+export const POD_BRIDGE = 'brightmart-pod-aws-bridge'
 export const POD_JAR = `${POD_BRIDGE}-1.0.0-mule-application.jar`
 export const POD_FLOW = 'pod-events-listener-flow'
 export const POD_SAMPLE = '{"shipment":"SL-40021","order":"O-1001","deliveredAt":"2026-11-03T08:41:00Z","signedBy":"R. Moreau"}'

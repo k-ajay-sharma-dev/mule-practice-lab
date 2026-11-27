@@ -1,7 +1,7 @@
-// Snowflake: a Snowsight style screen of account HARBOR-DW. A worksheet runs SQL with a role, warehouse, database and
+// Snowflake: a Snowsight style screen of account BRIGHTMART-DW. A worksheet runs SQL with a role, warehouse, database and
 // schema context; Databases shows tables, views, stages with their files and load metadata, and file formats; Query
 // History and Copy History show every statement and load with its error code; Admin has the warehouses (resume,
-// suspend, edit), the resource monitors and the users, roles and logins. A lab tool: one person, HARBOR_ADMIN, does
+// suspend, edit), the resource monitors and the users, roles and logins. A lab tool: one person, BRIGHTMART_ADMIN, does
 // everything. The dialogs run the same SQL that Snowsight runs, in the context of the worksheet.
 import { useEffect, useState } from 'react'
 import { mark } from '../../lab/platform.js'

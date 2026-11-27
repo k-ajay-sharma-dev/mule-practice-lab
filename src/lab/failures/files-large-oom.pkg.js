@@ -3,9 +3,9 @@ import { info, line, muleError, needs, warn } from '../platform-log.js'
 
 const NAME = 'pos-sales-nightly'
 export const FLOW = 'pos-sales-flow'
-export const HOST = 'sftp.harbor.lab'
+export const HOST = 'sftp.brightmart.lab'
 export const FILE = '/in/pos-sales-2026-11-02.csv'
-export const SIZE = 2 * 1024 * 1024 * 1024 // 2 GB of sales lines from every till of Harbor Outfitters
+export const SIZE = 2 * 1024 * 1024 * 1024 // 2 GB of sales lines from every till of Brightmart Outfitters
 export const LINES = 16200000
 const MB = 1024 * 1024
 const BASE_MB = 420 // the runtime, the connectors and the app itself
@@ -47,7 +47,7 @@ const scriptOf = (set) =>
 
 export const PACKAGES = {
   [NAME]: {
-    note: 'Reads the nightly sales file of every till from /in on sftp.harbor.lab at 02:00, turns each sale line into JSON for the data warehouse, writes it to /out and moves the file to /archive. stream.strategy is the streaming strategy of the SFTP Read (repeatable-in-memory, repeatable-file-store or non-repeatable), stream.maxBufferMb the maxBufferSize of the in-memory stream. dw.script is group-all (groupBy over the whole file) or per-record (a streamed and deferred map). process.mode transform or batch, with batch.blockSize.',
+    note: 'Reads the nightly sales file of every till from /in on sftp.brightmart.lab at 02:00, turns each sale line into JSON for the data warehouse, writes it to /out and moves the file to /archive. stream.strategy is the streaming strategy of the SFTP Read (repeatable-in-memory, repeatable-file-store or non-repeatable), stream.maxBufferMb the maxBufferSize of the in-memory stream. dw.script is group-all (groupBy over the whole file) or per-record (a streamed and deferred map). process.mode transform or batch, with batch.blockSize.',
     boot: needs('sftp.host', 'sftp.user', 'sftp.password', 'stream.strategy', 'dw.script', 'process.mode'),
     schedules: [{ flow: FLOW, type: 'cron', value: '0 0 2 * * ?', tz: 'UTC', enabled: true }],
     run: {

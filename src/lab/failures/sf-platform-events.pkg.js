@@ -27,17 +27,17 @@ export const declined = (n) => n % 7 === 3
 const el = {
   source: { at: 0, name: 'Replay channel listener', dsl: '<salesforce:replay-channel-listener doc:name="Replay channel listener" config-ref="Salesforce_Config" streamingChannel="/event/Order_Placed__e" replayOption="${sf.replayOption}" replayId="${sf.replayId}" autoReplay="${sf.resumeFromLastReplayId}">' },
   verify: { at: 1, name: 'Query order in Salesforce', dsl: '<salesforce:query doc:name="Query order in Salesforce" config-ref="Salesforce_Config">' },
-  apex: { at: 0, name: 'Call HarborOrders Apex REST', dsl: '<http:request doc:name="Call HarborOrders Apex REST" method="POST" config-ref="Salesforce_REST" path="/services/apexrest/HarborOrders/">' },
+  apex: { at: 0, name: 'Call BrightmartOrders Apex REST', dsl: '<http:request doc:name="Call BrightmartOrders Apex REST" method="POST" config-ref="Salesforce_REST" path="/services/apexrest/BrightmartOrders/">' },
 }
 const block = (flow, file, where, type, message) => muleError({ flow, file, ...el[where], type, message })
 
 export const PACKAGES = {
-  // The Salesforce side of the order. In the real org the web shop calls the Apex REST class HarborOrders: it inserts the
+  // The Salesforce side of the order. In the real org the web shop calls the Apex REST class BrightmartOrders: it inserts the
   // Order and publishes Order_Placed__e with EventBus.publish, then checks the payment in the same transaction. A declined
   // payment throws and the transaction rolls back. Lab made: this app plays that Apex class, so it creates the Order only
   // when the payment is accepted and publishes the event with { rollback: true } when it is declined.
   [WEB]: {
-    note: 'Plays the web shop and the Apex REST class HarborOrders. Every 10 minutes in shop hours it sends one order. The Apex class inserts the Order, publishes Order_Placed__e and then checks the payment in the same transaction. A declined payment throws PAYMENT_DECLINED and the transaction rolls back, so the Order is not saved.',
+    note: 'Plays the web shop and the Apex REST class BrightmartOrders. Every 10 minutes in shop hours it sends one order. The Apex class inserts the Order, publishes Order_Placed__e and then checks the payment in the same transaction. A declined payment throws PAYMENT_DECLINED and the transaction rolls back, so the Order is not saved.',
     boot: needs('salesforce.url', 'salesforce.username', 'salesforce.password', 'salesforce.securityToken'),
     schedules: [{ flow: WEB_FLOW, type: 'fixed', value: '1', unit: 'minutes', enabled: true }],
     run: {
@@ -57,19 +57,19 @@ export const PACKAGES = {
           const p = sf.publishEvent(EVENT, fields, { rollback: true })
           if (!p.ok) return { ok: false, ms: 300, errorType: p.type, log: [block(WEB_FLOW, WEB, 'apex', p.type, p.error)] }
           store.declined = [...(store.declined ?? []).slice(-60), { id, t: ctx.now, published: Boolean(p.published) }]
-          return { ok: true, ms: 300, store, log: [warn(`POST /services/apexrest/HarborOrders/ ${id}: 400 [{"errorCode":"PAYMENT_DECLINED","message":"Card declined by the payment service. Transaction rolled back."}]`)] }
+          return { ok: true, ms: 300, store, log: [warn(`POST /services/apexrest/BrightmartOrders/ ${id}: 400 [{"errorCode":"PAYMENT_DECLINED","message":"Card declined by the payment service. Transaction rolled back."}]`)] }
         }
-        const r = sf.create('Order', [{ AccountId: fields.Account_Id__c, EffectiveDate: iso(ctx.now).slice(0, 10), Status: 'Draft', TotalAmount: fields.Total__c, Harbor_Order_Id__c: id }])
+        const r = sf.create('Order', [{ AccountId: fields.Account_Id__c, EffectiveDate: iso(ctx.now).slice(0, 10), Status: 'Draft', TotalAmount: fields.Total__c, Brightmart_Order_Id__c: id }])
         if (!r.ok) return { ok: false, ms: 300, errorType: r.type, log: [block(WEB_FLOW, WEB, 'apex', r.type, r.error)] }
         if (!r.items[0].success) return { ok: false, ms: 300, errorType: 'SALESFORCE:INVALID_INPUT', log: [block(WEB_FLOW, WEB, 'apex', 'SALESFORCE:INVALID_INPUT', `${id}: ${r.items[0].errors.map((e) => `${e.statusCode}: ${e.message}`).join('; ')}`)] }
         const p = sf.publishEvent(EVENT, fields)
         if (!p.ok) return { ok: false, ms: 300, errorType: p.type, log: [block(WEB_FLOW, WEB, 'apex', p.type, p.error)] }
-        return { ok: true, ms: 300, store, log: [info(`POST /services/apexrest/HarborOrders/ ${id}: 201 Order ${r.items[0].id} created`)] }
+        return { ok: true, ms: 300, store, log: [info(`POST /services/apexrest/BrightmartOrders/ ${id}: 201 Order ${r.items[0].id} created`)] }
       },
     },
   },
   [NAME]: {
-    note: 'Listens to the platform event channel /event/Order_Placed__e and sends a pick request to the warehouse for each order. On start the Replay channel listener subscribes: with sf.resumeFromLastReplayId true it resumes after the last replay ID it processed, kept in a persistent Object Store. Otherwise it uses sf.replayOption: ONLY_NEW (replay ID -1), ALL (-2, every retained event) or FROM_REPLAY_ID (the events after sf.replayId). wms.verifyOrder true queries the Order by its External ID Harbor_Order_Id__c before a pick, and on start cancels the picks whose order does not exist. wms.idempotent true skips an order that already has a pick.',
+    note: 'Listens to the platform event channel /event/Order_Placed__e and sends a pick request to the warehouse for each order. On start the Replay channel listener subscribes: with sf.resumeFromLastReplayId true it resumes after the last replay ID it processed, kept in a persistent Object Store. Otherwise it uses sf.replayOption: ONLY_NEW (replay ID -1), ALL (-2, every retained event) or FROM_REPLAY_ID (the events after sf.replayId). wms.verifyOrder true queries the Order by its External ID Brightmart_Order_Id__c before a pick, and on start cancels the picks whose order does not exist. wms.idempotent true skips an order that already has a pick.',
     boot: needs('salesforce.url', 'salesforce.username', 'salesforce.password', 'salesforce.securityToken', 'sf.replayOption'),
     schedules: [{ flow: FLOW, type: 'fixed', value: '1', unit: 'minutes', enabled: true }],
     run: {
@@ -85,8 +85,8 @@ export const PACKAGES = {
         const fresh = store.boot !== boot
         const exists = (ids) => {
           const list = ids.map((x) => `'${x}'`).join(', ')
-          const q = sf.query(`SELECT Id, Harbor_Order_Id__c FROM Order WHERE Harbor_Order_Id__c IN (${list})`)
-          return q.ok ? { ok: true, ids: new Set(q.records.map((r) => r.Harbor_Order_Id__c)) } : q
+          const q = sf.query(`SELECT Id, Brightmart_Order_Id__c FROM Order WHERE Brightmart_Order_Id__c IN (${list})`)
+          return q.ok ? { ok: true, ids: new Set(q.records.map((r) => r.Brightmart_Order_Id__c)) } : q
         }
         if (fresh && verify) {
           const open = Object.keys(store.picks).filter((k) => !store.picks[k].cancelled)
@@ -122,7 +122,7 @@ export const PACKAGES = {
             continue
           }
           if (known && !known.has(id)) {
-            log.push(warn(`replayId ${e.replayId} ${id} skipped: no Order with Harbor_Order_Id__c ${id} in Salesforce`))
+            log.push(warn(`replayId ${e.replayId} ${id} skipped: no Order with Brightmart_Order_Id__c ${id} in Salesforce`))
             continue
           }
           if (had) {

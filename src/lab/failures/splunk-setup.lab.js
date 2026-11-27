@@ -30,7 +30,7 @@ const lab = {
   group: 'Observability',
   title: 'Set up log forwarding to Splunk',
   minutes: 30,
-  scenario: `Harbor has a new Splunk server, ${'splunk.harbor.lab'}, with nothing on it but the main index. HTTP Event Collector is off. ${NAME} registers the returns of the shops and logs only to CloudHub. Set up the whole path: an index and an HEC token for the Mule apps, the token as a protected property, a log4j2.xml that sends to HEC without slowing the flows and keeps the CloudHub logs, then prove it with a search by correlation ID and an alert on errors.`,
+  scenario: `Brightmart has a new Splunk server, ${'splunk.brightmart.lab'}, with nothing on it but the main index. HTTP Event Collector is off. ${NAME} registers the returns of the shops and logs only to CloudHub. Set up the whole path: an index and an HEC token for the Mule apps, the token as a protected property, a log4j2.xml that sends to HEC without slowing the flows and keeps the CloudHub logs, then prove it with a search by correlation ID and an alert on errors.`,
   start() {
     const o = fill(defaultObservability(at(1, 9)))
     o.splunk.indexes = [{ name: 'main', enabled: true }]
@@ -61,7 +61,7 @@ const lab = {
     },
     {
       title: 'Add the Splunk appender and keep CloudHub',
-      how: `Splunk, In the Mule app, ${NAME}. Insert template gives an Http appender to https://splunk.harbor.lab:8088/services/collector/raw?index=${INDEX}, an Authorization of Splunk \${sys:splunk.hec.token}, an Async wrapper with bufferSize, and the CLOUDHUB appender, both in the root logger. Tick Disable CloudHub logs, so CloudHub uses this file. Redeploy.`,
+      how: `Splunk, In the Mule app, ${NAME}. Insert template gives an Http appender to https://splunk.brightmart.lab:8088/services/collector/raw?index=${INDEX}, an Authorization of Splunk \${sys:splunk.hec.token}, an Async wrapper with bufferSize, and the CLOUDHUB appender, both in the root logger. Tick Disable CloudHub logs, so CloudHub uses this file. Redeploy.`,
       done: (s) => secretOk(s) && fileOk(s),
     },
     {
@@ -79,7 +79,7 @@ const lab = {
     },
     {
       title: 'Save an alert on errors',
-      how: `Splunk, Alerts, New Alert: title Returns errors, search index=${INDEX} app=${NAME} level=ERROR, run every 5 minutes over the last 5 minutes, trigger when the number of results is greater than 0, send to ops@harbor.example. Save.`,
+      how: `Splunk, Alerts, New Alert: title Returns errors, search index=${INDEX} app=${NAME} level=ERROR, run every 5 minutes over the last 5 minutes, trigger when the number of results is greater than 0, send to ops@brightmart.example. Save.`,
       done: (s) => Boolean(alertOf(s)),
     },
     {
@@ -115,7 +115,7 @@ const lab = {
     s = call(ok.state, NAME, null, '/returns', 'POST', '{"order":"O-7002","reason":"DAMAGED-LABEL"}').state
     s = advance(s, MINUTE)
     s = runSearch(s, `index=${INDEX} correlationId=${ok.response.cid}`, '15m')
-    s = addAlert(s, { name: 'Returns errors', search: `index=${INDEX} app=${NAME} level=ERROR`, every: 5, window: 5, threshold: 0, to: 'ops@harbor.example' }).state
+    s = addAlert(s, { name: 'Returns errors', search: `index=${INDEX} app=${NAME} level=ERROR`, every: 5, window: 5, threshold: 0, to: 'ops@brightmart.example' }).state
     return testAlert(s, 'Returns errors')
   },
   answers: { 9: 1 },

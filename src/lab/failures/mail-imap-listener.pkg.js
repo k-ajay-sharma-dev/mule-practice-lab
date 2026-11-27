@@ -4,7 +4,7 @@ import { info, muleError, needs, warn } from '../platform-log.js'
 
 export const NAME = 'order-mail-intake'
 export const FLOW = 'order-mail-flow'
-export const BOX = 'orders@harbor.example'
+export const BOX = 'orders@brightmart.example'
 const keep = (list, item, n = 40) => [...(list ?? []), item].slice(-n)
 const yes = (v) => String(v ?? '').trim().toLowerCase() === 'true'
 const word = (v) => String(v ?? '').trim().toLowerCase()
@@ -13,7 +13,7 @@ export const afterError = (props) => word(props['after.error']) // none or move
 
 export const configOf = (props) => ({ protocol: word(props['mail.protocol']) || 'imaps', host: props['mail.host'], port: props['mail.port'], user: props['mail.user'], password: props['mail.password'], tls: yes(props['mail.starttls']) })
 
-// PO: PO-5101 / Item: H-100 / Qty: 12 / Customer: Harbor Bistro
+// PO: PO-5101 / Item: H-100 / Qty: 12 / Customer: Maple Bistro
 export function readOrder(text) {
   const get = (k) => String(text ?? '').match(new RegExp(`^${k}:\\s*(.+)$`, 'mi'))?.[1]?.trim()
   const po = get('PO')

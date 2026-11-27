@@ -14,14 +14,14 @@ const since = (s, caller) => s.events.filter((e) => e.k === 'in' && e.app === NA
 
 const MAIL_IDP = {
   t: at(0, 7),
-  to: 'all-api-teams@harbor.example',
-  subject: 'Planned signing key rotation of idp.harbor.lab',
+  to: 'all-api-teams@brightmart.example',
+  subject: 'Planned signing key rotation of idp.brightmart.lab',
   body: [
     'Hello API teams,',
     `we published a new signing key in our key set at ${JWKS_URL}. Its kid is ${NEW_KID} and its public key ends in hf1126.`,
     `From Tuesday 3 November 07:00 UTC every new access token is signed with ${NEW_KID}. The old key ${OLD_KID} (public key ending in hf0812) stays in the key set until 9 November, so tokens issued before the rotation keep working until they expire.`,
     'If your gateway reads our JWKS URL, there is nothing to do. If you pasted a public key into a configuration, change it before Tuesday.',
-    'Identity team, Harbor Foods',
+    'Identity team, Brightmart',
   ].join('\n\n'),
   source: 'Identity team',
 }
@@ -39,7 +39,7 @@ const lab = {
   title: 'Every token is rejected after a key rotation',
   minutes: 14,
   scenario: [
-    'It is 09:00 on Tuesday. delivery-api of Harbor Foods accepts only bearer tokens from the identity provider idp.harbor.lab.',
+    'It is 09:00 on Tuesday. delivery-api of Brightmart accepts only bearer tokens from the identity provider idp.brightmart.lab.',
     'The team copied the RSA public key of the provider into the configuration: JWT Key Origin is Text and the key sits in jwt.key.',
     'In this lab the application checks the token itself, with properties named after the JWT Validation policy fields, because the JWT Validation policy of the lab console has no settings.',
     'The API client has no Authorization header either, so each client application in Send as stands for a caller with its own token: Driver App, Store Kiosk, Old Test Script and Unknown Signer.',

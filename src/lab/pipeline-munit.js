@@ -34,21 +34,21 @@ const docId = (seed) => {
 const p = (kind, name, extra = {}) => ({ kind, name, id: docId(`${kind}|${name}`), ...extra })
 
 const CONNECTORS = new Set(['http:request', 'db:insert', 'db:select', 'anypoint-mq:publish'])
-const DB_FAULT = 'Cannot get connection for URL jdbc:sqlserver://orders-db.harbor.internal:1433;databaseName=orders: The TCP/IP connection to the host orders-db.harbor.internal, port 1433 has failed.'
-const db = (kind, name) => p(kind, name, { config: 'Orders_DB_config', reach: 'internal', host: 'orders-db.harbor.internal:1433', errorType: 'DB:CONNECTIVITY', fault: DB_FAULT })
+const DB_FAULT = 'Cannot get connection for URL jdbc:sqlserver://orders-db.brightmart.internal:1433;databaseName=orders: The TCP/IP connection to the host orders-db.brightmart.internal, port 1433 has failed.'
+const db = (kind, name) => p(kind, name, { config: 'Orders_DB_config', reach: 'internal', host: 'orders-db.brightmart.internal:1433', errorType: 'DB:CONNECTIVITY', fault: DB_FAULT })
 const mq = (name, destination) => p('anypoint-mq:publish', name, { config: 'Anypoint_MQ_config', reach: 'cloud', host: 'mq-us-east-1.anypoint.mulesoft.com', destination })
 
-export const ERP_URL = 'http://erp.harbor.internal:8081/api/orders/1001'
+export const ERP_URL = 'http://erp.brightmart.internal:8081/api/orders/1001'
 export const ERP_REQUEST = p('http:request', 'Get order from ERP', {
   id: '5c1e9a7d-2b4f-4e8a-9d31-7f0c6b2a8e14',
   config: 'ERP_HTTP_Request_config',
   method: 'GET',
   path: '/api/orders/{orderId}',
   reach: 'internal',
-  host: 'erp.harbor.internal:8081',
+  host: 'erp.brightmart.internal:8081',
   errorType: 'HTTP:CONNECTIVITY',
   // lab: the runner has no route or DNS entry for the internal host. The exact wording varies with the JDK.
-  fault: `HTTP GET on resource '${ERP_URL}' failed: erp.harbor.internal: Name or service not known.`,
+  fault: `HTTP GET on resource '${ERP_URL}' failed: erp.brightmart.internal: Name or service not known.`,
 })
 
 // The application: which processors each flow runs, in order, and its error handler. lab: every error handler is an
@@ -64,7 +64,7 @@ export const APP = [
       },
       {
         name: 'create-order-flow',
-        steps: [p('logger', 'Log create order request'), p('ee:transform', 'Validate order'), p('set-variable', 'Set new orderId'), db('db:insert', 'Insert order'), mq('Publish order created', 'harbor-orders-created'), p('ee:transform', 'Build 201 response'), p('logger', 'Log order created')],
+        steps: [p('logger', 'Log create order request'), p('ee:transform', 'Validate order'), p('set-variable', 'Set new orderId'), db('db:insert', 'Insert order'), mq('Publish order created', 'brightmart-orders-created'), p('ee:transform', 'Build 201 response'), p('logger', 'Log order created')],
         handler: [p('ee:transform', 'Build 500 response'), p('logger', 'Log order not stored')],
       },
       {
@@ -79,7 +79,7 @@ export const APP = [
     flows: [
       {
         name: 'create-return-flow',
-        steps: [p('logger', 'Log return request'), p('ee:transform', 'Validate return'), p('set-variable', 'Set returnId'), p('set-variable', 'Set return orderId'), db('db:insert', 'Insert return'), mq('Publish return received', 'harbor-returns-received'), p('ee:transform', 'Build return response'), p('logger', 'Log return created')],
+        steps: [p('logger', 'Log return request'), p('ee:transform', 'Validate return'), p('set-variable', 'Set returnId'), p('set-variable', 'Set return orderId'), db('db:insert', 'Insert return'), mq('Publish return received', 'brightmart-returns-received'), p('ee:transform', 'Build return response'), p('logger', 'Log return created')],
         handler: [p('ee:transform', 'Build 400 return response'), p('logger', 'Log rejected return')],
       },
     ],
@@ -335,7 +335,7 @@ function runTest(test, files) {
       continue
     }
     if (step.reach === 'internal') {
-      // lab: no mock, so the test calls the real system, and the runner has no route to Harbor's network
+      // lab: no mock, so the test calls the real system, and the runner has no route to Brightmart's network
       error = { type: step.errorType, message: step.fault }
       unmocked = step
       break
@@ -695,7 +695,7 @@ output application/json
 {
   orderId: payload.orderId,
   status: payload.status,
-  // Harbor adds 7.5 percent sales tax to the ERP amount
+  // Brightmart adds 7.5 percent sales tax to the ERP amount
   total: ${bug ? 'payload.amount + 0.075' : 'payload.amount * 1.075'},
   currency: "USD"
 }

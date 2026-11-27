@@ -2,10 +2,10 @@
 // tool (secure-properties-tool.jar). Pure and import free. Lives in state.access.
 //
 // State shape (state.access). The open console keeps only { created }: every reader goes through accessOf(), which
-// falls back to the Harbor seed, and the first change writes the seed into the state (ensureAccess). A save from before
+// falls back to the Brightmart seed, and the first change writes the seed into the state (ensureAccess). A save from before
 // this module was built holds the same placeholder, so it needs no other upgrade.
 //   created, n (a counter for ids and run numbers),
-//   bgs: [{ id, name, parent }]            the root organization Harbor and its business groups
+//   bgs: [{ id, name, parent }]            the root organization Brightmart and its business groups
 //   envs: [{ id, bg, name, type }]         type 'Sandbox' or 'Production'
 //   users: [{ username, name, email, enabled, bg, last }]
 //   teams: [{ id, name, bg, members: [username] }]
@@ -24,7 +24,7 @@ const MAX_AUDIT = 60
 const MAX_RUNS = 8
 
 export const TOKEN_URL = 'https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token'
-export const ROOT = 'harbor'
+export const ROOT = 'brightmart'
 
 // ---------- the catalog ----------
 
@@ -97,21 +97,21 @@ export const USER_GRANTS = ['Authorization Code', 'Refresh Token', 'JWT Bearer',
 
 const bg = (id, name, parent) => ({ id, name, parent })
 const envOf = (b, name) => ({ id: `${b}-${name.toLowerCase().slice(0, 3)}`, bg: b, name, type: name === 'Production' ? 'Production' : 'Sandbox' })
-export const user = (username, name, extra = {}) => ({ username, name, email: `${username}@harbor.example`, enabled: true, bg: ROOT, last: null, ...extra })
+export const user = (username, name, extra = {}) => ({ username, name, email: `${username}@brightmart.example`, enabled: true, bg: ROOT, last: null, ...extra })
 const g = (id, to, what, b, env = null) => ({ id, to, ...(ROLES[what] ? { role: what } : { perm: what }), bg: b, env })
 
 const seed = () => ({
   n: 100,
-  bgs: [bg(ROOT, 'Harbor', null), bg('ecom', 'Ecommerce', ROOT), bg('supply', 'Supply Chain', ROOT)],
+  bgs: [bg(ROOT, 'Brightmart', null), bg('ecom', 'Ecommerce', ROOT), bg('supply', 'Supply Chain', ROOT)],
   envs: [ROOT, 'ecom', 'supply'].flatMap((b) => [envOf(b, 'Sandbox'), envOf(b, 'Production')]),
   users: [
-    user('harbor-admin', 'You', { email: 'ops@harbor.example' }),
+    user('brightmart-admin', 'You', { email: 'ops@brightmart.example' }),
     user('dana.okafor', 'Dana Okafor', { bg: 'ecom' }),
     user('priya.nair', 'Priya Nair', { bg: 'supply' }),
     user('tom.berg', 'Tom Berg'),
   ],
   teams: [
-    { id: 't1', name: 'Platform Admins', bg: ROOT, members: ['harbor-admin'] },
+    { id: 't1', name: 'Platform Admins', bg: ROOT, members: ['brightmart-admin'] },
     { id: 't2', name: 'Ecommerce Developers', bg: 'ecom', members: ['dana.okafor'] },
     { id: 't3', name: 'Supply Chain Integration', bg: 'supply', members: ['priya.nair'] },
   ],
@@ -150,7 +150,7 @@ const edit = (state, fn) => {
   return out === undefined ? s : out
 }
 const audit = (s, a, entry) => {
-  a.audit.push({ t: s.clock ?? 0, user: 'harbor-admin', product: 'Access Management', bg: ROOT, env: null, result: 'Success', ...entry })
+  a.audit.push({ t: s.clock ?? 0, user: 'brightmart-admin', product: 'Access Management', bg: ROOT, env: null, result: 'Success', ...entry })
   if (a.audit.length > MAX_AUDIT) a.audit.splice(0, a.audit.length - MAX_AUDIT)
 }
 
@@ -304,7 +304,7 @@ export function createConnectedApp(state, { name, type, grantTypes = [], redirec
   let clientId = null
   const next = edit(state, (s, a) => {
     clientId = hex(`client:${name}:${a.n++}`, 32)
-    a.apps.push({ clientId, name: name.trim(), type, grantTypes: type === 'user' ? grantTypes : ['Client Credentials'], redirectUris: type === 'user' ? redirectUris : [], secrets: [newSecret(a, clientId)], scopes: [], owner: 'harbor-admin', created: s.clock ?? 0, rotated: 0, rotatedAt: null, enabled: true })
+    a.apps.push({ clientId, name: name.trim(), type, grantTypes: type === 'user' ? grantTypes : ['Client Credentials'], redirectUris: type === 'user' ? redirectUris : [], secrets: [newSecret(a, clientId)], scopes: [], owner: 'brightmart-admin', created: s.clock ?? 0, rotated: 0, rotatedAt: null, enabled: true })
     audit(s, a, { action: 'Create', type: 'Connected App', object: `${name.trim()} (${type === 'user' ? 'acts on behalf of a user' : 'client credentials'})` })
   })
   return { state: next, clientId }

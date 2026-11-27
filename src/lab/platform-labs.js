@@ -44,7 +44,7 @@ types:
         body:
           type: Order[]
           example: |
-            [ { "orderId": "O-1001", "customer": "Harbor Foods", "total": 42.5 } ]
+            [ { "orderId": "O-1001", "customer": "Brightmart", "total": 42.5 } ]
   post:
     description: Create an order
     body:
@@ -62,7 +62,7 @@ types:
           body:
             type: Order
             example: |
-              { "orderId": "O-1001", "customer": "Harbor Foods", "total": 42.5 }
+              { "orderId": "O-1001", "customer": "Brightmart", "total": 42.5 }
         404:
           body:
             example: |
@@ -90,7 +90,7 @@ const shipmentsApi = (extra = {}) =>
 const LINKED = { pkg: 'shipments-eapi', autodiscovery: { apiId: '${api.id}', flowRef: 'shipments-main' } }
 const shipmentsApp = (s, extra = {}) => {
   const c = creds(s, 'Sandbox')
-  return newApp('shipments-eapi', { props: { 'partner.url': 'https://partner.harbor.lab/shipments', 'api.id': '19400555', ...c.props }, secrets: c.secrets, autodiscovery: LINKED.autodiscovery, ...extra })
+  return newApp('shipments-eapi', { props: { 'partner.url': 'https://partner.brightmart.lab/shipments', 'api.id': '19400555', ...c.props }, secrets: c.secrets, autodiscovery: LINKED.autodiscovery, ...extra })
 }
 function shipments({ api = {}, appExtra = {}, traffic = true, ...extra } = {}) {
   const s = newPlatform({ clock: at(1, 8, 45), clients: structuredClone(CLIENTS), assets: [asset('shipments-experience-api', 'Shipments Experience API', SHIPMENTS_RAML)], ...extra })
@@ -117,7 +117,7 @@ const fullLifeCycle = {
   group: 'Full life cycle',
   title: 'From RAML design to monitoring',
   minutes: 40,
-  scenario: 'Harbor Foods needs an Orders System API. You design it, publish it, build it, deploy it, protect it in API Manager and watch it in Monitoring. One person does the whole life cycle, so you see how the pieces connect.',
+  scenario: 'Brightmart needs an Orders System API. You design it, publish it, build it, deploy it, protect it in API Manager and watch it in Monitoring. One person does the whole life cycle, so you see how the pieces connect.',
   start: () => newPlatform(),
   steps: [
     { title: 'Create the API specification', how: 'Open the menu at the top left and choose Design Center. Choose Create new, New API Specification, and call it Orders System API.', done: (s) => s.projects.some((p) => /orders/i.test(p.name)) },
@@ -131,7 +131,7 @@ const fullLifeCycle = {
     { title: 'Copy the environment credentials', how: 'API Manager, API Administration, the Environment information button. It shows the client ID and client secret of Sandbox.', done: (s) => Boolean(s.seen['env:Sandbox']) },
     {
       title: 'Deploy the application',
-      how: 'Runtime Manager, Deploy application. Choose the exported file. On the Properties tab set api.id to the API Instance ID, db.host to orders-db.harbor.lab, anypoint.platform.client_id and, as a protected property, anypoint.platform.client_secret.',
+      how: 'Runtime Manager, Deploy application. Choose the exported file. On the Properties tab set api.id to the API Instance ID, db.host to orders-db.brightmart.lab, anypoint.platform.client_id and, as a protected property, anypoint.platform.client_secret.',
       done: (s) => E2E.app(s)?.status === 'Running' && Boolean(propsValue(E2E.app(s), 'db.host')),
     },
     { title: 'See the API become Active', how: 'Open the API instance in API Manager. Active means the runtime found the instance with api.id and the credentials. If it stays Unregistered, read the ERROR line in the application logs.', done: (s) => Boolean(E2E.api(s)) && apiStatus(s, E2E.api(s)) === 'Active' },
@@ -159,7 +159,7 @@ const fullLifeCycle = {
     s = mark(s, 'env:Sandbox')
     const c = creds(s, 'Sandbox')
     const p = s.studio[0]
-    s = finishDeploys(deployApp(s, { name: 'orders-sapi', pkg: 'api', jar: p.jar, project: p.name, raml: p.raml, autodiscovery: p.autodiscovery, replicas: 1, vCores: 0.1, props: { 'api.id': s.lastApi, 'db.host': 'orders-db.harbor.lab', ...c.props }, secrets: c.secrets }).state)
+    s = finishDeploys(deployApp(s, { name: 'orders-sapi', pkg: 'api', jar: p.jar, project: p.name, raml: p.raml, autodiscovery: p.autodiscovery, replicas: 1, vCores: 0.1, props: { 'api.id': s.lastApi, 'db.host': 'orders-db.brightmart.lab', ...c.props }, secrets: c.secrets }).state)
     const id = s.lastApi
     s = addTier(s, id, { name: 'Gold', requests: 100, periodMs: 60000, autoApprove: true })
     s = addTier(s, id, { name: 'Silver', requests: 5, periodMs: 60000, autoApprove: false })
@@ -188,7 +188,7 @@ const promote = {
     { title: 'Switch to Production', how: 'Use the environment button at the top of the left menu in API Manager.', done: (s) => s.env === 'Production' || s.apis.some((a) => a.env === 'Production') },
     { title: 'Promote the instance', how: 'API Administration, Add API, Promote API from environment. Source environment Sandbox. Include Policies and SLA Tiers.', done: (s) => s.apis.some((a) => a.env === 'Production' && a.policies.length && a.tiers.length) },
     ask('Check the API ID', 'Is the API Instance ID in Production the same as in Sandbox?', ['Yes, promotion keeps the ID', 'No, each instance has its own ID', 'Only if the label is the same'], 1, 'Each instance has its own ID, so api.id is a property that changes per environment.'),
-    { title: 'Deploy to Production', how: 'Runtime Manager in Production, Deploy application. Use the Production API ID and the Production credentials from Environment information. partner.url is https://partner.harbor.lab/shipments.', done: (s) => appNamed(s, 'shipments-eapi', 'Production')?.status === 'Running' || s.apps.some((a) => a.env === 'Production' && a.status === 'Running') },
+    { title: 'Deploy to Production', how: 'Runtime Manager in Production, Deploy application. Use the Production API ID and the Production credentials from Environment information. partner.url is https://partner.brightmart.lab/shipments.', done: (s) => appNamed(s, 'shipments-eapi', 'Production')?.status === 'Running' || s.apps.some((a) => a.env === 'Production' && a.status === 'Running') },
     { title: 'The Production API is Active', how: 'API Manager in Production shows Active. If not, read the application logs.', done: (s) => s.apis.some((a) => a.env === 'Production' && apiStatus(s, a) === 'Active') },
     ask('Contracts', 'A client has a contract in Sandbox. Can it call Production now?', ['Yes, contracts are promoted too', 'No, it needs its own contract in Production'], 1, 'Promotion can include policies, tiers and alerts. A client asks for access to the Production instance on its own.'),
     { title: 'Get a client through', how: 'Exchange, Shipments Experience API, Request access for the Production instance. Approve it if the tier is manual. Then call GET /shipments with API client in Production and get 200.', done: (s) => (s.lastCalls ?? []).some((c) => c.env === 'Production' && c.status === 200) },
@@ -199,7 +199,7 @@ const promote = {
     let s = { ...start, env: 'Production' }
     s = promoteApi(s, '19400555', { policies: true, tiers: true, alerts: false })
     const c = creds(s, 'Production')
-    s = finishDeploys(deployApp(s, { name: 'shipments-eapi', ...jarsOf(s)[0], replicas: 2, vCores: 0.1, props: { 'partner.url': 'https://partner.harbor.lab/shipments', 'api.id': s.lastApi, ...c.props }, secrets: c.secrets }).state)
+    s = finishDeploys(deployApp(s, { name: 'shipments-eapi', ...jarsOf(s)[0], replicas: 2, vCores: 0.1, props: { 'partner.url': 'https://partner.brightmart.lab/shipments', 'api.id': s.lastApi, ...c.props }, secrets: c.secrets }).state)
     s = requestAccess(s, s.lastApi, 'Mobile App', 'Gold')
     return call(s, 'shipments-eapi', s.clients[0]).state
   },
@@ -216,7 +216,7 @@ const nightly = {
   title: 'The nightly load failed',
   minutes: 10,
   scenario: 'It is 09:00. The warehouse team says last night is missing. orders-nightly-load copies orders from SQL Server at 02:00. The application is Running, so nothing looks wrong in the list.',
-  start: () => until(jobs(at(0, 12), [newApp('orders-nightly-load', { props: { 'db.host': 'sql01.harbor.lab', 'db.port': '1443', 'db.user': 'mule_etl' }, secrets: { 'db.password': 'Nightly-2026' } })]), at(1, 9)),
+  start: () => until(jobs(at(0, 12), [newApp('orders-nightly-load', { props: { 'db.host': 'sql01.brightmart.lab', 'db.port': '1443', 'db.user': 'mule_etl' }, secrets: { 'db.password': 'Nightly-2026' } })]), at(1, 9)),
   steps: [
     sawLogs('orders-nightly-load'),
     ask('Read the error', 'Set the log level filter to Error and read the block. What is the error type?', ['DB:QUERY_EXECUTION', 'DB:CONNECTIVITY', 'MULE:CONNECTIVITY', 'DB:BAD_SQL_SYNTAX'], 1, 'The element is the Select, and the error type is DB:CONNECTIVITY. The query never ran.'),
@@ -238,7 +238,7 @@ const disabled = {
   minutes: 6,
   scenario: 'Stock has not moved since yesterday 18:00. stock-file-poll reads SFTP files every 15 minutes. There is no ERROR line anywhere in its logs.',
   start() {
-    let s = until(jobs(at(0, 17), [newApp('stock-file-poll', { props: { 'sftp.host': 'sftp.harbor.lab' }, secrets: { 'sftp.password': 'lab' } })]), at(0, 18))
+    let s = until(jobs(at(0, 17), [newApp('stock-file-poll', { props: { 'sftp.host': 'sftp.brightmart.lab' }, secrets: { 'sftp.password': 'lab' } })]), at(0, 18))
     s = setSchedule(s, 'stock-file-poll', 'stock-file-flow', { enabled: false })
     return until(s, at(1, 9))
   },
@@ -262,7 +262,7 @@ const overlap = {
   title: 'Every second run is skipped',
   minutes: 8,
   scenario: 'Prices arrive late. price-sync runs every 10 minutes, yet only about half of the runs happen. The job itself takes 14 minutes now that the catalogue has grown.',
-  start: () => until(jobs(at(1, 6), [newApp('price-sync', { props: { 'pricing.url': 'https://pricing.harbor.lab' } })]), at(1, 9)),
+  start: () => until(jobs(at(1, 6), [newApp('price-sync', { props: { 'pricing.url': 'https://pricing.brightmart.lab' } })]), at(1, 9)),
   steps: [
     sawLogs('price-sync'),
     ask('Read the message', 'Why is a run missing?', ['The scheduler crashed', 'The flow was still running and disallowConcurrentExecution is true', 'The database refused the connection', 'The replica restarted'], 1, 'The log says the flow is already running and that the execution is skipped. That is the scheduler doing what the setting asks.'),
@@ -312,8 +312,8 @@ const sftp = {
   scenario: 'vendor-sftp-upload sends purchase orders every hour. Since 07:00 every run fails. Look in the Inbox too: the vendor wrote last week.',
   start: () =>
     until(
-      jobs(at(1, 6, 30), [newApp('vendor-sftp-upload', { props: { 'sftp.host': 'sftp.vendor.example', 'sftp.user': 'harbor' }, secrets: { 'sftp.password': 'Vendor-Old-10' } })], {
-        mail: [{ t: at(0, 10), to: OPS, subject: 'SFTP password rotation', body: 'From Tuesday the practice password of user harbor is Vendor-New-11. The old one stops working at 06:45.', source: 'Vendor' }],
+      jobs(at(1, 6, 30), [newApp('vendor-sftp-upload', { props: { 'sftp.host': 'sftp.vendor.example', 'sftp.user': 'brightmart' }, secrets: { 'sftp.password': 'Vendor-Old-10' } })], {
+        mail: [{ t: at(0, 10), to: OPS, subject: 'SFTP password rotation', body: 'From Tuesday the practice password of user brightmart is Vendor-New-11. The old one stops working at 06:45.', source: 'Vendor' }],
       }),
       at(1, 9, 30),
     ),
@@ -337,7 +337,7 @@ const silent = {
   title: 'Nobody noticed for two days',
   minutes: 15,
   scenario: 'customer-export writes a file to Azure Blob storage at 03:00. It failed two nights in a row and a customer told you. Set up alerts so the team knows first, prove that they work, then fix the job.',
-  start: () => until(jobs(at(0, 1), [newApp('customer-export', { props: { 'blob.account': 'harborstore', 'blob.container': 'customer-exports' } })]), at(1, 9)),
+  start: () => until(jobs(at(0, 1), [newApp('customer-export', { props: { 'blob.account': 'brightmartstore', 'blob.container': 'customer-exports' } })]), at(1, 9)),
   steps: [
     ask('Choose the alert', 'Runtime Manager alerts on CloudHub 2.0 have Deployment success and Deployment failure. Which one fires when a job fails at 03:00?', ['Deployment failure', 'Deployment success', 'Neither, the deployment is fine'], 2, 'The application stays deployed, so no deployment alert fires. You need a metric alert in Monitoring.'),
     { title: 'Create the Monitoring alert', how: 'Monitoring, Alerts, Create Alert. Resource type Application, customer-export. Metric Message Error Count, severity High or Critical, Above 0 for each of the last 1 consecutive minutes. Add a recipient.', done: (s) => s.monAlerts.some((a) => a.name_ === 'customer-export' && a.metric === 'Message Error Count' && a.operator === 'Above' && Number(a.threshold) === 0 && Number(a.minutes) === 1 && ['High', 'Critical'].includes(a.severity) && a.recipients) },
@@ -367,7 +367,7 @@ const dlq = {
   scenario: 'order-events-consumer takes orders from the queue orders-in and creates them in the ERP. Since the ERP release this morning, orders land in orders-dlq. Fix the cause first, then bring every order back.',
   start: () =>
     until(
-      jobs(at(1, 8), [newApp('order-events-consumer', { props: { 'erp.baseUrl': 'https://erp.harbor.lab/v1', 'queue.name': 'orders-in', 'dlq.name': 'orders-dlq' } })], {
+      jobs(at(1, 8), [newApp('order-events-consumer', { props: { 'erp.baseUrl': 'https://erp.brightmart.lab/v1', 'queue.name': 'orders-in', 'dlq.name': 'orders-dlq' } })], {
         queues: [{ name: 'orders-in', type: 'Standard queue', dlq: 'orders-dlq', attempts: 10, messages: [] }, { name: 'orders-dlq', type: 'Standard queue', dlq: '', attempts: 10, messages: [] }],
         queueTraffic: [{ queue: 'orders-in', everyMinutes: 10 }],
       }),
@@ -378,13 +378,13 @@ const dlq = {
     ask('Why 10', 'How did the messages get there?', ['The queue was full', 'Each was delivered 10 times, then rerouted', 'They expired', 'Someone moved them'], 1, 'Delivery attempts before reroute is 10 on orders-in. After the tenth failed delivery the message goes to the dead letter queue.'),
     sawLogs('order-events-consumer'),
     ask('Find the cause', 'What does the error say?', ['The ERP is down', 'The ERP answered 404: version v1 was retired', 'The queue is missing', 'The message is not valid JSON'], 1, 'HTTP:NOT_FOUND with a clear text: use v2. The messages are fine.'),
-    { title: 'Fix the cause first', how: 'Settings, Properties, erp.baseUrl is https://erp.harbor.lab/v2, Apply Changes. If you replay before this, the messages return to the dead letter queue.', done: (s) => propsValue(app(s, 'order-events-consumer'), 'erp.baseUrl') === 'https://erp.harbor.lab/v2' && app(s, 'order-events-consumer').status === 'Running' },
+    { title: 'Fix the cause first', how: 'Settings, Properties, erp.baseUrl is https://erp.brightmart.lab/v2, Apply Changes. If you replay before this, the messages return to the dead letter queue.', done: (s) => propsValue(app(s, 'order-events-consumer'), 'erp.baseUrl') === 'https://erp.brightmart.lab/v2' && app(s, 'order-events-consumer').status === 'Running' },
     { title: 'Replay the dead letters', how: 'Schedules of order-events-consumer, select replay-dlq-flow, Run. The flow is disabled on purpose and is started by hand.', done: (s) => ranOk(s, 'order-events-consumer', 'replay-dlq-flow') },
-    { title: 'Prove that both queues are empty', how: 'Move the clock 1 minute and look at MQ again. The log shows each order created in the ERP.', done: (s) => propsValue(app(s, 'order-events-consumer'), 'erp.baseUrl') === 'https://erp.harbor.lab/v2' && ranOk(s, 'order-events-consumer', 'replay-dlq-flow') && s.queues.every((q) => q.messages.length === 0) && s.events.some((e) => e.k === 'msg' && e.s === 'ok') },
+    { title: 'Prove that both queues are empty', how: 'Move the clock 1 minute and look at MQ again. The log shows each order created in the ERP.', done: (s) => propsValue(app(s, 'order-events-consumer'), 'erp.baseUrl') === 'https://erp.brightmart.lab/v2' && ranOk(s, 'order-events-consumer', 'replay-dlq-flow') && s.queues.every((q) => q.messages.length === 0) && s.events.some((e) => e.k === 'msg' && e.s === 'ok') },
   ],
   why: 'A dead letter queue keeps the messages safe while you find the cause. The order matters: cause, fix, replay, proof.',
   docs: 'https://docs.mulesoft.com/mq/mq-queues',
-  solve: (s) => advance(runNow(withProp(mark(viewMessages(s, 'orders-dlq'), 'logs:order-events-consumer'), 'order-events-consumer', 'erp.baseUrl', 'https://erp.harbor.lab/v2'), 'order-events-consumer', 'replay-dlq-flow'), MINUTE),
+  solve: (s) => advance(runNow(withProp(mark(viewMessages(s, 'orders-dlq'), 'logs:order-events-consumer'), 'order-events-consumer', 'erp.baseUrl', 'https://erp.brightmart.lab/v2'), 'order-events-consumer', 'replay-dlq-flow'), MINUTE),
   answers: { 1: 1, 3: 1 },
 }
 
@@ -415,7 +415,7 @@ const zone = {
   title: 'The report is 5 and a half hours late',
   minutes: 5,
   scenario: 'store-report must run at 06:00 in Kolkata. It arrives at 11:30 there. The cron expression reads 0 0 6 * * ? and looks right.',
-  start: () => until(jobs(at(1, 5), [newApp('store-report', { props: { 'smtp.host': 'smtp.harbor.lab' } })]), at(1, 9)),
+  start: () => until(jobs(at(1, 5), [newApp('store-report', { props: { 'smtp.host': 'smtp.brightmart.lab' } })]), at(1, 9)),
   steps: [
     { title: 'Open the schedule', how: 'Runtime Manager, store-report, Schedules.', done: (s) => Boolean(s.seen['schedules:store-report']) },
     ask('Find the cause', 'At 11:30 in Kolkata it is 06:00 in which time zone?', ['New York', 'UTC', 'London in summer'], 1, 'Kolkata is 5 hours and 30 minutes ahead of UTC. The expression is read in UTC.'),
@@ -436,7 +436,7 @@ const unregistered = {
   title: 'The API stays Unregistered',
   minutes: 8,
   scenario: 'shipments-eapi was deployed an hour ago and is Running, but API Manager shows Unregistered and every call returns 503.',
-  start: () => finishDeploys(shipments({ traffic: false, api: { seen: false }, appExtra: { status: 'Starting', props: { 'partner.url': 'https://partner.harbor.lab/shipments', 'api.id': '19400550', 'anypoint.platform.client_id': 'sbx-4f1c9a' } } })),
+  start: () => finishDeploys(shipments({ traffic: false, api: { seen: false }, appExtra: { status: 'Starting', props: { 'partner.url': 'https://partner.brightmart.lab/shipments', 'api.id': '19400550', 'anypoint.platform.client_id': 'sbx-4f1c9a' } } })),
   steps: [
     { title: 'Call the API', how: 'API client, shipments-eapi, GET /shipments as Mobile App. You get 503.', done: (s) => called(s, 'shipments-eapi', 503) || called(s, 'shipments-eapi', 200) },
     sawLogs('shipments-eapi'),
@@ -464,7 +464,7 @@ const wrongCreds = {
   title: 'Credentials of the wrong environment',
   minutes: 8,
   scenario: 'A teammate redeployed shipments-eapi in Sandbox with the properties of Production. The API went Inactive and partners get 503.',
-  start: () => until(finishDeploys(shipments({ appExtra: { status: 'Starting', props: { 'partner.url': 'https://partner.harbor.lab/shipments', 'api.id': '19400555', 'anypoint.platform.client_id': 'prd-81b0e2' }, secrets: { 'anypoint.platform.client_secret': 'prd-secret-c4aa' } } })), at(1, 9)),
+  start: () => until(finishDeploys(shipments({ appExtra: { status: 'Starting', props: { 'partner.url': 'https://partner.brightmart.lab/shipments', 'api.id': '19400555', 'anypoint.platform.client_id': 'prd-81b0e2' }, secrets: { 'anypoint.platform.client_secret': 'prd-secret-c4aa' } } })), at(1, 9)),
   steps: [
     { title: 'Check the status', how: 'API Manager, API Administration, open Shipments Experience API.', done: (s) => Boolean(s.seen['api:19400555']) },
     sawLogs('shipments-eapi'),
@@ -524,14 +524,14 @@ const errors500 = {
   title: 'The API returns 500',
   minutes: 15,
   scenario: 'Mobile users see errors since the last release of shipments-eapi. Find the cause with log search, set an alert so you hear about the next one, then fix it.',
-  start: () => until(shipments({ appExtra: { config: 2, props: { 'partner.url': 'https://partner-old.harbor.lab/shipments', 'api.id': '19400555', 'anypoint.platform.client_id': 'sbx-4f1c9a' } } }), at(1, 9)),
+  start: () => until(shipments({ appExtra: { config: 2, props: { 'partner.url': 'https://partner-old.brightmart.lab/shipments', 'api.id': '19400555', 'anypoint.platform.client_id': 'sbx-4f1c9a' } } }), at(1, 9)),
   steps: [
     { title: 'Read the Errors tab', how: 'Monitoring, Built-in dashboards, shipments-eapi, Errors.', done: (s) => Boolean(s.seen['dash:shipments-eapi:Errors']) },
     { title: 'Search the logs', how: 'Monitoring, Log Search. Search for log-level: ERROR AND appId: shipments-eapi.', done: (s) => Boolean(s.seen.logsearch) },
     ask('Find the cause', 'What does the error block say?', ['HTTP:CONNECTIVITY to the partner URL', 'DB:CONNECTIVITY', 'EXPRESSION in a transform', 'Client ID rejected'], 0, 'The HTTP request to partner-old refuses the connection. The release changed partner.url.'),
     { title: 'Add a Response Code alert', how: 'API Manager, Shipments Experience API, Alerts, Add alert. Alert type Response Code, with 500 ticked, and a recipient.', done: (s) => Boolean(apiById(s, '19400555')?.alerts.some((a) => a.type === 'Response Code' && a.codes?.includes(500) && a.recipients)) },
     { title: 'See the alert fire', how: 'Move the clock a few minutes and open the Inbox.', done: (s) => s.mail.some((m) => m.source === 'API Manager') },
-    { title: 'Fix the property', how: 'Settings, Properties, partner.url is https://partner.harbor.lab/shipments, Apply Changes.', done: (s) => propsValue(app(s, 'shipments-eapi'), 'partner.url') === 'https://partner.harbor.lab/shipments' && app(s, 'shipments-eapi').status === 'Running' },
+    { title: 'Fix the property', how: 'Settings, Properties, partner.url is https://partner.brightmart.lab/shipments, Apply Changes.', done: (s) => propsValue(app(s, 'shipments-eapi'), 'partner.url') === 'https://partner.brightmart.lab/shipments' && app(s, 'shipments-eapi').status === 'Running' },
     { title: 'The alert recovers', how: 'Move the clock 5 minutes. The calls return 200 and the alert is OK.', done: (s) => recent(s, 'shipments-eapi', 3).length > 0 && recent(s, 'shipments-eapi', 3).every((e) => e.s === 200) && Boolean(apiById(s, '19400555')?.alerts.some((a) => a.fired && a.state === 'OK')) },
   ],
   why: 'The dashboard says that something is wrong and since when. The log says what. The alert says it first the next time.',
@@ -540,7 +540,7 @@ const errors500 = {
     let n = mark(mark(mark(s, 'dash:shipments-eapi'), 'dash:shipments-eapi:Errors'), 'logsearch')
     n = addApiAlert(n, '19400555', { name: 'Server errors', severity: 'Critical', type: 'Response Code', codes: [500], atLeast: 1, periods: 1, period: 1, recipients: OPS })
     n = advance(n, 2 * MINUTE)
-    return advance(withProp(n, 'shipments-eapi', 'partner.url', 'https://partner.harbor.lab/shipments'), 5 * MINUTE)
+    return advance(withProp(n, 'shipments-eapi', 'partner.url', 'https://partner.brightmart.lab/shipments'), 5 * MINUTE)
   },
   answers: { 2: 0 },
 }
@@ -616,7 +616,7 @@ const badDeploy = {
     { title: 'Deploy without properties', how: 'Runtime Manager, Deploy application. Name shipments-eapi, choose the file, no properties, Deploy Application.', done: (s) => s.apps.some((a) => a.error) || Boolean(s.mail.length) },
     { title: 'Read the mail and the logs', how: 'The Inbox has the alert. The log of the application names the property.', done: (s) => Boolean(s.seen.inbox) && Boolean(s.seen['logs:shipments-eapi']) },
     ask('Read the error', 'Which property is missing?', ['db.host', 'partner.url', 'api.id', 'http.port'], 1, 'Mule checks every ${...} placeholder when the application starts, so a missing value stops the deployment.'),
-    { title: 'Add it and deploy again', how: 'Settings, Properties, partner.url is https://partner.harbor.lab/shipments, Apply Changes.', done: (s) => app(s, 'shipments-eapi')?.status === 'Running' && propsValue(app(s, 'shipments-eapi'), 'partner.url') === 'https://partner.harbor.lab/shipments' },
+    { title: 'Add it and deploy again', how: 'Settings, Properties, partner.url is https://partner.brightmart.lab/shipments, Apply Changes.', done: (s) => app(s, 'shipments-eapi')?.status === 'Running' && propsValue(app(s, 'shipments-eapi'), 'partner.url') === 'https://partner.brightmart.lab/shipments' },
     { title: 'Call it', how: 'API client, GET /shipments, 200.', done: (s) => called(s, 'shipments-eapi', 200) },
   ],
   why: 'A missing property fails at start and not at the first call, which is why a deployment alert finds it at once.',
@@ -625,7 +625,7 @@ const badDeploy = {
     let n = addRmAlert(s, { name: 'Failed', severity: 'Critical', app: 'All', condition: 'Deployment failure', recipients: OPS })
     n = finishDeploys(deployApp(n, { name: 'shipments-eapi', pkg: 'shipments-eapi', jar: 'shipments-eapi-1.0.0-mule-application.jar', replicas: 1, vCores: 0.1, props: {}, secrets: {} }).state)
     n = mark(mark(n, 'inbox'), 'logs:shipments-eapi')
-    n = withProp(n, 'shipments-eapi', 'partner.url', 'https://partner.harbor.lab/shipments')
+    n = withProp(n, 'shipments-eapi', 'partner.url', 'https://partner.brightmart.lab/shipments')
     return call(n, 'shipments-eapi', null).state
   },
   answers: { 3: 1 },

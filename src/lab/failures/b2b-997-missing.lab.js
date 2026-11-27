@@ -28,7 +28,7 @@ const lab = {
   title: 'Ship notices sent, never received',
   minutes: 25,
   scenario:
-    'Every 15 minutes a truck leaves the Harbor warehouse, and harbor-asn-dispatch sends Bayline Logistics an 856 ship notice through Partner Manager over AS2. The app logs each one as sent. It is Tuesday 09:00. Bayline writes that they have no ship notices from Harbor and cannot plan the trucks at their hub. Tracking keeps today\'s transmissions.',
+    'Every 15 minutes a truck leaves the Brightmart warehouse, and brightmart-asn-dispatch sends Bayline Logistics an 856 ship notice through Partner Manager over AS2. The app logs each one as sent. It is Tuesday 09:00. Bayline writes that they have no ship notices from Brightmart and cannot plan the trucks at their hub. Tracking keeps today\'s transmissions.',
   start() {
     const now = at(8, 6)
     const s = newPlatform({
@@ -36,8 +36,8 @@ const lab = {
       apps: [newApp(NAME, { store: {} })],
       b2b: b2b(now),
       mail: [
-        { t: at(2, 10), to: 'edi-team@harbor.example', subject: 'Bayline AS2 certificate rotation on 4 November', body: 'Hello trading partners, we replaced our AS2 encryption certificate today. The new certificate bayline-enc-2026 is attached and waits in your Partner Manager under Certificates sent by partners. Please encrypt with it from now on: our old key is no longer in use. Bayline EDI support', source: 'Bayline Logistics' },
-        { t: at(8, 8, 45), to: OPS, subject: 'No ship notices from Harbor', body: 'We have no 856 from Harbor this week and no 997 went back to you, because nothing arrived that we could read. Our hub cannot plan your trucks without them. Bayline hub operations', source: 'Bayline Logistics' },
+        { t: at(2, 10), to: 'edi-team@brightmart.example', subject: 'Bayline AS2 certificate rotation on 4 November', body: 'Hello trading partners, we replaced our AS2 encryption certificate today. The new certificate bayline-enc-2026 is attached and waits in your Partner Manager under Certificates sent by partners. Please encrypt with it from now on: our old key is no longer in use. Bayline EDI support', source: 'Bayline Logistics' },
+        { t: at(8, 8, 45), to: OPS, subject: 'No ship notices from Brightmart', body: 'We have no 856 from Brightmart this week and no 997 went back to you, because nothing arrived that we could read. Our hub cannot plan your trucks without them. Bayline hub operations', source: 'Bayline Logistics' },
       ],
     })
     return until(s, at(8, 9))
@@ -97,7 +97,7 @@ const lab = {
       },
     },
   ],
-  why: 'AS2 gives two receipts. The MDN says the partner got the message, decrypted it and verified the signature, and its MIC proves the content. The 997 says the EDI inside passed the X12 checks. Bayline rotated its encryption certificate, Harbor kept encrypting for the old one, and every MDN said "processed/error: decryption-failed". The app took HTTP 200 as done, so nobody knew. The fix is to import the new public certificate, put it on the endpoint, resend what failed, and alert on a negative MDN and on a 997 that does not come within the agreed window. In the lab the partner decrypts only with its current key, its MDN comes one minute after a send, and its 997 four minutes after.',
+  why: 'AS2 gives two receipts. The MDN says the partner got the message, decrypted it and verified the signature, and its MIC proves the content. The 997 says the EDI inside passed the X12 checks. Bayline rotated its encryption certificate, Brightmart kept encrypting for the old one, and every MDN said "processed/error: decryption-failed". The app took HTTP 200 as done, so nobody knew. The fix is to import the new public certificate, put it on the endpoint, resend what failed, and alert on a negative MDN and on a 997 that does not come within the agreed window. In the lab the partner decrypts only with its current key, its MDN comes one minute after a send, and its 997 four minutes after.',
   docs: 'https://docs.mulesoft.com/partner-manager/latest/',
   solve(start) {
     let s = mark(mark(mark(start, 'b2b:tracking'), 'b2b:raw'), 'b2b:certs')

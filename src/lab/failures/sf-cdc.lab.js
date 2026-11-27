@@ -17,7 +17,7 @@ const replayOk = (s) => running(s) && word(s, 'sf.resumeFromLastReplayId') !== '
 const idemOk = (s) => running(s) && word(s, 'loyalty.idempotent') === 'true'
 
 function salesforce() {
-  const prod = newOrg('Production', { editors: { every: 60, from: 8, to: 18, by: 'sales.ops@harbor.example' } })
+  const prod = newOrg('Production', { editors: { every: 60, from: 8, to: 18, by: 'sales.ops@brightmart.example' } })
   return newSalesforce({ orgs: { Production: prod, Sandbox: newOrg('Sandbox') } })
 }
 
@@ -34,13 +34,13 @@ const lab = {
       clock: at(0, 7),
       apps: [
         newApp(NAME, {
-          props: { 'salesforce.url': 'https://login.salesforce.com/services/Soap/u/61.0', 'salesforce.username': 'mule.integration@harbor.example', 'sf.replayOption': 'FROM_REPLAY_ID', 'sf.resumeFromLastReplayId': 'true', 'resync.enabled': 'false', 'resync.since': '', 'loyalty.idempotent': 'false' },
+          props: { 'salesforce.url': 'https://login.salesforce.com/services/Soap/u/61.0', 'salesforce.username': 'mule.integration@brightmart.example', 'sf.replayOption': 'FROM_REPLAY_ID', 'sf.resumeFromLastReplayId': 'true', 'resync.enabled': 'false', 'resync.since': '', 'loyalty.idempotent': 'false' },
           secrets: { 'salesforce.password': 'Hrb-Int-Prod-26', 'salesforce.securityToken': 'labTokenProd7x2' },
           store: { accounts: snapshot },
         }),
       ],
       salesforce: sfState,
-      mail: [{ t: at(4, 8, 35), to: OPS, subject: 'Loyalty store is back', body: `The loyalty database maintenance is finished and ${NAME} was started at 08:30. Members still see the tier they had on Monday. Harbor loyalty team`, source: 'Harbor loyalty team' }],
+      mail: [{ t: at(4, 8, 35), to: OPS, subject: 'Loyalty store is back', body: `The loyalty database maintenance is finished and ${NAME} was started at 08:30. Members still see the tier they had on Monday. Brightmart loyalty team`, source: 'Brightmart loyalty team' }],
     })
     s = until(s, at(0, 8, 30))
     s = stopApp(s, NAME)

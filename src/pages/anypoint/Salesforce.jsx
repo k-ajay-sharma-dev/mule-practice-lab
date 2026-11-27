@@ -1,4 +1,4 @@
-// Salesforce: the Setup of the Harbor org in the style of Lightning Experience. Setup Home, Object Manager with fields,
+// Salesforce: the Setup of the Brightmart org in the style of Lightning Experience. Setup Home, Object Manager with fields,
 // External ID and validation rules, Users, Profiles, Permission Sets, Network Access, App Manager with the connected app,
 // Change Data Capture, Platform Events, Bulk Data Load Jobs, System Overview with the API usage gauge, Company
 // Information, Login History, the Accounts list with Merge Accounts and the Query Editor of the Developer Console.
@@ -15,7 +15,7 @@ const NAV = [
   ['Apps', [['accounts', 'Accounts'], ['console', 'Developer Console']]],
 ]
 const SEEN = { home: 'sf:home', overview: 'sf:limits', company: 'sf:limits', bulk: 'sf:bulk', job: 'sf:bulk', objects: 'sf:objects', object: 'sf:objects', cdc: 'sf:cdc', logins: 'sf:login-history', events: 'sf:events', apps: 'sf:apps', app: 'sf:apps', accounts: 'sf:accounts', users: 'sf:users', profiles: 'sf:profiles', profile: 'sf:profiles', permsets: 'sf:permsets', permset: 'sf:permsets', network: 'sf:network', console: 'sf:console' }
-const START_SOQL = 'SELECT Id, Name, Harbor_Customer_Id__c, LastModifiedDate\nFROM Account\nORDER BY Name\nLIMIT 20'
+const START_SOQL = 'SELECT Id, Name, Brightmart_Customer_Id__c, LastModifiedDate\nFROM Account\nORDER BY Name\nLIMIT 20'
 const LEVELS = ['none', 'read', 'edit']
 
 const pad = (n) => String(n).padStart(2, '0')
@@ -231,7 +231,7 @@ function Home({ org, now, to }) {
         </button>
       </div>
       <Card title="Org">
-        <Detail rows={[['Organization', `Harbor (${org.name})`], ['My Domain', org.myDomain], ['Login URL', `https://${org.loginHost}`], ['Edition', org.edition], ['Instance', org.instance], ['API version', `v${org.apiVersion}`]]} />
+        <Detail rows={[['Organization', `Brightmart (${org.name})`], ['My Domain', org.myDomain], ['Login URL', `https://${org.loginHost}`], ['Edition', org.edition], ['Instance', org.instance], ['API version', `v${org.apiVersion}`]]} />
       </Card>
     </>
   )
@@ -294,7 +294,7 @@ function Company({ org, now }) {
       <Card title="Organization Detail">
         <Detail
           rows={[
-            ['Organization Name', 'Harbor'],
+            ['Organization Name', 'Brightmart'],
             ['Organization Edition', org.edition],
             ['Salesforce.com Organization ID', org.orgId],
             ['Instance', org.instance],
@@ -332,7 +332,7 @@ function Users({ org, orgName, now, act, plain }) {
               <Txt value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
             </Field>
             <Field label="Username">
-              <Txt value={form.username} onChange={(v) => setForm({ ...form, username: v })} placeholder="mule.sync@harbor.example" />
+              <Txt value={form.username} onChange={(v) => setForm({ ...form, username: v })} placeholder="mule.sync@brightmart.example" />
             </Field>
             <Field label="Profile">
               <Sel value={form.profile} onChange={(v) => setForm({ ...form, profile: v })} options={Object.keys(org.profiles)} />
@@ -920,10 +920,10 @@ function Accounts({ org, orgName, plain }) {
   return (
     <>
       <Head kicker="Accounts" title="All Accounts" />
-      <Card title={`Possible duplicates by Harbor Customer Id (${groups.length})`}>
-        {groups.length === 0 && <p className="sf-empty">No two accounts share a Harbor Customer Id.</p>}
+      <Card title={`Possible duplicates by Brightmart Customer Id (${groups.length})`}>
+        {groups.length === 0 && <p className="sf-empty">No two accounts share a Brightmart Customer Id.</p>}
         {groups.map((g) => {
-          const key = g[0].Harbor_Customer_Id__c
+          const key = g[0].Brightmart_Customer_Id__c
           const m = master[key] ?? g[0].Id
           return (
             <div key={key} className="sf-dupe">
@@ -952,7 +952,7 @@ function Accounts({ org, orgName, plain }) {
           )
         })}
       </Card>
-      <Table heads={['Account Name', 'Harbor Customer Id', 'Type', 'Billing City', 'Billing Country', 'Loyalty Tier', 'Last Modified']} rows={list.slice(-60).reverse().map((r) => [r.Name, r.Harbor_Customer_Id__c ?? '', r.Type ?? '', r.BillingCity ?? '', r.BillingCountry ?? '', r.Loyalty_Tier__c ?? '', when(sf.timeOf(r.LastModifiedDate))])} />
+      <Table heads={['Account Name', 'Brightmart Customer Id', 'Type', 'Billing City', 'Billing Country', 'Loyalty Tier', 'Last Modified']} rows={list.slice(-60).reverse().map((r) => [r.Name, r.Brightmart_Customer_Id__c ?? '', r.Type ?? '', r.BillingCity ?? '', r.BillingCountry ?? '', r.Loyalty_Tier__c ?? '', when(sf.timeOf(r.LastModifiedDate))])} />
       {list.length > 60 && <p className="sf-note">Showing the 60 most recent of {n(list.length)} accounts.</p>}
     </>
   )

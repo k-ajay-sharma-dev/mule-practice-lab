@@ -1,8 +1,8 @@
-// Dynamics and SharePoint: the Microsoft side of Harbor's CRM integrations, on the engine of platform-msgraph.js.
+// Dynamics and SharePoint: the Microsoft side of Brightmart's CRM integrations, on the engine of platform-msgraph.js.
 // App registrations in the style of the Microsoft Entra admin center (secrets, certificates, API permissions, admin
 // consent), Dataverse tables, keys, application users and security roles in the style of Power Apps, SharePoint sites
 // and document libraries as Graph sees them, and the request log of every token, Dataverse and Graph call with the
-// throttling of each app. A lab tool: one admin of the tenant Harbor Retail does everything.
+// throttling of each app. A lab tool: one admin of the tenant Brightmart Retail does everything.
 import { useEffect, useMemo, useState } from 'react'
 import { mark, stamp, timeText } from '../../lab/platform.js'
 import {
@@ -97,7 +97,7 @@ function Entra({ m, state, update, act, place }) {
         }}
       >
         <Field label="New registration: display name">
-          <Input value={name} onChange={setName} placeholder="harbor-my-app" />
+          <Input value={name} onChange={setName} placeholder="brightmart-my-app" />
         </Field>
         <Btn kind="primary" type="submit" disabled={!name.trim()}>
           Register
@@ -268,7 +268,7 @@ function Secrets({ reg, now, act }) {
             }}
           >
             <Field label="Upload certificate: subject" hint="Lab-made: the lab makes the public key and its thumbprint">
-              <Input value={cert} onChange={setCert} placeholder="CN=harbor-mule" />
+              <Input value={cert} onChange={setCert} placeholder="CN=brightmart-mule" />
             </Field>
             <Field label="Valid for days">
               <Input value={certDays} onChange={setCertDays} inputMode="numeric" />
@@ -384,7 +384,7 @@ function Expiry({ reg, act }) {
           <Input value={days} onChange={setDays} inputMode="numeric" />
         </Field>
         <Field label="Send to">
-          <Input value={to} onChange={setTo} placeholder="team@harbor.example" />
+          <Input value={to} onChange={setTo} placeholder="team@brightmart.example" />
         </Field>
         <Btn kind="primary" type="submit">
           Save
@@ -511,7 +511,7 @@ function TableView({ table, m, act, first }) {
             className="ms-gr-form"
             onSubmit={(e) => {
               e.preventDefault()
-              const r = act((s) => addKey(s, table, { name: keyName.trim() ? `harbor_${keyName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '')}` : '', cols: [keyCol] }))
+              const r = act((s) => addKey(s, table, { name: keyName.trim() ? `brightmart_${keyName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '')}` : '', cols: [keyCol] }))
               if (r?.error) return setErr(r.error)
               setErr('')
               setKeyName('')
@@ -588,7 +588,7 @@ function AppUsers({ m, act }) {
           <Select value={pick} onChange={setAppId} options={free.map((a) => [a.appId, `${a.name} (${a.appId})`])} disabled={!free.length} />
         </Field>
         <Field label="Business unit">
-          <Input value="harbor" onChange={() => {}} readOnly />
+          <Input value="brightmart" onChange={() => {}} readOnly />
         </Field>
         <Field label="Security roles">{roleBoxes(roles, setRoles)}</Field>
         <Btn kind="primary" type="submit" disabled={!pick}>
@@ -602,7 +602,7 @@ function AppUsers({ m, act }) {
           <tr key={u.appId}>
             <td>{u.name}</td>
             <td className="pc-mono">{u.appId}</td>
-            <td>harbor</td>
+            <td>brightmart</td>
             <td>
               {editing === u.appId ? (
                 <>
@@ -673,7 +673,7 @@ function Roles({ m, act }) {
       >
         <div className="ms-gr-form">
           <Field label={role ? 'Role' : 'New role: name'}>
-            <Input value={name} onChange={(v) => (setName(v), m.dv.roles[v] && setPrivs(structuredClone(m.dv.roles[v].privs)))} placeholder="Harbor My App" />
+            <Input value={name} onChange={(v) => (setName(v), m.dv.roles[v] && setPrivs(structuredClone(m.dv.roles[v].privs)))} placeholder="Brightmart My App" />
           </Field>
           <Btn onClick={() => open('')}>New role</Btn>
         </div>

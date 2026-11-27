@@ -135,7 +135,7 @@ export const newApp = (name, extra = {}) => ({
 export const podConfigOf = (app) => app.podConfig ?? app.config
 export const replicaName = (app) => `${app.name.slice(0, 18)}-${(app.name.length * 7919 + podConfigOf(app) * 31).toString(16).slice(0, 5)}-x2k9p`
 // An application on the company's own servers is reached through the company's own load balancer
-const dcOf = (app) => `https://${app.name}-lab1a2.dc-${app.env === 'Sandbox' ? 'sbx' : 'prd'}.harbor.lab`
+const dcOf = (app) => `https://${app.name}-lab1a2.dc-${app.env === 'Sandbox' ? 'sbx' : 'prd'}.brightmart.lab`
 export const endpointOf = (app) => (app.targetType ? dcOf(app) : app.rtf ? rtfEndpoint(app) : `https://${app.name}-lab1a2.${app.env === 'Sandbox' ? 'sbx' : 'prd'}.usa-e2.cloudhub.example`)
 // Each application also has an address that only other applications of the network reach
 export const internalOf = (app) => (app.targetType ? `${dcOf(app)}/api` : `https://${app.name}-lab1a2.internal-${app.env === 'Sandbox' ? 'sbx' : 'prd'}.usa-e2.cloudhub.example/api`)

@@ -4,7 +4,7 @@ import { app, ask, OPS, until } from '../platform-kit.js'
 import { addressOf, API_VERSION, createSubscription, createTestOrder, labStore, SHOP } from '../platform-shopify.js'
 import { RECONCILE_FLOW, SYNC, SYNC_PATH } from './shopify-webhooks-removed.pkg.js'
 
-const APP_NAME = 'Harbor Orders Sync'
+const APP_NAME = 'Brightmart Orders Sync'
 const START = at(7, 8, 30)
 const shopApp = (s) => (s.shopify?.apps ?? []).find((a) => a.name === APP_NAME)
 const a = (s) => app(s, SYNC)
@@ -41,7 +41,7 @@ function start() {
   // Friday evening a change stopped the app for a weekend maintenance of the order hub, and nobody started it again
   s = stopApp(s, SYNC)
   s = until(s, at(7, 8, 10))
-  s = { ...s, mail: [...s.mail, { t: at(7, 8, 10), to: OPS, subject: 'Weekend web orders missing in the order hub', body: `Good morning. The order hub has no web order since Friday 18:00, but Shopify shows orders all weekend. Warehouse picking starts at 10:00. The maintenance of the hub ended on Saturday. Harbor fulfilment team`, source: 'Harbor fulfilment team' }] }
+  s = { ...s, mail: [...s.mail, { t: at(7, 8, 10), to: OPS, subject: 'Weekend web orders missing in the order hub', body: `Good morning. The order hub has no web order since Friday 18:00, but Shopify shows orders all weekend. Warehouse picking starts at 10:00. The maintenance of the hub ended on Saturday. Brightmart fulfilment team`, source: 'Brightmart fulfilment team' }] }
   return until(s, START)
 }
 

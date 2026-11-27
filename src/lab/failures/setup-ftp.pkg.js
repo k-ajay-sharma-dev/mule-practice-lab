@@ -1,7 +1,7 @@
 // The sample application of the setup-ftp lab. Imports only platform-log.js, so the engine can load it without a cycle.
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const HOST = 'ftp.legacy.harbor.lab'
+export const HOST = 'ftp.legacy.brightmart.lab'
 export const NAME = 'pos-export-intake'
 export const FLOW = 'pos-export-flow'
 const dirOf = (v) => `/${String(v ?? '').trim().split('/').filter(Boolean).join('/')}`

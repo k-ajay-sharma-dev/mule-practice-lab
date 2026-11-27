@@ -17,7 +17,7 @@ const loud = (s) => app(s, POS)?.status === 'Running' && missingOf(app(s, POS).p
 
 function instance(now) {
   const x = newServicenow(now)
-  addUser(x, { user_name: SVC, first_name: 'Harbor', last_name: 'POS Alerts', roles: [REST_ROLE, 'sn_incident_write', 'cmdb_read'], pw: 'Pos-Harbor-2611', web_service_access_only: true }, now)
+  addUser(x, { user_name: SVC, first_name: 'Brightmart', last_name: 'POS Alerts', roles: [REST_ROLE, 'sn_incident_write', 'cmdb_read'], pw: 'Pos-Brightmart-2611', web_service_access_only: true }, now)
   // last week security made the support group of a CI readable for fulfillers only (change SEC-0412)
   x.acls.push({ sys_id: 'c0ffee00a1b2c3d4e5f6a7b8c9d0a412', type: 'record', name: 'cmdb_ci.support_group', operation: 'read', roles: ['itil'], active: true, description: 'Support groups are for IT staff (change SEC-0412)' })
   return x
@@ -32,7 +32,7 @@ const lab = {
   start() {
     const s = newPlatform({
       clock: at(1, 8),
-      apps: [newApp(POS, { props: { 'snow.instance': INSTANCE_URL, 'snow.username': SVC, 'ci.missingGroup': 'empty' }, secrets: { 'snow.password': 'Pos-Harbor-2611' }, store: {} })],
+      apps: [newApp(POS, { props: { 'snow.instance': INSTANCE_URL, 'snow.username': SVC, 'ci.missingGroup': 'empty' }, secrets: { 'snow.password': 'Pos-Brightmart-2611' }, store: {} })],
       traffic: [
         { app: POS, env: 'Sandbox', method: 'POST', path: '/alerts', body: POS_ALERT, perMinute: 1, every: 5 },
         { app: POS, env: 'Sandbox', method: 'POST', path: '/alerts', body: '{"ci":"EDGE-RTR-07","check":"packet_loss","summary":"EDGE-RTR-07 packet loss above 5 percent"}', perMinute: 1, every: 7 },
@@ -44,8 +44,8 @@ const lab = {
           t: at(1, 9, 5),
           to: OPS,
           subject: 'Unassigned incidents from the store monitor',
-          body: 'Hello. Store 0042 has had no receipt printer since 08:05. The incident exists, but it has no assignment group, so it sat in nobody\'s queue. The router and WMS alerts of this morning look the same. Before today these always had the group of the device. Harbor service desk',
-          source: 'Harbor service desk',
+          body: 'Hello. Store 0042 has had no receipt printer since 08:05. The incident exists, but it has no assignment group, so it sat in nobody\'s queue. The router and WMS alerts of this morning look the same. Before today these always had the group of the device. Brightmart service desk',
+          source: 'Brightmart service desk',
         },
       ],
     })
@@ -59,7 +59,7 @@ const lab = {
     },
     {
       title: 'Read the CI as the integration user',
-      how: `REST API Explorer. GET on table cmdb_ci, sysparm_query name=STORE-0042-POS, sysparm_fields sys_id,name,support_group. Send it once as harbor.admin and once with Run as ${SVC}. Compare the two answers.`,
+      how: `REST API Explorer. GET on table cmdb_ci, sysparm_query name=STORE-0042-POS, sysparm_fields sys_id,name,support_group. Send it once as brightmart.admin and once with Run as ${SVC}. Compare the two answers.`,
       done: (s) => (y(s)?.tx ?? []).some((e) => e.src === 'REST API Explorer' && e.user === SVC && e.url.startsWith('/api/now/table/cmdb_ci')),
     },
     ask(

@@ -1,13 +1,13 @@
 // The sample application of the shopify-cost lab. Imports only platform-log.js and the import free Shopify engine, so
 // the engine can load it without a cycle.
 //
-// harbor-shp-order-export copies every order of the Harbor web store to the data warehouse each night at 02:00 UTC.
+// brightmart-shp-order-export copies every order of the Brightmart web store to the data warehouse each night at 02:00 UTC.
 // export.mode paged reads orders with the Admin GraphQL API, export.pageSize orders a page. export.onThrottle says what
 // it does on THROTTLED: fail (the bug) or wait (it reads throttleStatus and waits until the bucket holds the cost).
 // export.mode bulk runs bulkOperationRunQuery, polls currentBulkOperation and reads the JSONL file.
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const EXPORTER = 'harbor-shp-order-export'
+export const EXPORTER = 'brightmart-shp-order-export'
 export const EXPORT_FLOW = 'order-export-flow'
 const word = (v) => String(v ?? '').trim()
 const cfgOf = (p) => ({ shop: word(p['shopify.shop']), accessToken: word(p['shopify.accessToken']), apiVersion: word(p['shopify.apiVersion']) })
@@ -74,7 +74,7 @@ function bulk(ctx, log) {
 
 export const PACKAGES = {
   [EXPORTER]: {
-    note: 'Copies every order of harbor-goods.myshopify.com to the data warehouse each night at 02:00 UTC through the Admin GraphQL API. export.mode is paged or bulk. With paged, export.pageSize orders come in each call and export.onThrottle is fail or wait. shopify.accessToken is the Admin API access token. GET /export/status shows the last run.',
+    note: 'Copies every order of brightmart-goods.myshopify.com to the data warehouse each night at 02:00 UTC through the Admin GraphQL API. export.mode is paged or bulk. With paged, export.pageSize orders come in each call and export.onThrottle is fail or wait. shopify.accessToken is the Admin API access token. GET /export/status shows the last run.',
     sample: { method: 'GET', path: '/export/status' },
     boot: needs('shopify.shop', 'shopify.apiVersion', 'shopify.accessToken', 'export.mode'),
     schedules: [{ flow: EXPORT_FLOW, type: 'cron', value: '0 0 2 * * ?', tz: 'UTC', enabled: true }],

@@ -1,10 +1,10 @@
 // The guided lab snowflake-load-history. See platform-labs.js for the shape of a lab.
 import { at, mark, newApp, newPlatform, runNow } from '../platform.js'
 import { app, ask, OPS, until, withProp } from '../platform-kit.js'
-import { addFile, asUser, ETL_PROPS, ETL_SECRETS, harborOrders, newSnowflake, ordersCsv, rowsOf, runWorksheet, script } from '../platform-snowflake.js'
+import { addFile, asUser, ETL_PROPS, ETL_SECRETS, brightmartOrders, newSnowflake, ordersCsv, rowsOf, runWorksheet, script } from '../platform-snowflake.js'
 import { NIGHTLY, NIGHTLY_FLOW } from './snowflake-load-history.pkg.js'
 
-const ORDERS = 'HARBOR_DW.RAW.ORDERS'
+const ORDERS = 'BRIGHTMART_DW.RAW.ORDERS'
 const DAYS = [
   ['orders_20261031.csv', 60101, '2026-10-31', at(-1, 1)],
   ['orders_20261101.csv', 60201, '2026-11-01', at(0, 1)],
@@ -22,11 +22,11 @@ const DEDUP_SQL = 'CREATE TABLE ORDERS_DEDUP AS SELECT DISTINCT * FROM ORDERS; D
 const forceOff =(s) => app(s, NIGHTLY)?.status === 'Running' && String(app(s, NIGHTLY)?.props['snowflake.copy.force'] ?? '').trim().toUpperCase() !== 'TRUE'
 
 function account() {
-  const y = harborOrders(newSnowflake(at(-2)), at(-2))
+  const y = brightmartOrders(newSnowflake(at(-2)), at(-2))
   // the order system drops one file a night at 01:00 and the 02:00 COPY loads it
   for (const [name, first, date, t] of DAYS) {
-    addFile(y, 'HARBOR_DW.RAW.ORDERS_STAGE', name, ordersCsv(first, date, PER_DAY), t)
-    script(y, `COPY INTO HARBOR_DW.RAW.ORDERS FROM @HARBOR_DW.RAW.ORDERS_STAGE PATTERN = '.*orders_.*[.]csv'`, t + 60 * 60000, { user: 'MULE_ETL', role: 'LOADER' })
+    addFile(y, 'BRIGHTMART_DW.RAW.ORDERS_STAGE', name, ordersCsv(first, date, PER_DAY), t)
+    script(y, `COPY INTO BRIGHTMART_DW.RAW.ORDERS FROM @BRIGHTMART_DW.RAW.ORDERS_STAGE PATTERN = '.*orders_.*[.]csv'`, t + 60 * 60000, { user: 'MULE_ETL', role: 'LOADER' })
   }
   return y
 }
@@ -53,8 +53,8 @@ const lab = {
       t: at(1, 8, 55),
       to: OPS,
       subject: 'Weekend sales doubled in the dashboard',
-      body: `Hello. Monday's orders were missing this morning, now they are back, but Saturday 31 October and Sunday 1 November show twice the orders and twice the revenue. ORDERS should have ${PER_DAY} orders per day for those three days. We close the month on these numbers, please fix it before noon. Harbor finance`,
-      source: 'Harbor finance',
+      body: `Hello. Monday's orders were missing this morning, now they are back, but Saturday 31 October and Sunday 1 November show twice the orders and twice the revenue. ORDERS should have ${PER_DAY} orders per day for those three days. We close the month on these numbers, please fix it before noon. Brightmart finance`,
+      source: 'Brightmart finance',
     })
     return until(s, at(1, 9))
   },

@@ -3,7 +3,7 @@
 import { info, line, muleError, needs } from '../platform-log.js'
 import { ordersIdoc } from '../platform-sap.js'
 
-export const BRIDGE = 'harbor-sap-idoc-bridge'
+export const BRIDGE = 'brightmart-sap-idoc-bridge'
 export const BRIDGE_JAR = `${BRIDGE}-1.0.0-mule-application.jar`
 export const LISTEN_FLOW = 'sap-idoc-listener-flow'
 const keep = (list, item, n = 20) => [...(list ?? []), item].slice(-n)
@@ -25,7 +25,7 @@ const el = {
 
 export const PACKAGES = {
   [BRIDGE]: {
-    note: `The IDoc bridge of Harbor. POST /orders with {"customer","material","qty"} sends an ORDERS05 IDoc from logical system HARBORWEB to SAP with the Send operation of the SAP connector. The flow ${LISTEN_FLOW} is a Document listener that registers sap.programId at the gateway sap.gatewayHost and sap.gatewayService with sap.connectionCount connections, and logs each IDoc SAP sends: INVOIC02 invoices, and ALEAUD01 audits where a status other than 53 is an error. The SAP config reads sap.applicationServerHost, sap.systemNumber, sap.client, sap.username and the secure property sap.password.`,
+    note: `The IDoc bridge of Brightmart. POST /orders with {"customer","material","qty"} sends an ORDERS05 IDoc from logical system BRIGHTWEB to SAP with the Send operation of the SAP connector. The flow ${LISTEN_FLOW} is a Document listener that registers sap.programId at the gateway sap.gatewayHost and sap.gatewayService with sap.connectionCount connections, and logs each IDoc SAP sends: INVOIC02 invoices, and ALEAUD01 audits where a status other than 53 is an error. The SAP config reads sap.applicationServerHost, sap.systemNumber, sap.client, sap.username and the secure property sap.password.`,
     sample: { method: 'POST', path: '/orders', body: '{"customer":"4712","material":"H-1300","qty":2}' },
     boot: needs('sap.applicationServerHost', 'sap.systemNumber', 'sap.client', 'sap.username', 'sap.password', 'sap.gatewayHost', 'sap.gatewayService', 'sap.programId'),
     schedules: [{ flow: LISTEN_FLOW, type: 'fixed', value: '1', unit: 'minutes', enabled: true }],

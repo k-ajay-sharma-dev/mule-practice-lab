@@ -1,13 +1,13 @@
 // The sample application of the files-ftp-mode lab. Imports only platform-log.js, so the engine can load it without a cycle.
 import { info, muleError, needs } from '../platform-log.js'
 
-export const HOST = 'ftp.legacy.harbor.lab'
+export const HOST = 'ftp.legacy.brightmart.lab'
 export const NAME = 'pos-sales-import'
 export const FLOW = 'sales-import-flow'
 // what the legacy server speaks. The systems engine does not tell a client which protocol a server speaks, so the
 // package knows it for this one host.
 const SERVER_PROTOCOL = 'FTP'
-const GREETING = '220 Harbor FTP service ready'
+const GREETING = '220 Brightmart FTP service ready'
 
 export const protocolOf = (props) => String(props['file.protocol'] ?? '').trim().toUpperCase()
 // passive="true" is the default of the FTP connection, so only the text false turns it off

@@ -4,9 +4,9 @@ import { app, ask, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { defaultSystems, fileRec, fingerprint, knownHostsLine, knownKeys, newHostKey, regenerateHostKey, setServerUser, transfer, trustHostKey } from '../platform-systems.js'
 import { FLOW, HOST, NAME } from './files-sftp-rights.pkg.js'
 
-const PARTNER = 'partner_harbor'
-const KEY = 'harbor-partner.pem'
-const HOME = '/partners/harbor-north'
+const PARTNER = 'partner_brightmart'
+const KEY = 'brightmart-partner.pem'
+const HOME = '/partners/brightmart-north'
 const IN = `${HOME}/in`
 const OUT = `${HOME}/out`
 const DONE = `${HOME}/done`
@@ -55,7 +55,7 @@ const lab = {
   title: 'The partner upload broke after a server rebuild',
   minutes: 20,
   scenario:
-    `Harbor North, a partner, uploads its order files to ${IN} on ${HOST}, and ${NAME} loads them every 15 minutes. Last night at 22:00 the security team rebuilt the server on a hardened image and moved every user to rights per folder. Since then ${NAME} fails, and this morning Harbor North says its upload fails too. It is 09:00. The Inbox has the mails.`,
+    `Brightmart North, a partner, uploads its order files to ${IN} on ${HOST}, and ${NAME} loads them every 15 minutes. Last night at 22:00 the security team rebuilt the server on a hardened image and moved every user to rights per folder. Since then ${NAME} fails, and this morning Brightmart North says its upload fails too. It is 09:00. The Inbox has the mails.`,
   start() {
     const line = `${HOST} ssh-ed25519 ${OLD_KEY}`
     let s = newPlatform({
@@ -81,8 +81,8 @@ const lab = {
           t: at(1, 8, 30),
           to: OPS,
           subject: 'Our order upload fails',
-          body: `Good morning, since last night our upload of the daily order file to ${IN} fails with permission denied. Login with our key works. Can you check our rights? Harbor North IT`,
-          source: 'Harbor North IT',
+          body: `Good morning, since last night our upload of the daily order file to ${IN} fails with permission denied. Login with our key works. Can you check our rights? Brightmart North IT`,
+          source: 'Brightmart North IT',
         },
       ],
     })
@@ -127,11 +127,11 @@ const lab = {
       [
         'Read and write on /, so this cannot happen again',
         `Write on ${IN} only, read on ${IN} and ${OUT}, and nothing outside its home folder. Each folder gets the least right the partner needs, so a lost key cannot change the outbox or other partners' files`,
-        'Read only everywhere, and Harbor fetches the files from the partner',
+        'Read only everywhere, and Brightmart fetches the files from the partner',
         'Make the user an administrator of the server',
       ],
       1,
-      'Least privilege limits what a stolen key or a wrong script can do. The partner drops files in its inbox and reads replies in its outbox, so it needs write on one folder and read on two. A home folder keeps it away from other partners, and rights per folder keep it from changing what Harbor writes for it.',
+      'Least privilege limits what a stolen key or a wrong script can do. The partner drops files in its inbox and reads replies in its outbox, so it needs write on one folder and read on two. A home folder keeps it away from other partners, and rights per folder keep it from changing what Brightmart writes for it.',
     ),
     {
       title: 'Give the partner write rights on its inbox',
@@ -140,7 +140,7 @@ const lab = {
     },
     {
       title: 'Upload again with the client',
-      how: `Upload ${LOCAL} to ${IN} again as ${PARTNER}. It works now. Ask Harbor North to send its file of today.`,
+      how: `Upload ${LOCAL} to ${IN} again as ${PARTNER}. It works now. Ask Brightmart North to send its file of today.`,
       done: (s) => rightsOk(s) && uploads(s, true).length > 0,
     },
     {

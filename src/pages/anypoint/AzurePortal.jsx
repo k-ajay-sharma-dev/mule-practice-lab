@@ -1,5 +1,5 @@
 // Storage accounts (Blob containers, File shares, SAS, access keys) and Key Vaults in the style of the Azure portal,
-// on the lab systems of platform-systems.js. A lab tool with fictional resources of Harbor.
+// on the lab systems of platform-systems.js. A lab tool with fictional resources of Brightmart.
 import { useEffect, useState } from 'react'
 import { dateText, mark, timeText } from '../../lab/platform.js'
 import {
@@ -27,7 +27,7 @@ function Shell({ crumbs, children }) {
         <b>Microsoft Azure</b>
         <span className="sy-az-lab">Lab copy</span>
         <input className="sy-az-search" placeholder="Search resources, services, and docs (G+/)" aria-label="Search" />
-        <span className="sy-az-user">you@harbor.lab</span>
+        <span className="sy-az-user">you@brightmart.lab</span>
       </div>
       <nav className="sy-az-crumbs" aria-label="Breadcrumb">
         {crumbs.map(([label, onClick], i) => (
@@ -267,7 +267,7 @@ function StoragePortal({ state, update, start }) {
                 </td>
                 <td>Storage account</td>
                 <td>{a.kind}</td>
-                <td>harbor-integration-rg</td>
+                <td>brightmart-integration-rg</td>
                 <td>{a.region}</td>
                 <td>{a.up ? 'Available' : 'Unavailable'}</td>
               </tr>
@@ -307,7 +307,7 @@ function StorageOverview({ acc, update }) {
       </Cmd>
       <Essentials
         items={[
-          ['Resource group', 'harbor-integration-rg'], ['Location', acc.region], ['Subscription', 'Harbor Lab'], ['Status', acc.up ? 'Primary: Available' : 'Primary: Unavailable (lab outage)'],
+          ['Resource group', 'brightmart-integration-rg'], ['Location', acc.region], ['Subscription', 'Brightmart Lab'], ['Status', acc.up ? 'Primary: Available' : 'Primary: Unavailable (lab outage)'],
           ['Performance', 'Standard'], ['Replication', acc.replication], ['Account kind', acc.kind], ['Blob endpoint', `https://${acc.account}.blob.core.windows.net/`],
           ['File endpoint', `https://${acc.account}.file.core.windows.net/`], ['Public network access', acc.network.mode],
         ]}
@@ -872,7 +872,7 @@ export function KeyVault({ state, update }) {
                   </button>
                 </td>
                 <td>Key vault</td>
-                <td>harbor-integration-rg</td>
+                <td>brightmart-integration-rg</td>
                 <td>{x.region}</td>
               </tr>
             ))}
@@ -911,7 +911,7 @@ function VaultOverview({ v, update }) {
       </Cmd>
       <Essentials
         items={[
-          ['Resource group', 'harbor-integration-rg'], ['Location', v.region], ['Subscription', 'Harbor Lab'], ['Vault URI', `https://${v.name}.vault.azure.net/`], ['Pricing tier', 'Standard'],
+          ['Resource group', 'brightmart-integration-rg'], ['Location', v.region], ['Subscription', 'Brightmart Lab'], ['Vault URI', `https://${v.name}.vault.azure.net/`], ['Pricing tier', 'Standard'],
           ['Soft delete', `Enabled, ${v.softDelete} days`], ['Permission model', v.model], ['Status', v.up ? 'Available' : 'Unavailable (lab outage)'], ['Secrets', String(Object.keys(v.secrets).length)],
         ]}
       />

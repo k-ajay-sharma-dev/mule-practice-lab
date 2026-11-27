@@ -1,4 +1,4 @@
-// Snowflake: account HARBOR-DW with virtual warehouses (size, AUTO_SUSPEND, AUTO_RESUME, credits), resource monitors,
+// Snowflake: account BRIGHTMART-DW with virtual warehouses (size, AUTO_SUSPEND, AUTO_RESUME, credits), resource monitors,
 // databases, schemas, tables and views, internal and external stages with files, file formats, COPY INTO with ON_ERROR,
 // VALIDATION_MODE and the load metadata, MERGE, INSERT, UPDATE, DELETE, roles with grants, key pair users, the query
 // history with the Snowflake error codes and the copy history. A small SQL parser of its own runs the statements.
@@ -10,7 +10,7 @@
 //   warehouses: { LOAD_WH: { size, state: 'STARTED' | 'SUSPENDED', autoSuspend (seconds, 0 = never), autoResume,
 //                 monitor, credits, startedAt, lastUsed, suspendedBy, owner, log: [{ t, text }] } },
 //   monitors: { LOAD_MONITOR: { quota, used, frequency, triggers: [{ pct, action }], fired: [pct] } },
-//   dbs: { HARBOR_DW: { owner, schemas: { RAW: { tables: { ORDERS: { cols: [{ name, type }], rows: [[...]], owner } },
+//   dbs: { BRIGHTMART_DW: { owner, schemas: { RAW: { tables: { ORDERS: { cols: [{ name, type }], rows: [[...]], owner } },
 //          views: { V: { sql, owner } }, stages: { S: { url, format, inline, files: { name: { content, size, md5, t } } } },
 //          formats: { F: { type, skipHeader, delimiter, enclosedBy, nullIf, emptyAsNull, mismatch, trim, skipBlank } } } } } },
 //   roles: { LOADER: { grants: [{ priv, kind, name }], roles: [granted role names], builtin } },
@@ -21,7 +21,7 @@
 //   copies: [{ t, table, stage, file, status, parsed, loaded, errors, first, user, qid }]
 //   rejects: { 'DB.SCHEMA.TABLE': { qid, session, rows: [error rows] } }  (what VALIDATE returns for the last load)
 //   logins: [{ t, user, client, ok, text }]
-//   ws: { role, wh, db, schema, text } (the Snowsight worksheet of HARBOR_ADMIN)
+//   ws: { role, wh, db, schema, text } (the Snowsight worksheet of BRIGHTMART_ADMIN)
 //
 // ctx.snowflake (see snowflakeCtx) takes the connector configuration as cfg: { account, user, privateKey, password,
 // role, warehouse, database, schema } (cfgOf builds it from the snowflake.* properties of an app).
@@ -31,10 +31,10 @@
 //                                   JDBC driver does. { ok, status: 'UPLOADED' | 'SKIPPED', target, ms }.
 // Lab-made error types: SNOWFLAKE:CONNECTIVITY for a failed login, SNOWFLAKE:QUERY_EXECUTION for a failed statement.
 
-export const ACCOUNT = 'HARBOR-DW'
-export const SF_HOST = 'harbor-dw.snowflakecomputing.com'
-export const ADMIN_USER = 'HARBOR_ADMIN'
-export const OPS_MAIL = 'ops@harbor.example'
+export const ACCOUNT = 'BRIGHTMART-DW'
+export const SF_HOST = 'brightmart-dw.snowflakecomputing.com'
+export const ADMIN_USER = 'BRIGHTMART_ADMIN'
+export const OPS_MAIL = 'ops@brightmart.example'
 const MINUTE = 60000
 const DAY = 1440 * MINUTE
 const BASE = Date.UTC(2026, 10, 2)
@@ -145,50 +145,50 @@ export function newSnowflake(now = 0) {
 const KEYS = Object.keys(newSnowflake())
 export const isFilled = (y) => Boolean(y?.account)
 
-// The account of the open console: the nightly orders load of Harbor with its role, service user, stage and format.
+// The account of the open console: the nightly orders load of Brightmart with its role, service user, stage and format.
 export const MULE_ETL_KEY = 'lab-only-private-key-mule-etl'
 // the connector properties of the apps that load as MULE_ETL; the private key goes in as a protected property
-export const ETL_PROPS = { 'snowflake.account': 'harbor-dw', 'snowflake.user': 'MULE_ETL', 'snowflake.role': 'LOADER', 'snowflake.warehouse': 'LOAD_WH', 'snowflake.database': 'HARBOR_DW', 'snowflake.schema': 'RAW' }
+export const ETL_PROPS = { 'snowflake.account': 'brightmart-dw', 'snowflake.user': 'MULE_ETL', 'snowflake.role': 'LOADER', 'snowflake.warehouse': 'LOAD_WH', 'snowflake.database': 'BRIGHTMART_DW', 'snowflake.schema': 'RAW' }
 export const ETL_SECRETS = { 'snowflake.privateKey': MULE_ETL_KEY }
 export function defaultSnowflakeSystem(now = 0) {
-  const y = harborOrders(newSnowflake(now), now)
-  addFile(y, 'HARBOR_DW.RAW.ORDERS_STAGE', 'orders_20261101.csv', ordersCsv(70001, '2026-11-01', 6), now - 30 * 60 * MINUTE)
-  addFile(y, 'HARBOR_DW.RAW.ORDERS_STAGE', 'orders_20261102.csv', ordersCsv(70007, '2026-11-02', 6), now - 6 * 60 * MINUTE)
-  script(y, 'COPY INTO HARBOR_DW.RAW.ORDERS FROM @HARBOR_DW.RAW.ORDERS_STAGE', now - 5 * 60 * MINUTE, { user: 'MULE_ETL', role: 'LOADER' })
+  const y = brightmartOrders(newSnowflake(now), now)
+  addFile(y, 'BRIGHTMART_DW.RAW.ORDERS_STAGE', 'orders_20261101.csv', ordersCsv(70001, '2026-11-01', 6), now - 30 * 60 * MINUTE)
+  addFile(y, 'BRIGHTMART_DW.RAW.ORDERS_STAGE', 'orders_20261102.csv', ordersCsv(70007, '2026-11-02', 6), now - 6 * 60 * MINUTE)
+  script(y, 'COPY INTO BRIGHTMART_DW.RAW.ORDERS FROM @BRIGHTMART_DW.RAW.ORDERS_STAGE', now - 5 * 60 * MINUTE, { user: 'MULE_ETL', role: 'LOADER' })
   y.monitors.LOAD_MONITOR.used = 12.4
   return y
 }
-// The Harbor orders load: database HARBOR_DW, schema RAW, warehouse LOAD_WH under LOAD_MONITOR, table ORDERS, format
+// The Brightmart orders load: database BRIGHTMART_DW, schema RAW, warehouse LOAD_WH under LOAD_MONITOR, table ORDERS, format
 // CSV_ORDERS, stage ORDERS_STAGE, role LOADER and the service user MULE_ETL with its key pair. No files yet.
-export function harborOrders(y, now = 0) {
+export function brightmartOrders(y, now = 0) {
   script(
     y,
-    `CREATE DATABASE HARBOR_DW; CREATE SCHEMA HARBOR_DW.RAW;
+    `CREATE DATABASE BRIGHTMART_DW; CREATE SCHEMA BRIGHTMART_DW.RAW;
     CREATE WAREHOUSE LOAD_WH WITH WAREHOUSE_SIZE = 'XSMALL' AUTO_SUSPEND = 60 AUTO_RESUME = TRUE INITIALLY_SUSPENDED = TRUE;
     CREATE RESOURCE MONITOR LOAD_MONITOR WITH CREDIT_QUOTA = 100 FREQUENCY = MONTHLY TRIGGERS ON 80 PERCENT DO NOTIFY ON 100 PERCENT DO SUSPEND;
     ALTER WAREHOUSE LOAD_WH SET RESOURCE_MONITOR = LOAD_MONITOR;
-    CREATE TABLE HARBOR_DW.RAW.ORDERS (ORDER_ID NUMBER(10,0), ORDER_DATE DATE, CUSTOMER_ID VARCHAR(20), STORE VARCHAR(10), AMOUNT NUMBER(10,2));
-    CREATE FILE FORMAT HARBOR_DW.RAW.CSV_ORDERS TYPE = CSV SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '"';
-    CREATE STAGE HARBOR_DW.RAW.ORDERS_STAGE FILE_FORMAT = (FORMAT_NAME = 'HARBOR_DW.RAW.CSV_ORDERS');
+    CREATE TABLE BRIGHTMART_DW.RAW.ORDERS (ORDER_ID NUMBER(10,0), ORDER_DATE DATE, CUSTOMER_ID VARCHAR(20), STORE VARCHAR(10), AMOUNT NUMBER(10,2));
+    CREATE FILE FORMAT BRIGHTMART_DW.RAW.CSV_ORDERS TYPE = CSV SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '"';
+    CREATE STAGE BRIGHTMART_DW.RAW.ORDERS_STAGE FILE_FORMAT = (FORMAT_NAME = 'BRIGHTMART_DW.RAW.CSV_ORDERS');
     CREATE ROLE LOADER;
-    GRANT USAGE ON WAREHOUSE LOAD_WH TO ROLE LOADER; GRANT USAGE ON DATABASE HARBOR_DW TO ROLE LOADER; GRANT USAGE ON SCHEMA HARBOR_DW.RAW TO ROLE LOADER;
-    GRANT SELECT, INSERT ON TABLE HARBOR_DW.RAW.ORDERS TO ROLE LOADER; GRANT READ, WRITE ON STAGE HARBOR_DW.RAW.ORDERS_STAGE TO ROLE LOADER;
-    GRANT USAGE ON FILE FORMAT HARBOR_DW.RAW.CSV_ORDERS TO ROLE LOADER;
-    CREATE USER MULE_ETL TYPE = SERVICE DEFAULT_ROLE = LOADER DEFAULT_WAREHOUSE = LOAD_WH DEFAULT_NAMESPACE = 'HARBOR_DW.RAW' RSA_PUBLIC_KEY = '${publicKeyOf(MULE_ETL_KEY)}';
+    GRANT USAGE ON WAREHOUSE LOAD_WH TO ROLE LOADER; GRANT USAGE ON DATABASE BRIGHTMART_DW TO ROLE LOADER; GRANT USAGE ON SCHEMA BRIGHTMART_DW.RAW TO ROLE LOADER;
+    GRANT SELECT, INSERT ON TABLE BRIGHTMART_DW.RAW.ORDERS TO ROLE LOADER; GRANT READ, WRITE ON STAGE BRIGHTMART_DW.RAW.ORDERS_STAGE TO ROLE LOADER;
+    GRANT USAGE ON FILE FORMAT BRIGHTMART_DW.RAW.CSV_ORDERS TO ROLE LOADER;
+    CREATE USER MULE_ETL TYPE = SERVICE DEFAULT_ROLE = LOADER DEFAULT_WAREHOUSE = LOAD_WH DEFAULT_NAMESPACE = 'BRIGHTMART_DW.RAW' RSA_PUBLIC_KEY = '${publicKeyOf(MULE_ETL_KEY)}';
     GRANT ROLE LOADER TO USER MULE_ETL;
     CREATE USER PRIYA_DATA TYPE = PERSON PASSWORD = 'lab-person-password' DEFAULT_ROLE = SYSADMIN DEFAULT_WAREHOUSE = COMPUTE_WH;
     GRANT ROLE SYSADMIN TO USER PRIYA_DATA;`,
     now,
   )
-  y.ws = { role: 'ACCOUNTADMIN', wh: 'COMPUTE_WH', db: 'HARBOR_DW', schema: 'RAW', text: '' }
+  y.ws = { role: 'ACCOUNTADMIN', wh: 'COMPUTE_WH', db: 'BRIGHTMART_DW', schema: 'RAW', text: '' }
   return y
 }
 // runs SQL as a person of the lab story, so it shows in Query History
-export function asUser(y, sql, now, { user = 'PRIYA_DATA', role = 'SYSADMIN', wh = 'COMPUTE_WH', db = 'HARBOR_DW', schema = 'RAW', client = 'Snowsight' } = {}) {
+export function asUser(y, sql, now, { user = 'PRIYA_DATA', role = 'SYSADMIN', wh = 'COMPUTE_WH', db = 'BRIGHTMART_DW', schema = 'RAW', client = 'Snowsight' } = {}) {
   return runText(y, { y, now, user, role, wh, db, schema, client, session: `${user}/story` }, sql)
 }
 
-// lab-made sample data: Harbor web shop orders as the order system exports them
+// lab-made sample data: Brightmart web shop orders as the order system exports them
 const STORES = ['WEB', 'APP', 'S101', 'S102']
 export const ordersCsv = (first, date, n) => ['ORDER_ID,ORDER_DATE,CUSTOMER_ID,STORE,AMOUNT', ...Array.from({ length: n }, (_, i) => `${first + i},${date},C-${1000 + ((first + i) % 37)},${STORES[(first + i) % 4]},${(19.5 + ((first + i) * 7) % 180).toFixed(2)}`)].join('\n') + '\n'
 

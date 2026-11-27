@@ -6,7 +6,7 @@ import { NAME, PM_FLOW } from './b2b-edi-850.pkg.js'
 
 const PARTNER = 'northwind'
 const line = (qty, uom, price, part, item, desc, migrated = false) => ({ qty, uom, price, part, item, desc, migrated })
-const MUG = (q) => line(q, 'EA', '12.50', 'NW-1001', 'H-100', 'Harbor mug 350 ml', true)
+const MUG = (q) => line(q, 'EA', '12.50', 'NW-1001', 'H-100', 'Brightmart mug 350 ml', true)
 const CUPS = (q) => line(q, 'CA', '48.00', 'NW-2040', 'H-200', 'Paper cups case of 50')
 const TEA = (q) => line(q, 'BX', '19.90', 'NW-3300', 'H-300', 'Tea bags box of 100')
 const LIDS = (q) => line(q, 'PK', '6.40', 'NW-2045', 'H-210', 'Cup lids pack of 100')
@@ -30,7 +30,7 @@ const lab = {
   title: 'Purchase orders rejected since the new ERP',
   minutes: 25,
   scenario:
-    'Northwind Supplies sends Harbor its purchase orders as X12 850 over AS2, and Partner Manager turns each one into an order through the flow Northwind 850 to Order API. Northwind moved to a new ERP last night. It is Tuesday 09:00 and the order desk has no Northwind order today. Northwind writes that every 850 since 07:00 came back with a 997 that says R. Nobody at Harbor saw those 997s.',
+    'Northwind Supplies sends Brightmart its purchase orders as X12 850 over AS2, and Partner Manager turns each one into an order through the flow Northwind 850 to Order API. Northwind moved to a new ERP last night. It is Tuesday 09:00 and the order desk has no Northwind order today. Northwind writes that every 850 since 07:00 came back with a 997 that says R. Nobody at Brightmart saw those 997s.',
   start() {
     const now = at(1, 7)
     const s = newPlatform({
@@ -38,8 +38,8 @@ const lab = {
       apps: [newApp(NAME, { props: { 'b2b.flow': PM_FLOW }, store: {} })],
       b2b: b2b(now),
       mail: [
-        { t: at(1, 8, 40), to: OPS, subject: 'Your 997s reject all our 850s', body: 'Hello Harbor, since our new ERP went live this morning every purchase order we send comes back with a 997 that has AK9 R. We did not change anything in the EDI setup. Can you tell us what is wrong? Northwind EDI team', source: 'Northwind Supplies' },
-        { t: at(1, 8, 50), to: OPS, subject: 'No Northwind orders today', body: 'The order system has not one Northwind order since yesterday. They say they sent about ten. Harbor order desk', source: 'Harbor order desk' },
+        { t: at(1, 8, 40), to: OPS, subject: 'Your 997s reject all our 850s', body: 'Hello Brightmart, since our new ERP went live this morning every purchase order we send comes back with a 997 that has AK9 R. We did not change anything in the EDI setup. Can you tell us what is wrong? Northwind EDI team', source: 'Northwind Supplies' },
+        { t: at(1, 8, 50), to: OPS, subject: 'No Northwind orders today', body: 'The order system has not one Northwind order since yesterday. They say they sent about ten. Brightmart order desk', source: 'Brightmart order desk' },
       ],
     })
     return until(s, at(1, 9))
@@ -51,9 +51,9 @@ const lab = {
       'What the 997s reject',
       'What do the 997s tell Northwind?',
       [
-        'The AS2 certificate of Northwind expired, so Harbor could not decrypt the messages',
-        'SE01 says 14 segments but the set has 15 (AK5 code 4), and PO103 holds "EA " with a trailing space (AK4 code 5, too long) or BX, a code that is not in the list Harbor has for Northwind (AK4 code 7)',
-        'Each interchange reuses an ISA control number, so Harbor rejects it as a duplicate',
+        'The AS2 certificate of Northwind expired, so Brightmart could not decrypt the messages',
+        'SE01 says 14 segments but the set has 15 (AK5 code 4), and PO103 holds "EA " with a trailing space (AK4 code 5, too long) or BX, a code that is not in the list Brightmart has for Northwind (AK4 code 7)',
+        'Each interchange reuses an ISA control number, so Brightmart rejects it as a duplicate',
         'The order intake app is stopped, so Partner Manager rejects the orders',
       ],
       1,
@@ -61,10 +61,10 @@ const lab = {
     ),
     ask(
       'What a 997 says',
-      'Northwind asks whether a 997 with AK9 A means Harbor accepted the order. What does a 997 say, and what does it not say?',
+      'Northwind asks whether a 997 with AK9 A means Brightmart accepted the order. What does a 997 say, and what does it not say?',
       [
         'Yes. A 997 with A means the order is accepted and will be fulfilled',
-        'It says the functional group arrived and passed or failed the X12 syntax checks: envelopes, counts, mandatory elements and code values. It says nothing about the business: price, stock or whether Harbor takes the order. That answer is the 855',
+        'It says the functional group arrived and passed or failed the X12 syntax checks: envelopes, counts, mandatory elements and code values. It says nothing about the business: price, stock or whether Brightmart takes the order. That answer is the 855',
         'It says the AS2 message was decrypted and its signature was valid',
         'It says the order was created in the order system',
       ],
@@ -96,7 +96,7 @@ const lab = {
         'Without validation no 997 goes out at all',
       ],
       1,
-      'Validation at the edge is the contract with the partner. The fix is to agree what is valid: the partner corrects what breaks the standard or the guide, and Harbor accepts what is valid X12 and makes business sense, such as a new unit code, with a mapping for it. Turning checks off moves the failure to a place where nobody tells the partner.',
+      'Validation at the edge is the contract with the partner. The fix is to agree what is valid: the partner corrects what breaks the standard or the guide, and Brightmart accepts what is valid X12 and makes business sense, such as a new unit code, with a mapping for it. Turning checks off moves the failure to a place where nobody tells the partner.',
     ),
     {
       title: 'Get the lost orders again',
@@ -104,7 +104,7 @@ const lab = {
       done: (s) => flow(s)?.validate === true && failedRefs(s).length > 0 && failedRefs(s).every((r) => orders(s)[r]),
     },
   ],
-  why: 'X12 validation in Partner Manager checks the envelopes, the segment count in SE01, mandatory elements and code values, and returns a 997 that names each error with AK3, AK4 and AK5. A 997 is about syntax only: the business answer is the 855. Northwind\'s new ERP broke the count and padded unit codes, and also sent BX, a valid X12 code that Harbor had not listed. The fix is agreement: the partner corrects its side, Harbor adds the valid code and a mapping for it, validation stays on, and an alert makes a rejected 997 visible. In the lab the partner fixes its ERP when you raise the issue, a resend comes three minutes after you request it, and the target app takes its orders from the flow instead of receiving an HTTP call.',
+  why: 'X12 validation in Partner Manager checks the envelopes, the segment count in SE01, mandatory elements and code values, and returns a 997 that names each error with AK3, AK4 and AK5. A 997 is about syntax only: the business answer is the 855. Northwind\'s new ERP broke the count and padded unit codes, and also sent BX, a valid X12 code that Brightmart had not listed. The fix is agreement: the partner corrects its side, Brightmart adds the valid code and a mapping for it, validation stays on, and an alert makes a rejected 997 visible. In the lab the partner fixes its ERP when you raise the issue, a resend comes three minutes after you request it, and the target app takes its orders from the flow instead of receiving an HTTP call.',
   docs: 'https://docs.mulesoft.com/partner-manager/latest/',
   solve(start) {
     let s = mark(mark(start, 'b2b:tracking'), 'b2b:raw')

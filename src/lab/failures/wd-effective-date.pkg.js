@@ -4,7 +4,7 @@
 import { info, muleError, needs, warn } from '../platform-log.js'
 import { parseWd, wdConfig, wdDate, wdTime } from '../platform-workday.js'
 
-export const ACCESS = 'harbor-wd-access-sync'
+export const ACCESS = 'brightmart-wd-access-sync'
 export const ACCESS_FLOW = 'access-delta-flow'
 const el = { flow: ACCESS_FLOW, at: 1, name: 'Get worker events', dsl: '<http:request method="GET" doc:name="Get worker events" config-ref="Workday_RaaS_Config" path="/${raas.owner}/${raas.report}">' }
 const keep = (list, item, n = 80) => [...(list ?? []), item].slice(-n)

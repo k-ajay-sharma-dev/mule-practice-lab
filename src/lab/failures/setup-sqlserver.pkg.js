@@ -3,10 +3,10 @@
 // in the Databases console.
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const DB = 'harbor-sql'
-export const NAME = 'harbor-mkt-orders-sapi'
+export const DB = 'brightmart-sql'
+export const NAME = 'brightmart-mkt-orders-sapi'
 export const JAR = `${NAME}-1.0.0-mule-application.jar`
-export const DATABASE = 'HarborMarketplace'
+export const DATABASE = 'BrightmartMarketplace'
 export const TABLE = 'dbo.orders'
 const FLOW = 'post:\\orders:application\\json:mkt-orders-config'
 const keep = (list, item, n = 30) => [...(list ?? []), item].slice(-n)
@@ -19,7 +19,7 @@ const failed = (r, at, status = 500) => ({ status, ms: (r.ms ?? 30) + 20, error:
 
 export const PACKAGES = {
   [NAME]: {
-    note: `Marketplace orders into SQL Server ${DB}. POST /orders with {"marketplaceRef","customerId","total"} inserts one row into ${TABLE} with a new Harbor order_id. A duplicate key error (2601 or 2627) is caught by on-error-continue and answered 409 with the stored order. GET /orders/{marketplaceRef} reads one order, GET /health runs a SELECT TOP 1 on the table. Properties: db.host, db.port, db.database, db.user, db.password (protected), db.pool.max (maxPoolSize), db.queryTimeout (seconds).`,
+    note: `Marketplace orders into SQL Server ${DB}. POST /orders with {"marketplaceRef","customerId","total"} inserts one row into ${TABLE} with a new Brightmart order_id. A duplicate key error (2601 or 2627) is caught by on-error-continue and answered 409 with the stored order. GET /orders/{marketplaceRef} reads one order, GET /health runs a SELECT TOP 1 on the table. Properties: db.host, db.port, db.database, db.user, db.password (protected), db.pool.max (maxPoolSize), db.queryTimeout (seconds).`,
     sample: { method: 'GET', path: '/health' },
     boot: needs('db.host', 'db.port', 'db.database', 'db.user', 'db.password'),
     handle(ctx, req) {

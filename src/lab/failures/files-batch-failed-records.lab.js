@@ -6,7 +6,7 @@ import { BAD, FILE, FLOW, HOST, limitOk, settingsOf, TOTAL } from './files-batch
 
 const NAME = 'loyalty-members-load'
 const PROPS = { 'sftp.host': HOST, 'sftp.user': 'mule_stock', 'batch.maxFailedRecords': '-1', 'batch.blockSize': '100', 'batch.failuresStep': 'none', 'batch.onComplete': 'none' }
-const SAMPLE = 'memberId,name,email,store,joined\nLM-040001,Ana Ruiz,ana.ruiz@harbor-mail.example,014,2026-10-30\nLM-040002,Tom Berg,tom.berg@harbor-mail.example,021,2026-10-31\n'
+const SAMPLE = 'memberId,name,email,store,joined\nLM-040001,Ana Ruiz,ana.ruiz@brightmart-mail.example,014,2026-10-30\nLM-040002,Tom Berg,tom.berg@brightmart-mail.example,021,2026-10-31\n'
 
 const number = (n) => n.toLocaleString('en-US')
 const loader = (s) => app(s, NAME)
@@ -22,7 +22,7 @@ const lab = {
   title: 'A batch job that loses members without a word',
   minutes: 20,
   scenario:
-    'loyalty-members-load is a Batch Job that loads the members of the Harbor Outfitters loyalty card from /in/loyalty-members.csv on sftp.harbor.lab into the CRM at 01:30. Last month the job stopped at the first bad record each night, so a developer set maxFailedRecords to -1. Since then every run is green. Now new members call the stores because their card has no points. Make every failed member visible, keep them in a file the CRM team can work from, and keep the good members loading.',
+    'loyalty-members-load is a Batch Job that loads the members of the Brightmart Outfitters loyalty card from /in/loyalty-members.csv on sftp.brightmart.lab into the CRM at 01:30. Last month the job stopped at the first bad record each night, so a developer set maxFailedRecords to -1. Since then every run is green. Now new members call the stores because their card has no points. Make every failed member visible, keep them in a file the CRM team can work from, and keep the good members loading.',
   start() {
     let s = newPlatform({
       clock: at(0, 12),
@@ -34,7 +34,7 @@ const lab = {
           to: OPS,
           subject: 'New members without points',
           body: 'For about a month, members who joined in a store tell us their card shows no points and they are not in the CRM. The stores say the sign up worked. Your load job is green every night. Can you tell us which members are missing, and why?',
-          source: 'Harbor Outfitters Loyalty Team',
+          source: 'Brightmart Outfitters Loyalty Team',
         },
       ],
     })

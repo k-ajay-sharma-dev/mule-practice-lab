@@ -39,14 +39,14 @@ const lab = {
   group: 'More production failures',
   title: 'Duplicate orders after a redeploy',
   minutes: 15,
-  scenario: 'It is 10:00. order-sync-poll reads new orders from SQL Server every 5 minutes and creates them in the ERP of Harbor Foods. It keeps the last order ID it sent as a watermark in an object store. At 09:32 a teammate redeployed it to change a timeout. Now the ERP team says orders arrived twice.',
+  scenario: 'It is 10:00. order-sync-poll reads new orders from SQL Server every 5 minutes and creates them in the ERP of Brightmart. It keeps the last order ID it sent as a watermark in an object store. At 09:32 a teammate redeployed it to change a timeout. Now the ERP team says orders arrived twice.',
   start() {
     const startAt = at(1, 6)
     let s = newPlatform({
       clock: startAt,
       apps: [
         newApp(NAME, {
-          props: { 'db.host': 'sql01.harbor.lab', 'erp.baseUrl': 'https://erp.harbor.lab/v2', 'erp.timeout': '10000', 'watermark.persistent': 'false', 'idempotency.enabled': 'false' },
+          props: { 'db.host': 'sql01.brightmart.lab', 'erp.baseUrl': 'https://erp.brightmart.lab/v2', 'erp.timeout': '10000', 'watermark.persistent': 'false', 'idempotency.enabled': 'false' },
           store: { kind: 'memory', watermark: orderId(Math.floor(startAt / ORDER_EVERY)), sent: [] },
         }),
       ],

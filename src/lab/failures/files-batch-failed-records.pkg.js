@@ -6,7 +6,7 @@ import { instanceIdOf } from '../platform-batch.js'
 const NAME = 'loyalty-members-load'
 const JOB = 'loyalty-members-load'
 export const FLOW = 'loyalty-members-flow'
-export const HOST = 'sftp.harbor.lab'
+export const HOST = 'sftp.brightmart.lab'
 export const FILE = '/in/loyalty-members.csv'
 export const TOTAL = 18400 // members in the nightly file
 export const BAD = 37 // members with an email that cannot be valid
@@ -21,7 +21,7 @@ const dayOf = (now) => new Date(BASE + now).toISOString().slice(0, 10)
 export const errorFileOf = (now) => `/error/loyalty-members-${dayOf(now)}-failed.csv`
 // the rows of the bad members, the first one in the third block of 100
 const ROWS = Array.from({ length: BAD }, (_, i) => 212 + i * 493)
-const badMember = (row, i) => ({ row, member: `LM-${String(40000 + row).padStart(6, '0')}`, email: i % 3 === 0 ? '' : i % 3 === 1 ? `member${row}@` : `member ${row}@harbor-mail.example`, error: i % 3 === 0 ? 'email is required' : 'email is not a valid address' })
+const badMember = (row, i) => ({ row, member: `LM-${String(40000 + row).padStart(6, '0')}`, email: i % 3 === 0 ? '' : i % 3 === 1 ? `member${row}@` : `member ${row}@brightmart-mail.example`, error: i % 3 === 0 ? 'email is required' : 'email is not a valid address' })
 
 export function settingsOf(props) {
   const max = int(props['batch.maxFailedRecords'], 0)
@@ -37,7 +37,7 @@ export const limitOk = (set) => set.max === -1 || set.max >= BAD
 
 export const PACKAGES = {
   [NAME]: {
-    note: 'A Batch Job that loads the loyalty members of Harbor Outfitters from /in/loyalty-members.csv on sftp.harbor.lab into the CRM at 01:30. Step validate-and-map checks each member, step upsert-crm sends bulk upserts with a Batch Aggregator of 200. batch.maxFailedRecords (0 is the default, -1 has no limit) and batch.blockSize are attributes of the Batch Job. batch.failuresStep error-file adds the step collect-failures with acceptPolicy ONLY_FAILURES, which writes the failed records to /error. batch.onComplete report logs the totals in On Complete and writes a summary to /error.',
+    note: 'A Batch Job that loads the loyalty members of Brightmart Outfitters from /in/loyalty-members.csv on sftp.brightmart.lab into the CRM at 01:30. Step validate-and-map checks each member, step upsert-crm sends bulk upserts with a Batch Aggregator of 200. batch.maxFailedRecords (0 is the default, -1 has no limit) and batch.blockSize are attributes of the Batch Job. batch.failuresStep error-file adds the step collect-failures with acceptPolicy ONLY_FAILURES, which writes the failed records to /error. batch.onComplete report logs the totals in On Complete and writes a summary to /error.',
     boot: needs('sftp.host', 'sftp.user', 'sftp.password', 'batch.maxFailedRecords', 'batch.blockSize'),
     schedules: [{ flow: FLOW, type: 'cron', value: '0 30 1 * * ?', tz: 'UTC', enabled: true }],
     run: {

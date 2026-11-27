@@ -1,7 +1,7 @@
 // The sample application of the files-sftp-archive lab. Imports only platform-log.js, so the engine can load it without a cycle.
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const HOST = 'sftp.harbor.lab'
+export const HOST = 'sftp.brightmart.lab'
 export const NAME = 'stock-archive-poll'
 export const FLOW = 'stock-archive-flow'
 const BASE = Date.UTC(2026, 10, 2) // the first day of the lab clock

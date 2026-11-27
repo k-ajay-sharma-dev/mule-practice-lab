@@ -1,14 +1,14 @@
 // The sample application of the wd-setup lab. Imports only platform-log.js and the import free Workday engine, so the
-// engine can load it without a cycle. It feeds the workers of Workday to the identity hub of Harbor.
+// engine can load it without a cycle. It feeds the workers of Workday to the identity hub of Brightmart.
 import { info, muleError, needs, warn } from '../platform-log.js'
 import { wdConfig, wdTime } from '../platform-workday.js'
 
-export const FEED = 'harbor-wd-worker-feed'
+export const FEED = 'brightmart-wd-worker-feed'
 export const FEED_JAR = `${FEED}-1.0.0-mule-application.jar`
 export const FEED_FLOW = 'worker-feed-flow'
 const el = {
   raas: { flow: FEED_FLOW, at: 1, name: 'Get worker feed', dsl: '<http:request method="GET" doc:name="Get worker feed" config-ref="Workday_RaaS_Config" path="/${raas.owner}/${raas.report}">' },
-  health: { flow: 'get:\\health:harbor-wd-worker-feed-config', at: 1, name: 'Get_Workers', dsl: '<wsc:consume doc:name="Get_Workers" config-ref="Workday_Human_Resources" operation="Get_Workers">' },
+  health: { flow: 'get:\\health:brightmart-wd-worker-feed-config', at: 1, name: 'Get_Workers', dsl: '<wsc:consume doc:name="Get_Workers" config-ref="Workday_Human_Resources" operation="Get_Workers">' },
 }
 const keep = (list, items, n = 20) => [...(list ?? []), ...items].slice(-n)
 

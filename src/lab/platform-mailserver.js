@@ -2,9 +2,9 @@
 // Pure and import free. Lives in state.mailServer.
 //
 // State shape (state.mailServer):
-//   host, up, domains: ['harbor.example'], maxSize (bytes, the Postfix message_size_limit),
+//   host, up, domains: ['brightmart.example'], maxSize (bytes, the Postfix message_size_limit),
 //   ports: { '25': { proto, tls: 'STARTTLS' | 'Implicit TLS', tlsRequired, enabled, use }, ... },
-//   accounts: { 'orders@harbor.example': { name, password, appPasswords: [{ name, value }], appOnly, quota, uidNext,
+//   accounts: { 'orders@brightmart.example': { name, password, appPasswords: [{ name, value }], appOnly, quota, uidNext,
 //     folders: { INBOX: [message], Sent, Junk, Processed, Error } } },
 //   outbound: [mail relayed to other domains], feeds: [mail that arrives from outside on a timer], log: [protocol lines], n
 // A message: { uid, messageId, from, to: [], cc: [], subject, date, flags: ['\\Seen', ...], size, text, html, attachments:
@@ -15,8 +15,10 @@
 // port, user, password, tls }. tls on smtp, imap or pop3 means STARTTLS (mail.smtp.starttls.enable=true).
 // A failure returns { ok: false, type: 'EMAIL:...', error, reply } with the Mule error type and the server reply.
 
-export const MAIL_HOST = 'mail.harbor.lab'
-export const LOCAL_DOMAIN = 'harbor.example'
+export const MAIL_HOST = 'mail.brightmart.lab'
+export const LOCAL_DOMAIN = 'brightmart.example'
+// the domain of the mail provider of Brightmart's customers (lab made, see sendMail)
+export const CUSTOMER_DOMAIN = 'mail.example'
 export const MB = 1048576
 export const DEFAULT_SIZE_LIMIT = 10240000 // the Postfix default of message_size_limit, for mail that apps and users send
 export const SYSTEM_FOLDERS = ['INBOX', 'Sent', 'Junk', 'Processed', 'Error']
@@ -280,6 +282,9 @@ function sendMail(y, cfg, message, now, client) {
     else {
       push(y.outbound, { t: now, queueId, from, to: r, subject: msg.subject, size: msg.size, attachments: msg.attachments.map(({ content, ...a }) => a), client }, MAX_OUT) // eslint-disable-line no-unused-vars
       logLine(y, now, 'SMTP', client, '', `${queueId}: to=<${r}>, relay=mx.${domainOf(r)}[192.0.2.40]:25, status=sent (250 2.0.0 Ok)`)
+      // Lab made: the mail provider of the customers runs next to this server, so the webmail can open the mailbox of a
+      // customer and show what the customer received. The mailbox is made with the first mail to it.
+      if (domainOf(r) === CUSTOMER_DOMAIN) store(y, (y.accounts[r] ??= newAccount(`Customer ${r.split('@')[0]}`, 'Customer-2611', { folders: { INBOX: [] } })), 'INBOX', { ...msg, flags: [] }, now)
     }
   }
   return { ok: true, queueId, messageId: msg.messageId, size: msg.size, reply: `250 2.0.0 Ok: queued as ${queueId}` }
@@ -437,18 +442,18 @@ export const samplePdf = (name, size) => attachment(name, 'application/pdf', siz
 export function defaultMailServer(now = 0) {
   const y = newMailServer({
     accounts: {
-      'orders@harbor.example': newAccount('Order desk', 'Orders-Desk-2611', { appPasswords: [{ name: 'order-mail-intake', value: 'ordr-mule-7c41' }] }),
-      'invoices@harbor.example': newAccount('Supplier invoices', 'Invoices-2611', { appPasswords: [{ name: 'invoice-mail-intake', value: 'invc-mule-52d8' }], quota: 200 * MB }),
-      'ap-team@harbor.example': newAccount('Accounts payable', 'Ap-Team-2611', { quota: 200 * MB }),
-      'no-reply@harbor.example': newAccount('Harbor no reply', 'No-Reply-2611', { appOnly: true, appPasswords: [{ name: 'apps', value: 'nrpl-mule-0b93' }] }),
-      'ops@harbor.example': newAccount('Operations', 'Ops-2611'),
+      'orders@brightmart.example': newAccount('Order desk', 'Orders-Desk-2611', { appPasswords: [{ name: 'order-mail-intake', value: 'ordr-mule-7c41' }] }),
+      'invoices@brightmart.example': newAccount('Supplier invoices', 'Invoices-2611', { appPasswords: [{ name: 'invoice-mail-intake', value: 'invc-mule-52d8' }], quota: 200 * MB }),
+      'ap-team@brightmart.example': newAccount('Accounts payable', 'Ap-Team-2611', { quota: 200 * MB }),
+      'no-reply@brightmart.example': newAccount('Brightmart no reply', 'No-Reply-2611', { appOnly: true, appPasswords: [{ name: 'apps', value: 'nrpl-mule-0b93' }] }),
+      'ops@brightmart.example': newAccount('Operations', 'Ops-2611'),
     },
   })
   const put = (to, m, flags = []) => store(y, y.accounts[to], 'INBOX', mailMsg({ ...m, to, flags, date: m.date ?? now - 40 * MINUTE }), now)
-  put('orders@harbor.example', { from: 'Harbor Bistro <buyer@harbor-bistro.example>', subject: 'Order PO-5101', text: 'PO: PO-5101\nItem: H-100\nQty: 12\nCustomer: Harbor Bistro' }, ['\\Seen'])
-  put('orders@harbor.example', { from: 'Quay Deli <orders@quay-deli.example>', subject: 'Order PO-5102', text: 'PO: PO-5102\nItem: H-300\nQty: 4\nCustomer: Quay Deli', date: now - 10 * MINUTE })
-  put('invoices@harbor.example', { from: 'Quayside Paper <billing@quayside-paper.example>', subject: 'Invoice INV-20931', text: 'Please find our invoice INV-20931 attached.', attachments: [samplePdf('INV-20931.pdf', 421888)] })
-  put('ops@harbor.example', { from: 'Mail team <postmaster@harbor.example>', subject: 'Port 25 is for incoming mail only', text: 'Apps send on port 587 with STARTTLS or on 465 with SMTPS. Port 25 is for mail between servers.', date: now - 2 * HOUR }, ['\\Seen', '\\Flagged'])
+  put('orders@brightmart.example', { from: 'Maple Bistro <buyer@brightmart-bistro.example>', subject: 'Order PO-5101', text: 'PO: PO-5101\nItem: H-100\nQty: 12\nCustomer: Maple Bistro' }, ['\\Seen'])
+  put('orders@brightmart.example', { from: 'Quay Deli <orders@quay-deli.example>', subject: 'Order PO-5102', text: 'PO: PO-5102\nItem: H-300\nQty: 4\nCustomer: Quay Deli', date: now - 10 * MINUTE })
+  put('invoices@brightmart.example', { from: 'Quayside Paper <billing@quayside-paper.example>', subject: 'Invoice INV-20931', text: 'Please find our invoice INV-20931 attached.', attachments: [samplePdf('INV-20931.pdf', 421888)] })
+  put('ops@brightmart.example', { from: 'Mail team <postmaster@brightmart.example>', subject: 'Port 25 is for incoming mail only', text: 'Apps send on port 587 with STARTTLS or on 465 with SMTPS. Port 25 is for mail between servers.', date: now - 2 * HOUR }, ['\\Seen', '\\Flagged'])
   return y
 }
 
@@ -576,7 +581,7 @@ export const setMailAccount = (state, address, patch) =>
 export const NEW_ACCOUNT_FOLDERS = ['INBOX', 'Sent', 'Junk']
 export function accountError(y, address, password) {
   const a = String(address ?? '').trim().toLowerCase()
-  if (!/^[a-z0-9][a-z0-9._-]*@[a-z0-9.-]+$/.test(a)) return 'Enter a mail address such as name@harbor.example.'
+  if (!/^[a-z0-9][a-z0-9._-]*@[a-z0-9.-]+$/.test(a)) return 'Enter a mail address such as name@brightmart.example.'
   if (!(y?.domains ?? [LOCAL_DOMAIN]).includes(domainOf(a))) return `${domainOf(a)} is not a local domain of this server.`
   if (y?.accounts?.[a]) return `${a} exists already.`
   if (String(password ?? '').length < 10) return 'The password needs at least 10 characters.'

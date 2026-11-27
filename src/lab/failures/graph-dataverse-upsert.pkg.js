@@ -3,7 +3,7 @@
 import { info, muleError, needs } from '../platform-log.js'
 import { API_PATH, errorText, httpMessage, httpType, tokenFor } from '../platform-msgraph.js'
 
-export const CUSTOMER_SYNC = 'harbor-d365-customer-sync'
+export const CUSTOMER_SYNC = 'brightmart-d365-customer-sync'
 const FLOW = 'post:\\customers'
 export const CUSTOMERS = [
   ['C-1001', 'Northgate Grocers', 'Leeds'],

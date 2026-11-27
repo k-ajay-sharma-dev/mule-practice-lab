@@ -1,10 +1,10 @@
-// The API-led project of Harbor Foods: what is designed, published, managed and deployed. The open console starts with all
+// The API-led project of Brightmart: what is designed, published, managed and deployed. The open console starts with all
 // of it, and each lab starts with a part of it missing or broken.
 import { addMonAlert, at, newApi, newApp, newPlatform, newHybrid, newServer } from './platform.js'
 import { asset, CLIENTS, creds, OPS, policy, until } from './platform-kit.js'
 import { LAYER_PROPERTY } from './platform-led.js'
 import { defaultSystems } from './platform-systems.js'
-import { harborKafka } from './platform-kafka.js'
+import { brightmartKafka } from './platform-kafka.js'
 import { defaultDatabases } from './platform-db.js'
 import { defaultMailServer } from './platform-mailserver.js'
 import { defaultServiceBus } from './platform-servicebus.js'
@@ -29,7 +29,7 @@ import { defaultMsgraph } from './platform-msgraph.js'
 import { defaultShopify } from './platform-shopify.js'
 import { addEnterprise, welcomeMail } from './platform-enterprise.js'
 
-export const PRIVATE_SPACE = 'harbor-ps'
+export const PRIVATE_SPACE = 'brightmart-ps'
 export const internal = (name, env = 'Sandbox') => `https://${name}-lab1a2.internal-${env === 'Sandbox' ? 'sbx' : 'prd'}.usa-e2.cloudhub.example/api`
 
 const spec = (title, body) => `#%RAML 1.0
@@ -68,7 +68,7 @@ export const LED = {
   },
   partner: {
     app: 'partner-orders-eapi', id: '19500102', layer: 'Experience', name: 'Partner Orders Experience API',
-    raml: spec('Partner Orders Experience API', getOne('/partner-orders', 'orderId', { orderId: 'O-1001', status: 'PACKED', customer: { id: 'C-7', name: 'Harbor Deli' }, stock: 24 }, 'The status of one order with its customer and stock') + postOne({ orderId: 'O-1050' })),
+    raml: spec('Partner Orders Experience API', getOne('/partner-orders', 'orderId', { orderId: 'O-1001', status: 'PACKED', customer: { id: 'C-7', name: 'Maple Deli' }, stock: 24 }, 'The status of one order with its customer and stock') + postOne({ orderId: 'O-1050' })),
     policies: ['rate-limit-sla'],
     tiers: [{ name: 'Gold', requests: 60, periodMs: 60000, autoApprove: false }, { name: 'Silver', requests: 10, periodMs: 60000, autoApprove: true }],
     contracts: [['Partner Portal', 'Silver']],
@@ -98,7 +98,7 @@ export const LED = {
   },
   customers: {
     app: 'customers-sapi', id: '19500301', layer: 'System', name: 'Customers System API',
-    raml: spec('Customers System API', getOne('/customers', 'customerId', { id: 'C-7', name: 'Harbor Deli', email: 'orders@harbordeli.example' }, 'One customer')),
+    raml: spec('Customers System API', getOne('/customers', 'customerId', { id: 'C-7', name: 'Maple Deli', email: 'orders@mapledeli.example' }, 'One customer')),
     contracts: [['Order Fulfilment API', '']],
   },
   orders: {
@@ -126,7 +126,7 @@ export function ownProps(key, env = 'Sandbox') {
       props: { 'customers.url': internal(LED.customers.app, env), 'orders.url': internal(LED.orders.app, env), 'inventory.url': internal(LED.inventory.app, env), 'sapi.client_id': LED.process.client.clientId, 'http.timeout': '10000', 'events.queue': 'order-events' },
       secrets: { 'sapi.client_secret': LED.process.client.clientSecret },
     }
-  return { props: { customers: { 'db.host': 'sql01.harbor.lab' }, orders: { 'db.host': 'ora01.harbor.lab' }, inventory: { 'sftp.host': 'sftp.harbor.lab' } }[key], secrets: {} }
+  return { props: { customers: { 'db.host': 'sql01.brightmart.lab' }, orders: { 'db.host': 'ora01.brightmart.lab' }, inventory: { 'sftp.host': 'sftp.brightmart.lab' } }[key], secrets: {} }
 }
 // The whole property list, as lines for the Text view of the Properties tab
 export function propText(s, key, env = 'Sandbox', apiId) {
@@ -185,21 +185,21 @@ export const patchApp = (s, key, patch) => {
   return s
 }
 
-// Two Windows servers in the data center of Harbor, with the Mule runtime installed and not registered yet
+// Two Windows servers in the data center of Brightmart, with the Mule runtime installed and not registered yet
 export const defaultHybrid = () => newHybrid([newServer('HBR-MULE-01', { ip: '10.20.1.11' }), newServer('HBR-MULE-02', { ip: '10.20.1.12' })])
 
 // The open console: the whole project, and the scheduled jobs of the same company
 export function openConsole() {
   let s = ledProject({ clock: at(0, 12), traffic: [{ ...MOBILE_TRAFFIC, every: 5 }, { ...PARTNER_TRAFFIC, every: 10 }, { ...MOBILE_TRAFFIC, method: 'POST', path: '/my-orders', every: 30 }] })
   s.apps.push(
-    newApp('orders-nightly-load', { props: { 'db.host': 'sql01.harbor.lab', 'db.port': '1433', 'db.user': 'mule_etl' }, secrets: { 'db.password': 'Nightly-2026' } }),
-    newApp('customer-export', { props: { 'blob.account': 'harborstore', 'blob.container': 'customer-exports' } }),
-    newApp('stock-file-poll', { props: { 'sftp.host': 'sftp.harbor.lab' }, secrets: { 'sftp.password': 'lab' } }),
+    newApp('orders-nightly-load', { props: { 'db.host': 'sql01.brightmart.lab', 'db.port': '1433', 'db.user': 'mule_etl' }, secrets: { 'db.password': 'Nightly-2026' } }),
+    newApp('customer-export', { props: { 'blob.account': 'brightmartstore', 'blob.container': 'customer-exports' } }),
+    newApp('stock-file-poll', { props: { 'sftp.host': 'sftp.brightmart.lab' }, secrets: { 'sftp.password': 'lab' } }),
   )
   s.hybrid = defaultHybrid()
-  // the SFTP and FTP servers, the storage account and the key vault that the apps of Harbor talk to
+  // the SFTP and FTP servers, the storage account and the key vault that the apps of Brightmart talk to
   s.systems = defaultSystems(at(1, 9))
-  s.kafka = harborKafka(at(1, 9))
+  s.kafka = brightmartKafka(at(1, 9))
   s.databases = defaultDatabases(at(1, 9))
   s.mailServer = defaultMailServer(at(1, 9))
   s.serviceBus = defaultServiceBus(at(1, 9))
@@ -228,6 +228,6 @@ export function openConsole() {
   s = addMonAlert(s, { ...alert, title: 'Mobile API is slow', name_: LED.mobile.app, metric: 'Average Response Time', threshold: 2000, minutes: 2 })
   s = addMonAlert(s, { ...alert, title: 'Customer export failed', name_: 'customer-export', metric: 'Message Error Count', threshold: 0 })
   for (const key of ['mobile', 'partner']) s.apis.find((a) => a.id === LED[key].id).alerts.push({ id: `led-al-${key}`, enabled: true, state: 'OK', name: 'Policy violations', severity: 'Warning', type: 'Policy Violation', policy: 'Any', atLeast: 3, periods: 1, period: 5, recipients: OPS })
-  // the enterprise estate of Harbor next to the project, and the welcome mail of the integration lead
+  // the enterprise estate of Brightmart next to the project, and the welcome mail of the integration lead
   return welcomeMail(until(addEnterprise(s), at(1, 9)))
 }

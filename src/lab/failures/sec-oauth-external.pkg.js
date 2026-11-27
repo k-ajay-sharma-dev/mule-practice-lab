@@ -50,13 +50,13 @@ const on = (v) => String(v ?? '').trim().toLowerCase() === 'true'
 // The messages are the ones the JWT Validation policy page lists for 400 and 401
 export const NO_TOKEN = 'Token was not provided in the request.'
 export const BAD_CLAIMS = 'Some of the required claims are not present or their validation failed.'
-const LOGGER = 'harbor.security.oauth'
+const LOGGER = 'brightmart.security.oauth'
 
 const claimsText = (t) => `sub=${t.sub} aud=${t.aud} scope="${t.scope}" exp=${iso(t.exp)}`
 
 export const PACKAGES = {
   'supplier-invoices-api': {
-    note: 'The supplier invoices API of Harbor Foods. It validates access tokens of the external provider itself, with properties named after the JWT Validation policy fields.',
+    note: 'The supplier invoices API of Brightmart. It validates access tokens of the external provider itself, with properties named after the JWT Validation policy fields.',
     sample: { method: 'GET', path: '/invoices' },
     boot({ props }) {
       if (String(props['jwt.keyOrigin'] ?? '').trim().toUpperCase() !== 'JWKS') return 'jwt.keyOrigin must be JWKS: the provider publishes its keys at a JWKS URL.'

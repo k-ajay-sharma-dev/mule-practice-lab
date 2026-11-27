@@ -13,7 +13,7 @@ export const BACKENDS = {
   sftp: { name: 'SFTP server', ms: 120 },
 }
 
-const CUSTOMER = { id: 'C-7', name: 'Harbor Deli', email: 'orders@harbordeli.example' }
+const CUSTOMER = { id: 'C-7', name: 'Maple Deli', email: 'orders@mapledeli.example' }
 const json = (value) => JSON.stringify(value)
 const answer = (status, ms, flow, value) => ({ status, ms, flow, body: json(value) })
 const notFound = (flow, ms = 10) => ({ status: 404, ms, flow, error: 'APIKIT:NOT_FOUND', body: json({ message: 'Resource not found' }) })
@@ -131,11 +131,11 @@ export const LED_PACKAGES = {
   },
   'customers-sapi': {
     note: 'System API in front of SQL Server.',
-    ...system({ backend: 'sqlserver', hostKey: 'db.host', host: 'sql01.harbor.lab', file: 'customers-sapi', sample: { method: 'GET', path: '/customers/C-7' }, routes: [{ method: 'GET', path: /^\/customers\/[\w-]+$/, flow: 'get:\\customers\\(customerId)', run: (id, ms, flow) => (id === 'C-999' ? notFound(flow, ms) : answer(200, ms, flow, { ...CUSTOMER, id })) }] }),
+    ...system({ backend: 'sqlserver', hostKey: 'db.host', host: 'sql01.brightmart.lab', file: 'customers-sapi', sample: { method: 'GET', path: '/customers/C-7' }, routes: [{ method: 'GET', path: /^\/customers\/[\w-]+$/, flow: 'get:\\customers\\(customerId)', run: (id, ms, flow) => (id === 'C-999' ? notFound(flow, ms) : answer(200, ms, flow, { ...CUSTOMER, id })) }] }),
   },
   'inventory-sapi': {
     note: 'System API that reads stock files over SFTP.',
-    ...system({ backend: 'sftp', hostKey: 'sftp.host', host: 'sftp.harbor.lab', file: 'inventory-sapi', sample: { method: 'GET', path: '/inventory/H-100' }, routes: [{ method: 'GET', path: /^\/inventory\/[\w-]+$/, flow: 'get:\\inventory\\(sku)', run: (sku, ms, flow) => answer(200, ms, flow, { sku, available: 24 }) }] }),
+    ...system({ backend: 'sftp', hostKey: 'sftp.host', host: 'sftp.brightmart.lab', file: 'inventory-sapi', sample: { method: 'GET', path: '/inventory/H-100' }, routes: [{ method: 'GET', path: /^\/inventory\/[\w-]+$/, flow: 'get:\\inventory\\(sku)', run: (sku, ms, flow) => answer(200, ms, flow, { sku, available: 24 }) }] }),
   },
   'warehouse-consumer': {
     note: 'Takes order events from a queue, 10 a minute per replica, and writes them for the warehouse over SFTP.',
@@ -145,7 +145,7 @@ export const LED_PACKAGES = {
     rate: 10,
     consume(ctx, message) {
       if (ctx.backend('sftp').up) return { ok: true, flow: 'warehouse-flow', log: [] }
-      return { ok: false, flow: 'warehouse-flow', errorType: 'SFTP:CONNECTIVITY', error: { ...backendError('sftp', 'sftp.harbor.lab', 'warehouse-flow', 'warehouse-consumer'), message: `Could not write ${message.id}: SFTP connection refused` } }
+      return { ok: false, flow: 'warehouse-flow', errorType: 'SFTP:CONNECTIVITY', error: { ...backendError('sftp', 'sftp.brightmart.lab', 'warehouse-flow', 'warehouse-consumer'), message: `Could not write ${message.id}: SFTP connection refused` } }
     },
   },
 }
@@ -158,5 +158,5 @@ const orders = (backend, host) =>
       { method: 'POST', path: /^\/orders$/, flow: 'post:\\orders', run: (_, ms, flow) => answer(201, ms, flow, { orderId: 'O-1050' }) },
     ],
   })
-LED_PACKAGES['orders-sapi'] = { note: 'System API in front of Oracle.', ...orders('oracle', 'ora01.harbor.lab') }
-LED_PACKAGES['orders-sapi-v2'] = { note: 'Release 2.0.0 of the Orders System API, in front of PostgreSQL. The contract is the same.', ...orders('postgres', 'pg01.harbor.lab') }
+LED_PACKAGES['orders-sapi'] = { note: 'System API in front of Oracle.', ...orders('oracle', 'ora01.brightmart.lab') }
+LED_PACKAGES['orders-sapi-v2'] = { note: 'Release 2.0.0 of the Orders System API, in front of PostgreSQL. The contract is the same.', ...orders('postgres', 'pg01.brightmart.lab') }

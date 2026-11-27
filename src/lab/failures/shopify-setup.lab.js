@@ -4,9 +4,9 @@ import { app, ask, called, OPS, until } from '../platform-kit.js'
 import { addressOf, API_VERSION, createApp, createSubscription, createTestOrder, installApp, newShopifyStore, revealToken, saveScopes, SHOP } from '../platform-shopify.js'
 import { BRIDGE, BRIDGE_JAR, BRIDGE_PATH, ORDER_API } from './shopify-setup.pkg.js'
 
-const APP_NAME = 'Harbor Order Bridge'
+const APP_NAME = 'Brightmart Order Bridge'
 const QUEUE = 'shopify-orders'
-const ALERT_TO = 'ecommerce-integration@harbor.example'
+const ALERT_TO = 'ecommerce-integration@brightmart.example'
 const shopApp = (s) => (s.shopify?.apps ?? []).find((a) => a.name.toLowerCase() === APP_NAME.toLowerCase())
 const b = (s) => app(s, BRIDGE)
 const running = (s) => b(s)?.status === 'Running'
@@ -44,15 +44,15 @@ const MAIL = {
   subject: 'Web orders into the order API, in real time',
   body: [
     'Hello integration team,',
-    `From next week the warehouse wants each web order of our Shopify store ${SHOP} in the Harbor order API within a minute, instead of the export at night. The app ${BRIDGE} is built and waits in Runtime Manager.`,
+    `From next week the warehouse wants each web order of our Shopify store ${SHOP} in the Brightmart order API within a minute, instead of the export at night. The app ${BRIDGE} is built and waits in Runtime Manager.`,
     `1. A custom app in Shopify named ${APP_NAME}. It only reads orders, so give it that and nothing more.`,
     `2. The Admin API access token and the API secret key are secrets. They never go in a plain property.`,
     `3. A webhook subscription for orders/create to the app, JSON, API version ${API_VERSION}. The app listens on /api${BRIDGE_PATH} and puts each order on the queue ${QUEUE}, which ${ORDER_API} reads.`,
     '4. Prove it with a test order, and prove that a forged webhook is refused.',
     `5. Failures alert ${ALERT_TO}.`,
-    'Harbor ecommerce team',
+    'Brightmart ecommerce team',
   ].join('\n\n'),
-  source: 'Harbor ecommerce team',
+  source: 'Brightmart ecommerce team',
 }
 
 const lab = {
@@ -60,7 +60,7 @@ const lab = {
   group: 'Data and cloud',
   title: 'Set up the Shopify order webhooks into the order API',
   minutes: 35,
-  scenario: `Harbor wants each web order of ${SHOP} in its order API within a minute. ${BRIDGE} is built and its jar is in Runtime Manager, and ${ORDER_API} already reads the queue ${QUEUE}. Nothing is set up on the Shopify side: no custom app, no token, no webhook. Done means a test order reaches the order API, a forged webhook gets 401, and failures raise an alert. The Inbox has the request.`,
+  scenario: `Brightmart wants each web order of ${SHOP} in its order API within a minute. ${BRIDGE} is built and its jar is in Runtime Manager, and ${ORDER_API} already reads the queue ${QUEUE}. Nothing is set up on the Shopify side: no custom app, no token, no webhook. Done means a test order reaches the order API, a forged webhook gets 401, and failures raise an alert. The Inbox has the request.`,
   start() {
     const s = newPlatform({
       clock: at(1, 8, 50),
@@ -73,7 +73,7 @@ const lab = {
     return until(s, at(1, 9))
   },
   steps: [
-    { title: 'Read the request', how: 'Open the Inbox and read the mail of the Harbor ecommerce team. Note the app name, the scope, the topic, the path, the queue and who gets the alerts.', done: (s) => Boolean(s.seen.inbox) },
+    { title: 'Read the request', how: 'Open the Inbox and read the mail of the Brightmart ecommerce team. Note the app name, the scope, the topic, the path, the queue and who gets the alerts.', done: (s) => Boolean(s.seen.inbox) },
     {
       title: 'Create the custom app',
       how: `Shopify from the console menu, Apps, Develop apps, Create an app. App name ${APP_NAME}, App developer ${OPS}. Create app.`,

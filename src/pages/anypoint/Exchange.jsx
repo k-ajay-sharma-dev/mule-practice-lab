@@ -13,12 +13,12 @@ export default function Exchange({ state, update, place, go }) {
 
 function Home({ groups, state, go, place }) {
   const [term, setTerm] = useState('')
-  const page = place.page ?? 'Harbor Lab'
+  const page = place.page ?? 'Brightmart Lab'
   // the search reads the name, the asset ID, the owner team and the tags, so "orders", "Process" or "Payments team" all find something
   const shown = groups.filter((g) => [g[0].name, g[0].assetId, g[0].team, ...(g[0].tags ?? [])].join(' ').toLowerCase().includes(term.toLowerCase()))
   return (
     <>
-      <SideNav items={[['Harbor Lab', 'Harbor Lab'], ['Shared', 'Shared with me', true], null, ['My applications', 'My applications'], ['Public', 'Public portal', true]]} value={page} onPick={(p) => go({ page: p })} />
+      <SideNav items={[['Brightmart Lab', 'Brightmart Lab'], ['Shared', 'Shared with me', true], null, ['My applications', 'My applications'], ['Public', 'Public portal', true]]} value={page} onPick={(p) => go({ page: p })} />
       <main className="pc-main">
         {page === 'My applications' ? (
           <>

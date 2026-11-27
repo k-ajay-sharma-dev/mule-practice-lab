@@ -3,14 +3,14 @@
 // A new integration from nothing on ActiveMQ Classic: the queue, a policyEntry with its own dead letter queue, a user
 // and an authorizationEntry for that one queue, a restart so the broker reads activemq.xml, then the app with the
 // failover URL, a prefetch, the redelivery policy and a transacted listener. Test refunds flow, and a bad one lands in
-// the dead letter queue after its redeliveries. The lab builds its own state: the harbor-amq pair and one jar.
+// the dead letter queue after its redeliveries. The lab builds its own state: the brightmart-amq pair and one jar.
 import { addMonAlert, advance, at, deployApp, finishDeploys, MINUTE, mark, newPlatform } from '../platform.js'
 import { app, ask, call, called, until } from '../platform-kit.js'
 import { addAuthEntry, addPolicyEntry, addUser, allowed, AMQ, AMQ_FAILOVER, brokerOf, classicBroker, CLASSIC_DEFAULTS, createDestination, dlqNameOf, parseUrl, restartNode, sendTo } from '../platform-jms.js'
 import { APP, GROUP, prefetchOf, QUEUE, redeliveriesOf, transacted, USER } from './setup-activemq.pkg.js'
 
-const ALERTS = 'finance-integration@harbor.example'
-const OPS = 'ops@harbor.example'
+const ALERTS = 'finance-integration@brightmart.example'
+const OPS = 'ops@brightmart.example'
 const DLQ = `DLQ.${QUEUE}`
 const REDELIVERIES = 3
 const PASSWORD = 'Refunds-Lab-2026'
@@ -36,7 +36,7 @@ const userOk = (s) => {
 const failover = (p) => {
   const u = parseUrl(p['jms.url'])
   const hosts = u.hosts.map((h) => h.host)
-  return u.failover && hosts.includes('amq1.harbor.lab') && hosts.includes('amq2.harbor.lab')
+  return u.failover && hosts.includes('amq1.brightmart.lab') && hosts.includes('amq2.brightmart.lab')
 }
 const deployOk = (s) => {
   const p = props(s)
@@ -69,7 +69,7 @@ const lab = {
           to: OPS,
           subject: 'Refund ledger feed on ActiveMQ',
           body: `Please set up the refund feed on ${AMQ} in Sandbox.\n\nQueue ${QUEUE}. Create it up front: apps must not create queues on this broker.\n\nA refund that fails is tried again ${REDELIVERIES} times, ${REDELIVERIES + 1} deliveries in all, and is then parked in a dead letter queue of its own, ${DLQ}. Not in ActiveMQ.DLQ, which every team shares.\n\nThe app connects as a new user ${USER} in a new group ${GROUP}. It may send to and read from ${QUEUE} and nothing else. Choose a password of at least 8 characters and keep it out of plain properties.\n\nThe app must keep working when the broker fails over from amq1 to amq2. A ledger write takes about 2 seconds, so one consumer must not hoard messages. A refund is booked whole or not at all.\n\nAlerts to ${ALERTS}.\n\nTom, Finance Systems`,
-          source: 'Harbor Finance Systems',
+          source: 'Brightmart Finance Systems',
         },
       ],
     })

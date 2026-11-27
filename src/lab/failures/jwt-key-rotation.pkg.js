@@ -18,7 +18,7 @@ export const NEW_KID = 'hf-2026-11'
 // The identity provider published the new key in its JWKS on Monday 07:00 and signs with it from Tuesday 07:00
 export const PUBLISHED = at(0, 7)
 export const ROTATED = at(1, 7)
-export const JWKS_URL = 'https://idp.harbor.lab/.well-known/jwks.json'
+export const JWKS_URL = 'https://idp.brightmart.lab/.well-known/jwks.json'
 // What a team pasted into the JWT Key field: the RSA public key without header and footer. A placeholder, not a key.
 export const OLD_KEY_TEXT = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA.lab.placeholder.not.a.real.key.hf0812'
 export const NEW_KEY_TEXT = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA.lab.placeholder.not.a.real.key.hf1126'
@@ -49,7 +49,7 @@ export function tokenOf(client, now) {
       return { kid: OLD_KID, signer: OLD_KID, iat: at(0, 9), exp: at(0, 10) }
     case CALLERS.FORGED.name: {
       const iat = Math.floor(now / HOUR) * HOUR
-      return { kid: NEW_KID, signer: 'not-harbor', iat, exp: iat + HOUR }
+      return { kid: NEW_KID, signer: 'not-brightmart', iat, exp: iat + HOUR }
     }
     default:
       return null
@@ -66,11 +66,11 @@ export const NO_TOKEN = 'Token was not provided in the request.'
 export const BAD_SIGNATURE = 'Signature was not validated, or is invalid.'
 export const BAD_CLAIMS = 'Some of the required claims are not present or their validation failed.'
 
-const LOGGER = 'harbor.security.jwt'
+const LOGGER = 'brightmart.security.jwt'
 
 export const PACKAGES = {
   'delivery-api': {
-    note: 'The delivery API of Harbor Foods. It checks the bearer token itself, with properties named after the JWT Validation policy fields.',
+    note: 'The delivery API of Brightmart. It checks the bearer token itself, with properties named after the JWT Validation policy fields.',
     sample: { method: 'GET', path: '/deliveries' },
     boot({ props }) {
       const missing = ['jwt.signingMethod', 'jwt.keyLength', 'jwt.keyOrigin'].find((k) => !String(props[k] ?? '').trim())
@@ -110,7 +110,7 @@ export const PACKAGES = {
       }
       if (!signed) return reject(401, BAD_SIGNATURE, `Caller ${req.client}. ${header} ${origin}`)
       if (now >= token.exp) return reject(401, BAD_CLAIMS, `Caller ${req.client}. ${header} Claim exp ${iso(token.exp)} is before the time of the request ${iso(now)}.`)
-      return { status: 200, ms: 85, flow: 'get:\\deliveries:delivery-api-config', body: '[{"id":"D-4410","stop":"Harbor Foods Pier 3","status":"OUT_FOR_DELIVERY"}]' }
+      return { status: 200, ms: 85, flow: 'get:\\deliveries:delivery-api-config', body: '[{"id":"D-4410","stop":"Brightmart Pier 3","status":"OUT_FOR_DELIVERY"}]' }
     },
   },
 }

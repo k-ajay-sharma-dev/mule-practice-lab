@@ -250,7 +250,7 @@ export default function AnypointConsole({ state, onChange: update, guide, title,
         <button type="button" className="pc-top-btn" onClick={() => go({ product: 'Inbox' })}>
           Inbox{unread > 0 && <i>{unread}</i>}
         </button>
-        <span className="pc-org">Harbor Lab</span>
+        <span className="pc-org">Brightmart Lab</span>
         <span className="pc-avatar" aria-hidden="true">
           YO
         </span>

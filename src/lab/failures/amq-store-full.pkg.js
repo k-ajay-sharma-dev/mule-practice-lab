@@ -68,7 +68,7 @@ export const PACKAGES = {
           store.depth = { ...(store.depth ?? {}), [q]: st.QueueSize }
           if (limit === null || st.QueueSize <= limit || now - (store.mailed?.[q] ?? -Infinity) < HOUR) continue
           store.mailed = { ...(store.mailed ?? {}), [q]: now }
-          mail.push({ to: clean(props['alert.to']), subject: `ActiveMQ: ${q} has ${st.QueueSize} messages`, body: `${q} on harbor-amq has ${st.QueueSize} messages, above the limit of ${limit}. The store is ${st.storePercentUsage}% used. Look at the messages before they fill the broker.` })
+          mail.push({ to: clean(props['alert.to']), subject: `ActiveMQ: ${q} has ${st.QueueSize} messages`, body: `${q} on brightmart-amq has ${st.QueueSize} messages, above the limit of ${limit}. The store is ${st.storePercentUsage}% used. Look at the messages before they fill the broker.` })
           log.push(warn(`${q} has ${st.QueueSize} messages, above ${limit}. Alert mailed.`))
         }
         return { ok: true, ms: 100, log, store, ...(mail.length && { mail }) }

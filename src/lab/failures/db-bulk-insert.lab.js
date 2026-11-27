@@ -4,7 +4,7 @@ import { app, ask, change, sawLogs, until } from '../platform-kit.js'
 import { FLOW, ROWS, settingsOf } from './db-bulk-insert.pkg.js'
 
 const NAME = 'price-file-import'
-const PROPS = { 'db.host': 'sql04.harbor.lab', 'insert.mode': 'single', 'bulk.size': '1000', 'tx.scope': 'none', 'bulk.fallback': 'none' }
+const PROPS = { 'db.host': 'sql04.brightmart.lab', 'insert.mode': 'single', 'bulk.size': '1000', 'tx.scope': 'none', 'bulk.fallback': 'none' }
 const running = (s) => app(s, NAME)?.status === 'Running'
 const set = (s) => settingsOf({ ...app(s, NAME)?.props, ...app(s, NAME)?.secrets })
 const last = (s) => app(s, NAME)?.store?.last
@@ -18,7 +18,7 @@ const lab = {
   title: 'An import of 50,000 rows takes an hour',
   minutes: 15,
   scenario:
-    'Every night at 01:00 price-file-import empties a staging table on SQL Server and loads the new price file of Harbor Hardware, 50,000 rows. The pricing job reads the table at 02:00. The import now takes almost an hour and last night it finished late. The file also has one bad row most nights.',
+    'Every night at 01:00 price-file-import empties a staging table on SQL Server and loads the new price file of Brightmart Hardware, 50,000 rows. The pricing job reads the table at 02:00. The import now takes almost an hour and last night it finished late. The file also has one bad row most nights.',
   start: () => until(newPlatform({ clock: at(0, 12), apps: [newApp(NAME, { props: { ...PROPS } })] }), at(1, 9)),
   steps: [
     sawLogs(NAME),

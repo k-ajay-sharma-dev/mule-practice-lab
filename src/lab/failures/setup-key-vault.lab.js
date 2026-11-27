@@ -4,13 +4,13 @@ import { app, ask, sawLogs, until } from '../platform-kit.js'
 import { ACCESS_MODELS, addSecretVersion, latestVersion, newVault, setSecretVersion, setVaultAccess, systemsOf } from '../platform-systems.js'
 import { DB_USER, FLOW, NAME, NEW_PASSWORD, OLD_PASSWORD } from './setup-key-vault.pkg.js'
 
-const VAULT = 'harbor-kv'
+const VAULT = 'brightmart-kv'
 const SECRET = 'order-history-db-password'
-const DB_HOST = 'orders-db.harbor.lab'
+const DB_HOST = 'orders-db.brightmart.lab'
 const DB_NAME = 'OrderHistory'
 const CLIENT_ID = 'lab-app-registration-0077'
 const CLIENT_SECRET = 'lab-practice-client-secret-77' // a practice value of the lab, not a real secret
-const ALERT_TO = 'dba-team@harbor.example'
+const ALERT_TO = 'dba-team@brightmart.example'
 
 const kv = (s) => s.systems?.vaults?.[VAULT]
 const sec = (s) => kv(s)?.secrets?.[SECRET]
@@ -47,7 +47,7 @@ const rotated = (s) => {
 
 const MAIL = {
   t: at(1, 8, 10),
-  to: 'ops@harbor.example',
+  to: 'ops@brightmart.example',
   subject: `${NAME}: database password in Key Vault`,
   body: [
     'Hello integration team,',
@@ -69,7 +69,7 @@ const lab = {
   minutes: 25,
   scenario: `It is 09:00 on Tuesday. ${NAME} is built and its jar is ready, and security wants its database password in the Azure Key Vault ${VAULT}. The vault exists, but it has no secret for the app and the app has no access. Done means the app reads the password from the vault, a disabled version makes it fail loudly, and a rotation reaches it without a redeploy. The Inbox has the request.`,
   start() {
-    const vault = newVault(VAULT, { access: { 'Harbor Platform Admins': ['get', 'list', 'set', 'delete', 'recover', 'backup', 'restore'] } })
+    const vault = newVault(VAULT, { access: { 'Brightmart Platform Admins': ['get', 'list', 'set', 'delete', 'recover', 'backup', 'restore'] } })
     let s = newPlatform({ clock: at(1, 8), jars: [NAME], systems: systemsOf({ vaults: [vault], principals: [NAME] }), mail: [MAIL] })
     s = addSecretVersion(s, VAULT, 'payments-api-key', 'lab-practice-payments-key', { contentType: 'API key', who: 'payments-team' })
     return until(s, at(1, 9))

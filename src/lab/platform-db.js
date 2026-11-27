@@ -51,7 +51,7 @@ function sqlTables() {
       columns: [key('customer_id', 'varchar(12)'), key('name', 'nvarchar(120)'), col('country', 'char(2)'), col('created_at', 'datetime2')],
       pk: ['customer_id'], pkName: 'PK_customers', clustered: true, count: 1200, distinct: { country: 14 },
       rows: [
-        { customer_id: 'C-100', name: 'Harbor Foods', country: 'NL', created_at: '2024-03-02 10:12:00' },
+        { customer_id: 'C-100', name: 'Brightmart', country: 'NL', created_at: '2024-03-02 10:12:00' },
         { customer_id: 'C-101', name: 'Bluefin Traders', country: 'DE', created_at: '2024-06-18 08:40:00' },
         { customer_id: 'C-102', name: 'Quayside Market', country: 'GB', created_at: '2025-01-09 15:05:00' },
         { customer_id: 'C-103', name: 'Lantern Outdoor', country: 'US', created_at: '2025-09-30 11:21:00' },
@@ -113,7 +113,7 @@ function sqlTables() {
 
 function oracleTables() {
   return {
-    'HARBOR.CARRIERS': table('HARBOR', 'CARRIERS', {
+    'BRIGHTMART.CARRIERS': table('BRIGHTMART', 'CARRIERS', {
       columns: [key('CARRIER_ID', 'VARCHAR2(10)'), key('NAME', 'VARCHAR2(80)'), col('MODE_CODE', 'VARCHAR2(8)')],
       pk: ['CARRIER_ID'], pkName: 'PK_CARRIERS', count: 24,
       rows: [
@@ -122,11 +122,11 @@ function oracleTables() {
         { CARRIER_ID: 'CR-3', NAME: 'Pier Nine Shipping', MODE_CODE: 'SEA' },
       ],
     }),
-    'HARBOR.SHIPMENTS': table('HARBOR', 'SHIPMENTS', {
+    'BRIGHTMART.SHIPMENTS': table('BRIGHTMART', 'SHIPMENTS', {
       columns: [key('SHIPMENT_ID', 'NUMBER(12)'), key('ORDER_ID', 'VARCHAR2(12)'), key('CARRIER_ID', 'VARCHAR2(10)'), key('STATUS', 'VARCHAR2(16)'), col('CREATED_AT', 'DATE'), col('WEIGHT_KG', 'NUMBER(8,2)')],
       pk: ['SHIPMENT_ID'], pkName: 'PK_SHIPMENTS', count: 3200000, distinct: { ORDER_ID: 3000000, CARRIER_ID: 24, STATUS: 5 },
       spread: { CREATED_AT: ['2022-01-01', '2026-11-03'] },
-      fks: [{ name: 'FK_SHIPMENTS_CARRIER', column: 'CARRIER_ID', table: 'HARBOR.CARRIERS', ref: 'CARRIER_ID' }],
+      fks: [{ name: 'FK_SHIPMENTS_CARRIER', column: 'CARRIER_ID', table: 'BRIGHTMART.CARRIERS', ref: 'CARRIER_ID' }],
       indexes: [{ name: 'SHIPMENTS_STATUS_IX', columns: ['STATUS'], include: [], unique: false, created: 0 }],
       rows: [
         { SHIPMENT_ID: 500101, ORDER_ID: 'O-1001', CARRIER_ID: 'CR-1', STATUS: 'DELIVERED', CREATED_AT: '2026-11-02 07:31:00', WEIGHT_KG: 4.2 },
@@ -135,10 +135,10 @@ function oracleTables() {
         { SHIPMENT_ID: 500104, ORDER_ID: 'O-1006', CARRIER_ID: 'CR-3', STATUS: 'BOOKED', CREATED_AT: '2026-11-02 19:02:00', WEIGHT_KG: 310.0 },
       ],
     }),
-    'HARBOR.INVOICES': table('HARBOR', 'INVOICES', {
+    'BRIGHTMART.INVOICES': table('BRIGHTMART', 'INVOICES', {
       columns: [key('INVOICE_ID', 'VARCHAR2(14)'), key('SHIPMENT_ID', 'NUMBER(12)'), key('AMOUNT', 'NUMBER(12,2)'), key('STATUS', 'VARCHAR2(12)'), col('ISSUED_AT', 'DATE')],
       pk: ['INVOICE_ID'], pkName: 'PK_INVOICES', count: 2900000, distinct: { SHIPMENT_ID: 2900000, STATUS: 3 },
-      fks: [{ name: 'FK_INVOICES_SHIPMENT', column: 'SHIPMENT_ID', table: 'HARBOR.SHIPMENTS', ref: 'SHIPMENT_ID' }],
+      fks: [{ name: 'FK_INVOICES_SHIPMENT', column: 'SHIPMENT_ID', table: 'BRIGHTMART.SHIPMENTS', ref: 'SHIPMENT_ID' }],
       rows: [
         { INVOICE_ID: 'INV-26-0001', SHIPMENT_ID: 500101, AMOUNT: 12.4, STATUS: 'PAID', ISSUED_AT: '2026-11-02 08:00:00' },
         { INVOICE_ID: 'INV-26-0002', SHIPMENT_ID: 500102, AMOUNT: 31.0, STATUS: 'OPEN', ISSUED_AT: '2026-11-02 13:00:00' },
@@ -149,23 +149,23 @@ function oracleTables() {
 
 // the session of the query window: SSMS or SQL Developer on the desk of the DBA
 const consoleSession = (id, serial, vendor, now = 0) => ({
-  id, serial, ...(vendor === SQLSERVER ? { login: 'HARBOR\\dba', host: 'HARBOR-DBA-PC', program: 'Microsoft SQL Server Management Studio - Query', isolation: 'read committed' } : { login: 'HARBOR_DBA', host: 'HARBOR-DBA-PC', program: 'SQL Developer', isolation: 'READ COMMITTED' }),
+  id, serial, ...(vendor === SQLSERVER ? { login: 'BRIGHTMART\\dba', host: 'BRIGHTMART-DBA-PC', program: 'Microsoft SQL Server Management Studio - Query', isolation: 'read committed' } : { login: 'BRIGHTMART_DBA', host: 'BRIGHTMART-DBA-PC', program: 'SQL Developer', isolation: 'READ COMMITTED' }),
   app: null, env: null, config: null, kind: 'console', status: 'sleeping', openTran: 0, tranStarted: null, undo: [], loginTime: now, lastBatch: now, sql: '', wait: null, blockedBy: null, hold: null, pending: null, reads: 0, cpu: 0,
 })
 // Passwords here are made-up lab values for the made-up apps of the lab
-export function newSqlServer(name = 'harbor-sql', extra = {}) {
+export function newSqlServer(name = 'brightmart-sql', extra = {}) {
   return {
-    name, vendor: SQLSERVER, version: 'Microsoft SQL Server 2022 (RTM-CU16) 16.0.4165.4 Developer Edition (64-bit)', host: 'sql.harbor.lab', port: 1433, database: 'HarborOrders', dbid: 7, up: true,
-    rcsi: false, // READ_COMMITTED_SNAPSHOT of HarborOrders
+    name, vendor: SQLSERVER, version: 'Microsoft SQL Server 2022 (RTM-CU16) 16.0.4165.4 Developer Edition (64-bit)', host: 'sql.brightmart.lab', port: 1433, database: 'BrightmartOrders', dbid: 7, up: true,
+    rcsi: false, // READ_COMMITTED_SNAPSHOT of BrightmartOrders
     logins: [
       { name: 'sa', type: 'SQL login', password: 'lab-sa-disabled', disabled: true, defaultDb: 'master', policy: true, failed: 0 },
-      { name: 'HARBOR\\dba', type: 'Windows login', password: null, disabled: false, defaultDb: 'HarborOrders', policy: false, failed: 0, sysadmin: true },
-      { name: 'mule_orders', type: 'SQL login', password: 'Orders-Lab-2026', disabled: false, defaultDb: 'HarborOrders', policy: true, failed: 0 },
-      { name: 'mule_reports', type: 'SQL login', password: 'Reports-Lab-2026', disabled: false, defaultDb: 'HarborOrders', policy: true, failed: 0 },
-      { name: 'mule_etl', type: 'SQL login', password: 'Etl-Lab-2026', disabled: false, defaultDb: 'HarborOrders', policy: true, failed: 0 },
+      { name: 'BRIGHTMART\\dba', type: 'Windows login', password: null, disabled: false, defaultDb: 'BrightmartOrders', policy: false, failed: 0, sysadmin: true },
+      { name: 'mule_orders', type: 'SQL login', password: 'Orders-Lab-2026', disabled: false, defaultDb: 'BrightmartOrders', policy: true, failed: 0 },
+      { name: 'mule_reports', type: 'SQL login', password: 'Reports-Lab-2026', disabled: false, defaultDb: 'BrightmartOrders', policy: true, failed: 0 },
+      { name: 'mule_etl', type: 'SQL login', password: 'Etl-Lab-2026', disabled: false, defaultDb: 'BrightmartOrders', policy: true, failed: 0 },
     ],
     users: [
-      { name: 'dbo', login: 'HARBOR\\dba', schema: 'dbo', roles: ['db_owner'] },
+      { name: 'dbo', login: 'BRIGHTMART\\dba', schema: 'dbo', roles: ['db_owner'] },
       { name: 'mule_orders', login: 'mule_orders', schema: 'dbo', roles: ['db_datareader', 'db_datawriter'] },
       { name: 'mule_reports', login: 'mule_reports', schema: 'dbo', roles: ['db_datareader'] },
       { name: 'mule_etl', login: 'mule_etl', schema: 'dbo', roles: ['db_datareader', 'db_datawriter', 'db_ddladmin'] },
@@ -176,21 +176,21 @@ export function newSqlServer(name = 'harbor-sql', extra = {}) {
     ...extra,
   }
 }
-export function newOracle(name = 'harbor-ora', extra = {}) {
+export function newOracle(name = 'brightmart-ora', extra = {}) {
   return {
-    name, vendor: ORACLE, version: 'Oracle Database 19c Enterprise Edition Release 19.0.0.0.0, Version 19.24.0.0.0', host: 'ora.harbor.lab', port: 1521, service: 'HARBORPDB', database: 'HARBORPDB', up: true,
+    name, vendor: ORACLE, version: 'Oracle Database 19c Enterprise Edition Release 19.0.0.0.0, Version 19.24.0.0.0', host: 'ora.brightmart.lab', port: 1521, service: 'BRIGHTMARTPDB', database: 'BRIGHTMARTPDB', up: true,
     undoRetention: 900, // seconds, the default of UNDO_RETENTION
     logins: [
-      { name: 'HARBOR', type: 'Schema owner', password: 'Harbor-Lab-2026', status: 'OPEN', profile: 'DEFAULT', failed: 0 },
-      { name: 'HARBOR_DBA', type: 'DBA', password: null, status: 'OPEN', profile: 'DEFAULT', failed: 0, sysadmin: true },
+      { name: 'BRIGHTMART', type: 'Schema owner', password: 'Brightmart-Lab-2026', status: 'OPEN', profile: 'DEFAULT', failed: 0 },
+      { name: 'BRIGHTMART_DBA', type: 'DBA', password: null, status: 'OPEN', profile: 'DEFAULT', failed: 0, sysadmin: true },
       { name: 'MULE_SHIP', type: 'App user', password: 'Ship-Lab-2026', status: 'OPEN', profile: 'APP_USERS', failed: 0 },
       { name: 'MULE_REPORT', type: 'App user', password: 'Report-Lab-2026', status: 'OPEN', profile: 'APP_USERS', failed: 0 },
     ],
     users: [
-      { name: 'HARBOR', login: 'HARBOR', schema: 'HARBOR', roles: ['RESOURCE', 'CONNECT'] },
-      { name: 'HARBOR_DBA', login: 'HARBOR_DBA', schema: 'HARBOR', roles: ['DBA'] },
-      { name: 'MULE_SHIP', login: 'MULE_SHIP', schema: 'HARBOR', roles: ['HARBOR_RW'] },
-      { name: 'MULE_REPORT', login: 'MULE_REPORT', schema: 'HARBOR', roles: ['HARBOR_RO'] },
+      { name: 'BRIGHTMART', login: 'BRIGHTMART', schema: 'BRIGHTMART', roles: ['RESOURCE', 'CONNECT'] },
+      { name: 'BRIGHTMART_DBA', login: 'BRIGHTMART_DBA', schema: 'BRIGHTMART', roles: ['DBA'] },
+      { name: 'MULE_SHIP', login: 'MULE_SHIP', schema: 'BRIGHTMART', roles: ['BRIGHTMART_RW'] },
+      { name: 'MULE_REPORT', login: 'MULE_REPORT', schema: 'BRIGHTMART', roles: ['BRIGHTMART_RO'] },
     ],
     tables: oracleTables(),
     sessions: [consoleSession(17, 4711, ORACLE)], locks: [], pools: {}, deadlocks: [], kills: [], plans: [], errorlog: [],
@@ -218,7 +218,7 @@ export function ensureSeed(srv) {
 }
 const lean = (srv) => Object.fromEntries(Object.entries(srv).filter(([k]) => !SEED_KEYS.includes(k)))
 // `full` keeps the seed in the state, for a lab that changes a table before it starts
-export const defaultDatabases = (now = 0, { full = false } = {}) => ({ created: now, servers: { 'harbor-sql': full ? newSqlServer() : lean(newSqlServer()), 'harbor-ora': full ? newOracle() : lean(newOracle()) } })
+export const defaultDatabases = (now = 0, { full = false } = {}) => ({ created: now, servers: { 'brightmart-sql': full ? newSqlServer() : lean(newSqlServer()), 'brightmart-ora': full ? newOracle() : lean(newOracle()) } })
 
 // A console saved while this module was a placeholder has state.databases without servers. The tick, ctx.db and the
 // console actions write the default servers into their draft.
@@ -304,7 +304,7 @@ const clean = (name) => String(name).replace(/[[\]"]/g, '')
 function tableKeyOf(srv, raw, schemaHint) {
   const parts = clean(raw).split('.')
   const name = parts.at(-1)
-  const schema = parts.length > 1 ? parts.at(-2) : schemaHint ?? (isSql(srv) ? 'dbo' : 'HARBOR')
+  const schema = parts.length > 1 ? parts.at(-2) : schemaHint ?? (isSql(srv) ? 'dbo' : 'BRIGHTMART')
   return Object.keys(srv.tables).find((k) => k.toLowerCase() === `${schema}.${name}`.toLowerCase()) ?? null
 }
 const colOf = (t, name) => t.columns.find((c) => c.name.toLowerCase() === clean(name).split('.').at(-1).toLowerCase())?.name ?? null
@@ -890,8 +890,8 @@ function execute(srv, sess, st, opts) {
     if (admin || !user || granted(user, tk, verb)) return true
     if (isSql(srv)) return user.roles.includes('db_owner') || user.roles.includes(verb === 'SELECT' ? 'db_datareader' : 'db_datawriter')
     // a user made with CREATE USER has only what was granted to it; the users of the seed keep their roles of old
-    if (user.created !== undefined) return user.roles.includes('DBA') || user.roles.includes('HARBOR_RW') || (verb === 'SELECT' && user.roles.includes('HARBOR_RO')) || (login?.privs ?? []).includes(`${verb} ANY TABLE`)
-    return verb === 'SELECT' || !user.roles.includes('HARBOR_RO')
+    if (user.created !== undefined) return user.roles.includes('DBA') || user.roles.includes('BRIGHTMART_RW') || (verb === 'SELECT' && user.roles.includes('BRIGHTMART_RO')) || (login?.privs ?? []).includes(`${verb} ANY TABLE`)
+    return verb === 'SELECT' || !user.roles.includes('BRIGHTMART_RO')
   }
   const verb = st.kind.toUpperCase()
   if (!can(verb)) return err('denied', { verb, table: tk })
@@ -1166,7 +1166,7 @@ function createIndex(srv, sess, st, opts, err) {
 
 const PRINCIPAL_KINDS = ['createLogin', 'createUser', 'setPassword', 'grantObject', 'grantSystem', 'roleMember', 'createTable']
 export const SQL_ROLES = ['db_owner', 'db_datareader', 'db_datawriter', 'db_ddladmin', 'db_securityadmin', 'db_backupoperator', 'db_denydatareader', 'db_denydatawriter']
-export const ORA_ROLES = ['CONNECT', 'RESOURCE', 'DBA', 'HARBOR_RW', 'HARBOR_RO']
+export const ORA_ROLES = ['CONNECT', 'RESOURCE', 'DBA', 'BRIGHTMART_RW', 'BRIGHTMART_RO']
 const ORA_SYS_PRIVS = ['CREATE SESSION', 'CREATE TABLE', 'CREATE VIEW', 'CREATE SEQUENCE', 'CREATE PROCEDURE', 'UNLIMITED TABLESPACE', 'SELECT ANY TABLE', 'INSERT ANY TABLE', 'UPDATE ANY TABLE', 'DELETE ANY TABLE', 'DROP ANY TABLE']
 const SQL_DB_PERMS = ['CONNECT', 'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'EXECUTE', 'ALTER', 'CONTROL']
 const OBJECT_PRIVS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'REFERENCES', 'ALTER']
@@ -1288,7 +1288,7 @@ function createTable(srv, st, now, msg, ora) {
   const sql = isSql(srv)
   const parts = clean(st.from).split('.')
   const name = sql ? parts.at(-1) : parts.at(-1).toUpperCase()
-  const schema = parts.length > 1 ? (sql ? parts.at(-2) : parts.at(-2).toUpperCase()) : sql ? 'dbo' : 'HARBOR'
+  const schema = parts.length > 1 ? (sql ? parts.at(-2) : parts.at(-2).toUpperCase()) : sql ? 'dbo' : 'BRIGHTMART'
   const tk = `${schema}.${name}`
   if (tableKeyOf(srv, tk)) return sql ? msg(2714, 16, 6, `There is already an object named '${name}' in the database.`) : ora(955, 'name is already used by an existing object')
   const syntax = (near) => (sql ? msg(102, 15, 1, `Incorrect syntax near '${near}'.`) : ora(922, 'missing or invalid option'))
@@ -1411,7 +1411,7 @@ function recordDeadlock(srv, now, ids, victim, wanted) {
   srv.deadlocks.push(d)
   if (srv.deadlocks.length > MAX_KEEP) srv.deadlocks.shift()
   if (srv.errorlog.length >= 60) srv.errorlog.shift()
-  srv.errorlog.push({ t: now, text: isSql(srv) ? `Deadlock encountered .... Printing deadlock information. Victim session ${victim}.` : `ORA-00060: Deadlock detected. See Note 60.1 at My Oracle Support for Troubleshooting ORA-60 Errors. More info in file /u01/app/oracle/diag/rdbms/harborcdb/HARBORCDB/trace/HARBORCDB_ora_${victim * 101}.trc.` })
+  srv.errorlog.push({ t: now, text: isSql(srv) ? `Deadlock encountered .... Printing deadlock information. Victim session ${victim}.` : `ORA-00060: Deadlock detected. See Note 60.1 at My Oracle Support for Troubleshooting ORA-60 Errors. More info in file /u01/app/oracle/diag/rdbms/brightmartcdb/BRIGHTMARTCDB/trace/BRIGHTMARTCDB_ora_${victim * 101}.trc.` })
   return d
 }
 // A deadlock report added by a lab, for the deadlock graph view
@@ -1449,7 +1449,7 @@ export function deadlockXml(srv, d) {
       '',
       ...d.processes.map((x) => `Rows waited on:\n  Session ${x.spid}: obj - rowid = ${hash(x.waits?.t ?? '', 8).toUpperCase()} - AAAS${hash(x.waits?.k ?? '', 10)}\n  (dictionary objn - ${parseInt(hash(x.waits?.t ?? '', 4), 16)}, file - 12, block - ${parseInt(hash(x.waits?.k ?? '', 4), 16)}, slot - 3)`),
       '',
-      ...d.processes.map((x) => `----- Information for waiting session ${x.spid} -----\nsession ${x.spid}: DID 0001-${String(40 + x.spid).padStart(4, '0')}-00000A2B session serial # ${x.serial}\n  pid ${40 + x.spid} O/S info: user: oracle, term: UNKNOWN, ospid: ${x.spid * 113}\n    image: oracle@ora.harbor.lab\n  client details:\n    O/S info: user: mule, term: unknown, ospid: 1234\n    machine: ${x.host} program: ${x.program}\n  current SQL:\n  ${x.sql}`),
+      ...d.processes.map((x) => `----- Information for waiting session ${x.spid} -----\nsession ${x.spid}: DID 0001-${String(40 + x.spid).padStart(4, '0')}-00000A2B session serial # ${x.serial}\n  pid ${40 + x.spid} O/S info: user: oracle, term: UNKNOWN, ospid: ${x.spid * 113}\n    image: oracle@ora.brightmart.lab\n  client details:\n    O/S info: user: mule, term: unknown, ospid: 1234\n    machine: ${x.host} program: ${x.program}\n  current SQL:\n  ${x.sql}`),
       '',
       `Session ${d.victim} was rolled back to the start of its statement (ORA-00060). Its transaction stays open.`,
     ].join('\n')
@@ -1577,7 +1577,7 @@ function checkout(s, srv, app, c) {
   if (c.port && Number(c.port) !== srv.port) return ERR.unreachable(srv, c.host ?? srv.host, c.port, true)
   if (!srv.up) return ERR.down(srv)
   // lab-made: the SID of the container database leads to CDB$ROOT, where the local user of the PDB does not exist
-  if (!isSql(srv) && c.sid) return c.sid.toUpperCase() === (srv.sid ?? 'HARBORCDB') ? ERR.login(srv, c.user) : ERR.sid(srv, c.sid)
+  if (!isSql(srv) && c.sid) return c.sid.toUpperCase() === (srv.sid ?? 'BRIGHTMARTCDB') ? ERR.login(srv, c.user) : ERR.sid(srv, c.sid)
   if (!isSql(srv) && c.service && c.service.toUpperCase() !== srv.service.toUpperCase()) return ERR.service(srv, c.service)
   if (isSql(srv) && c.database && c.database.toLowerCase() !== srv.database.toLowerCase()) return ERR.database(srv, c.database, c.user)
   const login = srv.logins.find((l) => (isSql(srv) ? l.name.toLowerCase() === c.user.toLowerCase() : l.name === c.user.toUpperCase()))
@@ -1747,6 +1747,16 @@ export function dbCtx(s, app) {
         return { ok: true, ms, value: out }
       }),
     pool: (name) => serverOf(s, name)?.pools[app?.name] ?? null,
+    // Lab made: an app that owns a table makes it on first use, the way a migration does when the app starts.
+    // def: { columns: [[name, type, nullable]], pk: [names], rows }. An existing table is left as it is.
+    ensureTable: (name, key, def) =>
+      on(name, (srv) => {
+        if (!srv.tables[key]) {
+          const [schema, tname] = key.split('.')
+          srv.tables[key] = table(schema, tname, { columns: def.columns.map(([n, type, nullable = false]) => col(n, type, { nullable })), pk: def.pk ?? [], pkName: def.pk ? `PK_${tname}` : null, clustered: Boolean(def.pk), rows: structuredClone(def.rows ?? []), count: (def.rows ?? []).length, created: s.clock })
+        }
+        return { ok: true }
+      }),
   }
 }
 

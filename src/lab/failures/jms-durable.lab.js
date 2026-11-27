@@ -20,7 +20,7 @@ const lab = {
   group: 'ActiveMQ',
   title: 'Stock drifts after every deploy',
   minutes: 25,
-  scenario: `${FEED} publishes every stock change to the topic ${TOPIC} on the ActiveMQ Artemis broker harbor-artemis. ${SYNC} subscribes to the topic and applies each change to the warehouse system. This morning a deploy of ${SYNC} took 20 minutes, and since then the warehouse counts are off. Find out why, make the subscription keep events while the app is down, then run it on two replicas without losing or repeating an event.`,
+  scenario: `${FEED} publishes every stock change to the topic ${TOPIC} on the ActiveMQ Artemis broker brightmart-artemis. ${SYNC} subscribes to the topic and applies each change to the warehouse system. This morning a deploy of ${SYNC} took 20 minutes, and since then the warehouse counts are off. Find out why, make the subscription keep events while the app is down, then run it on two replicas without losing or repeating an event.`,
   start() {
     const clock = at(1, 7, 30)
     const s = newPlatform({
@@ -44,7 +44,7 @@ const lab = {
       to: OPS,
       subject: 'Stock counts are wrong since the deploy',
       body: `The warehouse system is off for several items since about 08:30, for example the stock change ${missed[0]?.id ?? 'SE-9122'} never arrived. The stock system shows ${missed.length} changes between 08:10 and 08:30 that we do not have. Pickers go to empty bins. Please fix it before the next deploy.`,
-      source: 'Harbor Foods Warehouse',
+      source: 'Brightmart Warehouse',
     })
     return until(later, at(1, 9))
   },
@@ -52,7 +52,7 @@ const lab = {
     { title: 'Read the mail of the warehouse', how: 'Open the Inbox from the menu under Lab tools.', done: (s) => Boolean(s.seen.inbox) },
     {
       title: `Look at the address ${TOPIC}`,
-      how: `ActiveMQ, choose harbor-artemis at the top, Addresses, ${TOPIC}. It is a MULTICAST address: each subscriber has its own queue under it. The queue of ${SYNC} has a random name and is not durable.`,
+      how: `ActiveMQ, choose brightmart-artemis at the top, Addresses, ${TOPIC}. It is a MULTICAST address: each subscriber has its own queue under it. The queue of ${SYNC} has a random name and is not durable.`,
       done: (s) => Boolean(s.seen[`jms-dest:${TOPIC}`]),
     },
     ask(
@@ -96,7 +96,7 @@ const lab = {
     ),
     ask(
       'Classic or Artemis',
-      'harbor-amq runs ActiveMQ Classic 5.18 and harbor-artemis runs Artemis. Which is true?',
+      'brightmart-amq runs ActiveMQ Classic 5.18 and brightmart-artemis runs Artemis. Which is true?',
       [
         'They have the same address model and the same defaults',
         'Artemis keeps each subscription as a queue under a MULTICAST address, supports JMS 2.0 shared subscriptions, and counts deliveries on the broker with max-delivery-attempts, 10 by default, before the DLQ. Classic 5.18 has no JMS 2.0 shared subscriptions, uses virtual topics for the same need, and counts redeliveries in the client with maximumRedeliveries, 6 by default',

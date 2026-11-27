@@ -1,7 +1,7 @@
 // The sample application of the setup-sftp lab. Imports only platform-log.js, so the engine can load it without a cycle.
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const HOST = 'sftp.harbor.lab'
+export const HOST = 'sftp.brightmart.lab'
 export const NAME = 'brightline-stock-intake'
 export const FLOW = 'stock-listener-flow'
 export const HEADER = 'sku,warehouse,available'

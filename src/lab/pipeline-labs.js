@@ -15,7 +15,7 @@ const failedAt = (s, id) => someRun(s, (r) => stageIn(r, id)?.status === 'failed
 const passedAt = (s, id) => someRun(s, (r) => stageIn(r, id)?.status === 'passed')
 const sawView = (ctx, view) => ctx.seen.views.includes(view)
 const sawJob = (ctx, job) => ctx.seen.jobs.includes(job)
-// runs to Harbor's own servers: an issue code from pipeline.js, or a deploy that passed through Runtime Manager
+// runs to Brightmart's own servers: an issue code from pipeline.js, or a deploy that passed through Runtime Manager
 const failedWith = (s, code) => someRun(s, (r) => r.stages.some((st) => st.issues.some((i) => i.code === code)))
 const hybridPassed = (s, envName, test = () => true) => someRun(s, (r) => r.config.deployTarget === 'hybrid' && stageIn(r, envName)?.status === 'passed' && test(r))
 const targetOf = (s, envName, name) => s.envs[envName].targets?.find((t) => t.name === name)
@@ -38,7 +38,7 @@ export const PIPELINE_LABS = [
   {
     id: 'cicd-first-release',
     title: 'Your first release with GitHub Actions',
-    scenario: 'Harbor Foods ships orders-papi 2.4.0 with a GitHub Actions workflow. Run it once and follow the artifact from build to Production.',
+    scenario: 'Brightmart ships orders-papi 2.4.0 with a GitHub Actions workflow. Run it once and follow the artifact from build to Production.',
     minutes: 8,
     patch: {},
     steps: [
@@ -495,7 +495,7 @@ export const PIPELINE_LABS = [
   {
     id: 'cicd-hybrid-first',
     title: 'Deploy to your own servers with armDeployment',
-    scenario: 'Harbor Foods runs Mule on its own Windows servers. Runtime Manager manages them as server groups: sbx-group in Sandbox and prod-group in Production. Point the workflow at them and follow one release.',
+    scenario: 'Brightmart runs Mule on its own Windows servers. Runtime Manager manages them as server groups: sbx-group in Sandbox and prod-group in Production. Point the workflow at them and follow one release.',
     minutes: 9,
     patch: {},
     steps: [
@@ -528,7 +528,7 @@ export const PIPELINE_LABS = [
       },
       {
         title: 'Who opened the connection to the servers?',
-        ask: 'The runner is a GitHub-hosted machine on the internet. The servers are in the Harbor data center. How did the deployment reach them?',
+        ask: 'The runner is a GitHub-hosted machine on the internet. The servers are in the Brightmart data center. How did the deployment reach them?',
         options: ['The runner connected to each server over a VPN', 'The Runtime Manager agent on each server keeps an outbound connection to the control plane, and the deployment came over it', 'Runtime Manager opened an inbound port on each server', 'The servers download new releases from GitHub'],
         right: 1,
         reason: 'Right. The agent makes an outbound HTTPS connection to Runtime Manager on port 443 and keeps a secure WebSocket on it. The runner only calls the control plane, and the servers need no inbound port.',
@@ -549,7 +549,7 @@ export const PIPELINE_LABS = [
     title: 'Three wrong values in armDeployment',
     scenario: 'A teammate set up the deploy jobs from an old wiki page. The workflow has no Exchange stage: it builds, tests and deploys the jar. The first run fails in Deploy to Sandbox, and so will the next two.',
     minutes: 10,
-    patch: { deployTarget: 'hybrid', publishStage: false, sandboxTarget: 'harbor-sandbox', sandboxTargetType: 'server', muleVersion: '4.8.0' },
+    patch: { deployTarget: 'hybrid', publishStage: false, sandboxTarget: 'brightmart-sandbox', sandboxTargetType: 'server', muleVersion: '4.8.0' },
     steps: [
       {
         title: 'Run the workflow',
@@ -607,7 +607,7 @@ export const PIPELINE_LABS = [
   {
     id: 'cicd-hybrid-disconnected',
     title: 'The runner got through, the server did not',
-    scenario: 'Harbor gives orders-papi its own Sandbox server, sbx-batch-01, for a load test. The deploy job reaches Runtime Manager and still fails. Nobody touched the workflow.',
+    scenario: 'Brightmart gives orders-papi its own Sandbox server, sbx-batch-01, for a load test. The deploy job reaches Runtime Manager and still fails. Nobody touched the workflow.',
     minutes: 8,
     patch: { deployTarget: 'hybrid', publishStage: false, deployProduction: false, sandboxTarget: 'sbx-batch-01', sandboxTargetType: 'server' },
     steps: [
@@ -789,7 +789,7 @@ export const PIPELINE_LABS = [
         ask: 'The test called the real ERP. Why should a unit test never call a real system?',
         options: ['Real systems are slower, and that is the only reason', 'The result then depends on the network, the data and the other system being up, and the call can change real data. The runner often cannot reach it at all', 'MUnit cannot call HTTP endpoints', 'Real calls do not count as coverage'],
         right: 1,
-        reason: 'Right. A unit test should give the same result on any machine. A real call depends on routes, DNS, credentials and data that change, and it can write to a system other people use. The GitHub-hosted runner has no route to erp.harbor.internal, so the test raised HTTP:CONNECTIVITY.',
+        reason: 'Right. A unit test should give the same result on any machine. A real call depends on routes, DNS, credentials and data that change, and it can write to a system other people use. The GitHub-hosted runner has no route to erp.brightmart.internal, so the test raised HTTP:CONNECTIVITY.',
       },
       {
         title: 'Mock the ERP request',
@@ -806,7 +806,7 @@ export const PIPELINE_LABS = [
       },
       {
         title: 'The code or the test?',
-        ask: 'The test says: Expected: <107.5> but: was <100.075>. The ERP amount is 100.00 and Harbor adds 7.5 percent tax. What do you change?',
+        ask: 'The test says: Expected: <107.5> but: was <100.075>. The ERP amount is 100.00 and Brightmart adds 7.5 percent tax. What do you change?',
         options: ['The test: expect 100.075, since that is what the flow returns', 'The code: the mapping adds 0.075 instead of multiplying by 1.075, and the test states the business rule', 'Mark the test ignore="true" until later', 'Lower requiredApplicationCoverage'],
         right: 1,
         reason: 'Right. The test describes the rule: 100.00 plus 7.5 percent is 107.50. The refactor broke the mapping, and the connectivity error had hidden that. Changing the expected value to match the bug would make the test useless.',

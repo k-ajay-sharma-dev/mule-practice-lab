@@ -37,7 +37,7 @@ const lab = {
   group: 'API-led failures',
   title: 'Old addresses from the Process API cache',
   minutes: 20,
-  scenario: `It is 09:30. To protect the Customers System API, the team added a Cache scope around the customer lookup in order-fulfilment-papi yesterday. At 07:10 Harbor Deli changed its delivery address in the CRM. Bay Couriers reads the address from the Partner Orders API and still drove to ${OLD_ADDRESS} this morning.`,
+  scenario: `It is 09:30. To protect the Customers System API, the team added a Cache scope around the customer lookup in order-fulfilment-papi yesterday. At 07:10 Maple Deli changed its delivery address in the CRM. Bay Couriers reads the address from the Partner Orders API and still drove to ${OLD_ADDRESS} this morning.`,
   start() {
     let s = ledProject({ clock: at(1, 6) })
     s.jars.push(
@@ -50,8 +50,8 @@ const lab = {
     s = patchApp(s, 'customers', { pkg: 'customers-sapi-crm', jar: 'customers-sapi-1.2.0-mule-application.jar' })
     s.apps.push(newApp(RELAY, { target: PRIVATE_SPACE, publicEndpoint: false, props: { [LAYER_PROPERTY]: 'System', 'mq.queue': CHANGES_QUEUE } }))
     s = until(s, at(1, 9, 30))
-    const body = `Harbor Deli called us at 08:50. They moved their delivery dock to ${CHANGES[0].address} and changed it in your system at 07:10. Your Partner Orders API still gives us ${OLD_ADDRESS} for order O-1002, so our driver went there twice today. Please fix this before the afternoon round. Their address changes again today: they add a unit number at 12:00.`
-    s.mail = [...s.mail, { t: at(1, 9, 20), to: OPS, subject: 'Deliveries to Harbor Deli went to the old address', body, source: 'Bay Couriers' }]
+    const body = `Maple Deli called us at 08:50. They moved their delivery dock to ${CHANGES[0].address} and changed it in your system at 07:10. Your Partner Orders API still gives us ${OLD_ADDRESS} for order O-1002, so our driver went there twice today. Please fix this before the afternoon round. Their address changes again today: they add a unit number at 12:00.`
+    s.mail = [...s.mail, { t: at(1, 9, 20), to: OPS, subject: 'Deliveries to Maple Deli went to the old address', body, source: 'Bay Couriers' }]
     return s
   },
   steps: [

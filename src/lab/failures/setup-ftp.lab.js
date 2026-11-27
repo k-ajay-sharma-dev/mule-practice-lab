@@ -9,7 +9,7 @@ const HOME = '/export'
 const OUTBOX = '/export/outbox'
 const DONE = '/export/done'
 const ERROR = '/export/error'
-const ALERT_TO = 'store-systems@harbor.example'
+const ALERT_TO = 'store-systems@brightmart.example'
 const GOOD = 'pos-sales-test-0001.zip'
 const BAD = 'pos-sales-test-0002.zip'
 const PASSWORD = 'lab-practice-ftp-1' // the practice password of the solution; the learner picks any
@@ -46,7 +46,7 @@ const alerted = (s) => s.monAlerts.some((x) => x.enabled && x.name_ === NAME && 
 
 const MAIL = {
   t: at(1, 8, 20),
-  to: 'ops@harbor.example',
+  to: 'ops@brightmart.example',
   subject: 'POS sales exports into the new sales system',
   body: [
     'Hello integration team,',
@@ -68,7 +68,7 @@ function systems() {
     dirs: ['/', HOME, OUTBOX, DONE, ERROR, '/backup', '/backup/tills'],
     files: { '/backup/tills/till-014-20261102.bak': fileRec('', { size: 902144, t: at(1, 2), owner: 'legacy_pos', binary: true }) },
   })
-  const local = { home: 'C:\\Users\\you\\harbor', files: { [GOOD]: fileRec('', { size: 18432, t: at(1, 8), binary: true }), [BAD]: fileRec('', { size: 20480, t: at(1, 8), binary: true }) } }
+  const local = { home: 'C:\\Users\\you\\brightmart', files: { [GOOD]: fileRec('', { size: 18432, t: at(1, 8), binary: true }), [BAD]: fileRec('', { size: 20480, t: at(1, 8), binary: true }) } }
   return systemsOf({ servers: [x], local })
 }
 

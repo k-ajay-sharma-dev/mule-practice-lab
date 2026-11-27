@@ -6,13 +6,13 @@ import {
 } from '../platform-msgraph.js'
 import { BRIDGE, BRIDGE_JAR } from './graph-setup.pkg.js'
 
-const REG = 'harbor-customer-bridge'
-const ROLE = 'Harbor Customer Bridge'
-const ALERT_TO = 'crm-integration@harbor.example'
+const REG = 'brightmart-customer-bridge'
+const ROLE = 'Brightmart Customer Bridge'
+const ALERT_TO = 'crm-integration@brightmart.example'
 const SITE = 'Sales'
 const LIB = 'Contracts'
 const TEST = 'C-2001'
-const BAD = 'C-2002-HARBOR-NORTH-WEST'
+const BAD = 'C-2002-BRIGHTMART-NORTH-WEST'
 const m = (s) => s.msgraph
 const reg = (s) => regNamed(m(s), REG)
 const word = (v) => String(v ?? '').trim()
@@ -68,7 +68,7 @@ const rejected = (s) => deployedOk(s) && (a(s)?.store?.rejected ?? []).some((x) 
 function graph(now) {
   const g = newMsgraph(now)
   // the CRM team made the alternate key on the account number already
-  g.dv.tables.account.keys.push({ name: 'harbor_accountnumberkey', cols: ['accountnumber'], status: 'Active', t: now - 30 * DAY })
+  g.dv.tables.account.keys.push({ name: 'brightmart_accountnumberkey', cols: ['accountnumber'], status: 'Active', t: now - 30 * DAY })
   return g
 }
 const MAIL = {
@@ -83,9 +83,9 @@ const MAIL = {
     `3. In Dataverse an application user for it with its own security role ${ROLE}: create, read and write on Account. Nothing else, and not System Administrator.`,
     `4. Properties: dataverse.url ${ORG_URL}, sharepoint.hostname ${SP_HOST}, sharepoint.sitePath /sites/${SITE}, sharepoint.library ${LIB}. Our alternate key on accountnumber is active.`,
     `5. Failures and rejected records alert ${ALERT_TO}.`,
-    'Harbor CRM team',
+    'Brightmart CRM team',
   ].join('\n\n'),
-  source: 'Harbor CRM team',
+  source: 'Brightmart CRM team',
 }
 
 const lab = {
@@ -93,7 +93,7 @@ const lab = {
   group: 'HR, ITSM and CRM',
   title: 'Set up the Dynamics 365 and SharePoint customer bridge',
   minutes: 40,
-  scenario: `It is 09:00 at Harbor. The CRM team wants the customers of the web shop in Dynamics 365 and their contracts in SharePoint. The app ${BRIDGE} is built and its jar is ready, but nothing exists for it yet: no app registration, no Dataverse user, no properties. Done means a test customer is written once however often it is sent, a contract lands in the library, a bad record is rejected and kept, and failures raise an alert. The Inbox has the request.`,
+  scenario: `It is 09:00 at Brightmart. The CRM team wants the customers of the web shop in Dynamics 365 and their contracts in SharePoint. The app ${BRIDGE} is built and its jar is ready, but nothing exists for it yet: no app registration, no Dataverse user, no properties. Done means a test customer is written once however often it is sent, a contract lands in the library, a bad record is rejected and kept, and failures raise an alert. The Inbox has the request.`,
   start() {
     const s = newPlatform({ clock: at(1, 8, 30), jars: [{ pkg: BRIDGE, jar: BRIDGE_JAR }], msgraph: graph(at(1, 8)), mail: [MAIL] })
     return until(s, at(1, 9))
@@ -119,7 +119,7 @@ const lab = {
     ),
     {
       title: 'Give it Sites.Selected and the Sales site',
-      how: `${REG}, API permissions, Add a permission: Microsoft Graph, Application permissions, Sites.Selected. Press Grant admin consent for Harbor Retail. Then the SharePoint tab, site ${SITE}, Site permissions: app ${REG}, role write, Grant. User.Read (delegated) can stay; no other application permission.`,
+      how: `${REG}, API permissions, Add a permission: Microsoft Graph, Application permissions, Sites.Selected. Press Grant admin consent for Brightmart Retail. Then the SharePoint tab, site ${SITE}, Site permissions: app ${REG}, role write, Grant. User.Read (delegated) can stay; no other application permission.`,
       done: graphLeast,
     },
     {
@@ -137,7 +137,7 @@ const lab = {
         'Share one token for Dataverse and Graph, it is the same tenant',
       ],
       2,
-      'The audience of a token is the resource of the scope: https://harbor.crm.dynamics.com/.default for Dataverse, https://graph.microsoft.com/.default for Graph. A token for one is refused by the other. A token per request loads the token endpoint for nothing; a token kept forever fails after an hour. The OAuth client credentials of the HTTP connector cache it for you.',
+      'The audience of a token is the resource of the scope: https://brightmart.crm.dynamics.com/.default for Dataverse, https://graph.microsoft.com/.default for Graph. A token for one is refused by the other. A token per request loads the token endpoint for nothing; a token kept forever fails after an hour. The OAuth client credentials of the HTTP connector cache it for you.',
     ),
     {
       title: 'Deploy with the secret protected',
@@ -151,7 +151,7 @@ const lab = {
     },
     {
       title: 'Verify the upsert and file a contract',
-      how: `API client, POST /customers with {"accountNumber":"${TEST}","name":"Harbor Test Customer","city":"Leeds"}. Send it a second time. The Dataverse tab, table Account, has ${TEST} once. Then POST /customers/${TEST}/contract with {"file":"contract-2026.pdf","size":850000} and find it in the SharePoint tab, ${SITE}, ${LIB}.`,
+      how: `API client, POST /customers with {"accountNumber":"${TEST}","name":"Brightmart Test Customer","city":"Leeds"}. Send it a second time. The Dataverse tab, table Account, has ${TEST} once. Then POST /customers/${TEST}/contract with {"file":"contract-2026.pdf","size":850000} and find it in the SharePoint tab, ${SITE}, ${LIB}.`,
       done: (s) => deployedOk(s) && upserted(s) && filed(s),
     },
     {
@@ -191,8 +191,8 @@ const lab = {
     s = finishDeploys(deployApp(s, form).state)
     const call = (st, method, path, body = '') => callApi(st, { env: 'Sandbox', app: BRIDGE, method, path, body }).state
     s = call(s, 'GET', '/health')
-    s = call(s, 'POST', '/customers', `{"accountNumber":"${TEST}","name":"Harbor Test Customer","city":"Leeds"}`)
-    s = call(s, 'POST', '/customers', `{"accountNumber":"${TEST}","name":"Harbor Test Customer","city":"Leeds"}`)
+    s = call(s, 'POST', '/customers', `{"accountNumber":"${TEST}","name":"Brightmart Test Customer","city":"Leeds"}`)
+    s = call(s, 'POST', '/customers', `{"accountNumber":"${TEST}","name":"Brightmart Test Customer","city":"Leeds"}`)
     s = call(s, 'POST', `/customers/${TEST}/contract`, '{"file":"contract-2026.pdf","size":850000}')
     s = call(s, 'POST', '/customers', `{"accountNumber":"${BAD}","name":"Northwest Depot"}`)
     return addMonAlert(s, { title: 'Customer bridge errors', resource: 'Application', name_: BRIDGE, metric: 'Message Error Count', severity: 'High', operator: 'Above', threshold: 0, minutes: 1, recipients: ALERT_TO })

@@ -4,7 +4,7 @@ import { app, ask, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { API_VERSION, labStore, SHOP, totalOrders } from '../platform-shopify.js'
 import { EXPORT_FLOW, EXPORTER } from './shopify-cost.pkg.js'
 
-const APP_NAME = 'Harbor Data Export'
+const APP_NAME = 'Brightmart Data Export'
 const shopApp = (s) => (s.shopify?.apps ?? []).find((a) => a.name === APP_NAME)
 const a = (s) => app(s, EXPORTER)
 const prop = (s, k) => String(a(s)?.props?.[k] ?? '').trim()
@@ -29,8 +29,8 @@ function start() {
         t: at(1, 8, 15),
         to: OPS,
         subject: 'Order export missing in the warehouse',
-        body: `Hello. The data warehouse has no web orders from yesterday. Yesterday was the autumn sale with about 1240 orders, the day before had 410 and those came through. The night job ${EXPORTER} is red. Can it run again this morning? Harbor data team`,
-        source: 'Harbor data team',
+        body: `Hello. The data warehouse has no web orders from yesterday. Yesterday was the autumn sale with about 1240 orders, the day before had 410 and those came through. The night job ${EXPORTER} is red. Can it run again this morning? Brightmart data team`,
+        source: 'Brightmart data team',
       },
     ],
   })
@@ -45,7 +45,7 @@ const lab = {
   scenario: `${EXPORTER} reads every order of ${SHOP} through the Admin GraphQL API each night and copies it to the data warehouse. After yesterday's sale the store holds 1240 orders, and the 02:00 run failed with THROTTLED. Read the query cost and the throttle status, change the export so it stays within the limit, and run it again.`,
   start,
   steps: [
-    { title: 'Read the mail', how: 'Open the Inbox and read the mail of the Harbor data team.', done: (s) => Boolean(s.seen.inbox) },
+    { title: 'Read the mail', how: 'Open the Inbox and read the mail of the Brightmart data team.', done: (s) => Boolean(s.seen.inbox) },
     { ...sawLogs(EXPORTER), how: `Runtime Manager, Applications, ${EXPORTER}, Logs. The run of 02:00 read a few pages and then failed with APP:SHOPIFY_THROTTLED. The message has requestedQueryCost, currentlyAvailable and restoreRate.` },
     {
       title: 'Read the cost of each call',

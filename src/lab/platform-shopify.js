@@ -1,4 +1,4 @@
-// Shopify: the Harbor web store harbor-goods.myshopify.com. Products and variants, inventory items and levels per location,
+// Shopify: the Brightmart web store brightmart-goods.myshopify.com. Products and variants, inventory items and levels per location,
 // orders and fulfillments, custom apps (Admin API access token, access scopes, API key and API secret key), webhook
 // subscriptions and their deliveries, the Admin GraphQL API with query cost and throttling, and the REST Admin API with
 // its leaky bucket. Pure and import free. Lives in state.shopify.
@@ -30,11 +30,11 @@
 // Lab-made: Shopify pushes each webhook as an HTTPS POST. In the lab the app's flow takes its deliveries once a lab
 // minute through ctx.shopify.webhooks and answers each one as its HTTP listener would. The HMAC is a real HMAC-SHA256.
 
-export const SHOP = 'harbor-goods.myshopify.com'
-export const SHOP_NAME = 'Harbor Goods'
+export const SHOP = 'brightmart-goods.myshopify.com'
+export const SHOP_NAME = 'Brightmart Goods'
 export const API_VERSION = '2026-10'
 export const API_VERSIONS = ['2026-01', '2026-04', '2026-07', '2026-10']
-export const OWNER = 'ops@harbor.example'
+export const OWNER = 'ops@brightmart.example'
 export const WAREHOUSE = 71001
 export const PIER = 71002
 export const SCOPES = ['read_orders', 'write_orders', 'read_products', 'write_products', 'read_inventory', 'write_inventory', 'read_fulfillments', 'write_fulfillments', 'read_customers', 'write_customers', 'read_locations']
@@ -192,8 +192,8 @@ export const shopifyJson = (v) => JSON.stringify(v).replace(/[&<>]/g, (c) => `\\
 // ---------- the store ----------
 
 const PRODUCTS = [
-  ['H-1250', 'Harbor deck chair', 89, 240, 6],
-  ['H-1300', 'Harbor folding table', 129, 85, 2],
+  ['H-1250', 'Brightmart deck chair', 89, 240, 6],
+  ['H-1300', 'Brightmart folding table', 129, 85, 2],
   ['H-2000', 'Rope lantern', 19.5, 12, 4],
   ['H-2100', 'Canvas tote', 24, 160, 20],
 ]
@@ -203,9 +203,9 @@ export function newShopifyStore(now = 0, extra = {}) {
     shop: SHOP,
     name: SHOP_NAME,
     apiVersion: API_VERSION,
-    notifyKey: hexOf('harbor-notify-lab', 64),
+    notifyKey: hexOf('brightmart-notify-lab', 64),
     locations: [
-      { id: WAREHOUSE, name: 'Harbor Warehouse' },
+      { id: WAREHOUSE, name: 'Brightmart Warehouse' },
       { id: PIER, name: 'Pier Store' },
     ],
     products: PRODUCTS.map(([sku, title, price], i) => ({ id: 8800100 + i, title, handle: title.toLowerCase().replace(/\s+/g, '-'), status: 'active', variants: [{ id: 45001000 + i, sku, title: 'Default Title', price, itemId: 47002000 + i }] })),
@@ -1030,7 +1030,7 @@ export const createApp = (state, { name, developer }) =>
     if (n.length > 30) return { ok: false, text: 'App name is too long (maximum is 30 characters)' }
     if (y.apps.some((a) => a.name.toLowerCase() === n.toLowerCase())) return { ok: false, text: 'App name has already been taken' }
     const id = `app-${1000 + next(y)}`
-    y.apps.push({ id, name: n, developer: word(developer) || 'ops@harbor.example', created: now, scopes: [], granted: [], installed: null, token: null, tokenShown: false, apiKey: hexOf(`${id}:key`, 32), secret: `shpss_lab${hexOf(`${id}:secret`, 28)}` })
+    y.apps.push({ id, name: n, developer: word(developer) || 'ops@brightmart.example', created: now, scopes: [], granted: [], installed: null, token: null, tokenShown: false, apiKey: hexOf(`${id}:key`, 32), secret: `shpss_lab${hexOf(`${id}:secret`, 28)}` })
     return { ok: true, id, text: `${n} was created` }
   })
 // Configuration, Admin API integration, Admin API access scopes, Save
@@ -1099,7 +1099,7 @@ export const sendTestNotification = (state, id) =>
 export const createTestOrder = (state, { sku, qty = 1, email }) =>
   edit(state, (s, y, now) => {
     const o = webOrder(y, [{ sku, qty }], now, { email: word(email) || 'test.buyer@mail.example', test: true })
-    return o ? { ok: true, name: o.name, text: `Order ${o.name} was created` } : { ok: false, text: `${sku} has not enough stock at Harbor Warehouse` }
+    return o ? { ok: true, name: o.name, text: `Order ${o.name} was created` } : { ok: false, text: `${sku} has not enough stock at Brightmart Warehouse` }
   })
 // an order, Fulfill items: a fulfillment, and the order is updated
 export const fulfillOrder = (state, name) =>
@@ -1128,7 +1128,7 @@ export const setAvailable = (state, itemId, locationId, available) =>
 // ---------- for labs ----------
 
 // a store with an installed app, for a lab start. Returns the store and the app.
-export function labStore(now, { app, scopes = ['read_orders'], developer = 'ops@harbor.example', archived = 0, subs = [], ...extra } = {}) {
+export function labStore(now, { app, scopes = ['read_orders'], developer = 'ops@brightmart.example', archived = 0, subs = [], ...extra } = {}) {
   const y = newShopifyStore(now, extra)
   const id = 'app-1001'
   const a = { id, name: app, developer, created: now - 30 * 24 * HOUR, scopes: [...scopes], granted: [...scopes], installed: now - 30 * 24 * HOUR, token: `shpat_lab${hexOf(`${id}:token`, 28)}`, tokenShown: true, apiKey: hexOf(`${id}:key`, 32), secret: `shpss_lab${hexOf(`${id}:secret`, 28)}` }

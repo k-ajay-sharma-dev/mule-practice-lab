@@ -30,7 +30,7 @@ const lab = {
     const secrets = (policy) => ({ 'sb.connectionString': connectionString(s, NAMESPACE, policy) })
     // the worker is listed first, so a batch the sender puts on the queue at an even minute waits there for a minute
     s.apps = [
-      newApp(WORKER, { replicas: 3, props: { 'sb.queue': OLD_QUEUE, 'sb.sessions': 'false', 'erp.host': 'erp.harbor.lab' }, secrets: secrets('app-listen'), store: {} }),
+      newApp(WORKER, { replicas: 3, props: { 'sb.queue': OLD_QUEUE, 'sb.sessions': 'false', 'erp.host': 'erp.brightmart.lab' }, secrets: secrets('app-listen'), store: {} }),
       newApp(SENDER, { props: { 'sb.queue': OLD_QUEUE, 'sb.sessionId': '' }, secrets: secrets('app-send'), store: {} }),
     ]
     s = until(s, at(1, 9))
@@ -40,7 +40,7 @@ const lab = {
       to: OPS,
       subject: 'Invoice totals are too low',
       body: `Since about 08:20 most invoices in the ERP have a total that is lower than the sum of their lines, for example ${wrong.slice(0, 3).map((p) => `${p.invoice} with ${p.total.toFixed(2)}`).join(', ')}. Billing says it sends every line. We hold the invoices until this is fixed. Please look at it this morning.`,
-      source: 'Harbor Foods Finance',
+      source: 'Brightmart Finance',
     })
     return s
   },
@@ -52,7 +52,7 @@ const lab = {
     },
     {
       title: `Look at the messages in ${OLD_QUEUE}`,
-      how: `Azure Service Bus, harbor-bus, Queues, ${OLD_QUEUE}. Open Service Bus Explorer and peek from start. The batch that billing sent last waits there. Look at the Session ID column, and at Properties: Requires session.`,
+      how: `Azure Service Bus, brightmart-bus, Queues, ${OLD_QUEUE}. Open Service Bus Explorer and peek from start. The batch that billing sent last waits there. Look at the Session ID column, and at Properties: Requires session.`,
       done: (s) => Boolean(s.seen[`sb-entity:${OLD_QUEUE}`]),
     },
     ask(
@@ -81,7 +81,7 @@ const lab = {
     ),
     {
       title: 'Create a session queue and send to it with the invoice ID',
-      how: `Azure Service Bus, harbor-bus, Queues, + Queue. Name it ${NEW_QUEUE}, check Enable sessions, keep the rest, Create. Then Runtime Manager, ${SENDER}, Settings, Properties: set sb.queue to the new queue and sb.sessionId to #[payload.invoiceId], Apply Changes. A message without a SessionId would be refused by the new queue.`,
+      how: `Azure Service Bus, brightmart-bus, Queues, + Queue. Name it ${NEW_QUEUE}, check Enable sessions, keep the rest, Create. Then Runtime Manager, ${SENDER}, Settings, Properties: set sb.queue to the new queue and sb.sessionId to #[payload.invoiceId], Apply Changes. A message without a SessionId would be refused by the new queue.`,
       done: senderOk,
     },
     {

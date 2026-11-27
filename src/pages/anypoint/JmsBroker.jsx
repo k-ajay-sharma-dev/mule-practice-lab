@@ -1,5 +1,5 @@
-// ActiveMQ: the two brokers of the lab. harbor-amq is ActiveMQ Classic, shown as its web console (/admin) with Home,
-// Queues, Topics, Subscribers, Connections, Network, Scheduled and Send. harbor-artemis is ActiveMQ Artemis, shown as
+// ActiveMQ: the two brokers of the lab. brightmart-amq is ActiveMQ Classic, shown as its web console (/admin) with Home,
+// Queues, Topics, Subscribers, Connections, Network, Scheduled and Send. brightmart-artemis is ActiveMQ Artemis, shown as
 // its management console with Status, Connections, Consumers, Addresses, Queues and Send. Users, Broker config and
 // "In the Mule app" are lab pages: the real consoles have no page for them.
 import { useEffect, useMemo, useState } from 'react'
@@ -122,7 +122,7 @@ export default function JmsBroker({ state, update, place, go }) {
           </select>
         </label>
         <span className="amq-dim">
-          {b.kind === CLASSIC ? 'http://amq.harbor.lab:8161/admin' : 'http://artemis.harbor.lab:8161/console'} · {masterOf(b) ? `serving on ${masterOf(b).name}` : 'not running'}
+          {b.kind === CLASSIC ? 'http://amq.brightmart.lab:8161/admin' : 'http://artemis.brightmart.lab:8161/console'} · {masterOf(b) ? `serving on ${masterOf(b).name}` : 'not running'}
         </span>
       </div>
       {b.kind === CLASSIC ? <Classic state={state} b={b} view={view} place={place} to={to} run={run} result={result} update={update} /> : <Artemis state={state} b={b} view={view} place={place} to={to} run={run} result={result} update={update} />}
@@ -167,7 +167,7 @@ function Classic({ state, b, view, place, to, run, result, update }) {
         {view === 'network' && (
           <>
             <h2>Network Bridges</h2>
-            <T heads={['Remote Broker', 'Remote Address', 'Created By Duplex', 'Messages Enqueued', 'Messages Dequeued']} empty="No network bridges. harbor-amq is a master/slave pair, not a network of brokers." />
+            <T heads={['Remote Broker', 'Remote Address', 'Created By Duplex', 'Messages Enqueued', 'Messages Dequeued']} empty="No network bridges. brightmart-amq is a master/slave pair, not a network of brokers." />
           </>
         )}
         {view === 'scheduled' && (b.config.schedulerSupport ? <p>No scheduled messages.</p> : <p className="amq-warn">Scheduler not started!</p>)}
@@ -231,7 +231,7 @@ function CHome({ b, run, state }) {
   const rows = [
     ['Name', b.name],
     ['Version', b.version],
-    ['ID', `ID:${m?.host ?? 'amq1.harbor.lab'}-46811-${b.epoch}-0:1`],
+    ['ID', `ID:${m?.host ?? 'amq1.brightmart.lab'}-46811-${b.epoch}-0:1`],
     ['Uptime', m ? uptime(state.clock - m.since) : 'not running'],
     ['Store percent used', u.storePct, u.storePct >= 90],
     ['Memory percent used', u.memoryPct, u.memoryPct >= 90],
@@ -890,7 +890,7 @@ function Mule({ state, b }) {
   </jms:active-mq-connection>
 </jms:config>
 
-<!-- jms.url=failover:(tcp://amq1.harbor.lab:61616,tcp://amq2.harbor.lab:61616)?randomize=false&jms.prefetchPolicy.queuePrefetch=1 -->
+<!-- jms.url=failover:(tcp://amq1.brightmart.lab:61616,tcp://amq2.brightmart.lab:61616)?randomize=false&jms.prefetchPolicy.queuePrefetch=1 -->
 
 <flow name="order-ledger-flow">
   <jms:listener config-ref="AMQ_Config" destination="ORDERS.IN" ackMode="AUTO"
@@ -902,7 +902,7 @@ function Mule({ state, b }) {
 </flow>`
     : `<!-- beans.xml, loaded with <spring:config name="springConfig" files="beans.xml" /> -->
 <bean id="artemisFactory" class="org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory">
-  <constructor-arg value="tcp://artemis.harbor.lab:61616" />
+  <constructor-arg value="tcp://artemis.brightmart.lab:61616" />
 </bean>
 
 <jms:config name="Artemis_Config">

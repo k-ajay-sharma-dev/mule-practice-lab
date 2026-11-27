@@ -4,7 +4,7 @@ import { app, ask, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { hire, newWorkday, TENANT, WD_HOST } from '../platform-workday.js'
 import { JOBS } from './wd-soap-fault.pkg.js'
 
-const ALERT_TO = 'shift-planning@harbor.example'
+const ALERT_TO = 'shift-planning@brightmart.example'
 const a = (s) => app(s, JOBS)
 const prop = (s, k) => String(a(s)?.props?.[k] ?? '').trim()
 const running = (s) => a(s)?.status === 'Running'
@@ -30,14 +30,14 @@ const lab = {
       clock: at(1, 7, 50),
       apps: [
         newApp(JOBS, {
-          props: { 'workday.host': WD_HOST, 'workday.tenant': TENANT, 'workday.username': 'ISU_HARBOR_HCM', 'wd.locationIdType': 'Organization_Reference_ID', 'wd.onFault': 'stop' },
+          props: { 'workday.host': WD_HOST, 'workday.tenant': TENANT, 'workday.username': 'ISU_BRIGHTMART_HCM', 'wd.locationIdType': 'Organization_Reference_ID', 'wd.onFault': 'stop' },
           secrets: { 'workday.password': 'Hcm-Lab-Pass-0826' },
           store: {
             queue: [
               { worker: '21008', location: 'LOC_PIER_02', effective: '2026-11-09' },
               { worker: '21011', location: 'LOC_PIER_02', effective: '2026-11-04' },
               { worker: '21010', location: 'LOC_PIER_02', effective: '2026-11-09' },
-              { worker: '21006', location: 'LOC_HARBOR_HQ', effective: '2026-11-09' },
+              { worker: '21006', location: 'LOC_BRIGHTMART_HQ', effective: '2026-11-09' },
             ],
           },
         }),
@@ -48,8 +48,8 @@ const lab = {
           t: at(1, 9),
           to: OPS,
           subject: 'Store transfers not in Workday',
-          body: `Hello. We planned four transfers for next week, three of them to Pier 02, and none shows in Workday. If Workday refuses a transfer, tell us at ${ALERT_TO} and we fix it on our side. Harbor shift planning`,
-          source: 'Harbor shift planning',
+          body: `Hello. We planned four transfers for next week, three of them to Pier 02, and none shows in Workday. If Workday refuses a transfer, tell us at ${ALERT_TO} and we fix it on our side. Brightmart shift planning`,
+          source: 'Brightmart shift planning',
         },
       ],
     })
@@ -59,7 +59,7 @@ const lab = {
     { ...sawLogs(JOBS), title: 'Read the fault', how: `Runtime Manager, Applications, ${JOBS}, Logs. Each run ends with WSC:SOAP_FAULT: Validation error occurred, an invalid ID value, and an Xpath that points into the request.` },
     {
       title: 'See the request in Workday',
-      how: 'Workday from the console menu, Integration events. Each Change_Job of ISU_HARBOR_HCM failed with SOAP-ENV:Client.validationError. The detail names the element: Location_Reference, ID.',
+      how: 'Workday from the console menu, Integration events. Each Change_Job of ISU_BRIGHTMART_HCM failed with SOAP-ENV:Client.validationError. The detail names the element: Location_Reference, ID.',
       done: (s) => Boolean(s.seen['wd:events']),
     },
     ask(
@@ -99,7 +99,7 @@ const lab = {
     {
       title: 'Let the queue move',
       how: `Runtime Manager, ${JOBS}, Settings, Properties. Set wd.onFault to continue and Apply Changes. Move the clock 5 minutes. The log shows Change_Job done for 21010 and 21006 and a warning that the transfer of 21011 was rejected. Workers in Workday shows the new locations.`,
-      done: (s) => typeFixed(s) && prop(s, 'wd.onFault') === 'continue' && loc(s, '21008') === 'LOC_PIER_02' && loc(s, '21010') === 'LOC_PIER_02' && loc(s, '21006') === 'LOC_HARBOR_HQ' && !(store(s).queue ?? []).length && (store(s).rejected ?? []).some((x) => x.worker === '21011'),
+      done: (s) => typeFixed(s) && prop(s, 'wd.onFault') === 'continue' && loc(s, '21008') === 'LOC_PIER_02' && loc(s, '21010') === 'LOC_PIER_02' && loc(s, '21006') === 'LOC_BRIGHTMART_HQ' && !(store(s).queue ?? []).length && (store(s).rejected ?? []).some((x) => x.worker === '21011'),
     },
     {
       title: 'Tell shift planning about rejects',

@@ -17,11 +17,11 @@ export const CACHE_KEY = `customer:${CUSTOMER_ID}`
 export const OLD_ADDRESS = '12 Old Pier Road, Bay City'
 // What the customer changed in the CRM, and when. SQL Server, behind the Customers System API, has each change at once.
 export const CHANGES = [
-  { t: at(1, 7, 10), address: '4 Harbor Street, Bay City' },
-  { t: at(1, 12), address: '4 Harbor Street, Unit 2, Bay City' },
-  { t: at(1, 15), address: '4 Harbor Street, Unit 2, Gate B, Bay City' },
-  { t: at(2, 9), address: '4 Harbor Street, Unit 2, Gate C, Bay City' },
-  { t: at(2, 14), address: '4 Harbor Street, Unit 3, Gate C, Bay City' },
+  { t: at(1, 7, 10), address: '4 Brightmart Street, Bay City' },
+  { t: at(1, 12), address: '4 Brightmart Street, Unit 2, Bay City' },
+  { t: at(1, 15), address: '4 Brightmart Street, Unit 2, Gate B, Bay City' },
+  { t: at(2, 9), address: '4 Brightmart Street, Unit 2, Gate C, Bay City' },
+  { t: at(2, 14), address: '4 Brightmart Street, Unit 3, Gate C, Bay City' },
 ]
 export const addressAt = (t) => CHANGES.filter((c) => c.t <= t).at(-1)?.address ?? OLD_ADDRESS
 export const lastChangeAt = (t) => CHANGES.filter((c) => c.t <= t).at(-1)
@@ -36,7 +36,7 @@ export function ttlOf(props) {
 const ttlText = (props) => (ttlOf(props) ? `${props['customers.cache.entryTtl']} ${String(props['customers.cache.entryTtlUnit'] || 'SECONDS').toUpperCase()}` : 'none, entries never expire')
 
 const INVALIDATED = `Invalidate Key removed ${CACHE_KEY} from Customer_Caching_Strategy`
-const customer = (address) => ({ id: CUSTOMER_ID, name: 'Harbor Deli', email: 'orders@harbordeli.example', deliveryAddress: address })
+const customer = (address) => ({ id: CUSTOMER_ID, name: 'Maple Deli', email: 'orders@mapledeli.example', deliveryAddress: address })
 
 // When the entry of C-7 was loaded. The cache is in memory, so a deploy starts it empty. A CustomerChanged event that the
 // listener flow consumed removes the key. With steady traffic the next call after an empty or expired key loads it again.

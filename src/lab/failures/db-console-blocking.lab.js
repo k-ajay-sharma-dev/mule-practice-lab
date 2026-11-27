@@ -5,10 +5,10 @@ import { defaultDatabases, killSession, serverOf } from '../platform-db.js'
 import { DB, REFUND, settingsOf, STATUS, STOCK } from './db-console-blocking.pkg.js'
 
 const BLOCKER = 57
-const DB_PROPS = { 'db.host': 'sql.harbor.lab', 'db.port': '1433', 'db.database': 'HarborOrders' }
+const DB_PROPS = { 'db.host': 'sql.brightmart.lab', 'db.port': '1433', 'db.database': 'BrightmartOrders' }
 const refundApp = () =>
   newApp(REFUND, {
-    props: { ...DB_PROPS, 'db.user': 'mule_orders', 'db.pool.max': '5', 'db.pool.maxWait': '10', 'db.queryTimeout': '0', 'tx.timeout': '', 'tx.remoteCall': 'inside', 'provider.url': 'https://api.harborpay.lab/v2' },
+    props: { ...DB_PROPS, 'db.user': 'mule_orders', 'db.pool.max': '5', 'db.pool.maxWait': '10', 'db.queryTimeout': '0', 'tx.timeout': '', 'tx.remoteCall': 'inside', 'provider.url': 'https://api.brightmartpay.lab/v2' },
     secrets: { 'db.password': 'Orders-Lab-2026' },
     store: {},
   })
@@ -27,7 +27,7 @@ const lab = {
   title: 'One open transaction blocks every API',
   minutes: 20,
   scenario:
-    'Since 08:40 the order status API and the stock API of Harbor Retail time out, and their logs fill with DB:CONNECTIVITY. CPU on SQL Server is low and nothing failed over. The only change this week: harbor-refund-sapi now calls the payment provider inside its refund flow. Find what holds the database, free it, and change the refund app so this cannot happen again.',
+    'Since 08:40 the order status API and the stock API of Brightmart Retail time out, and their logs fill with DB:CONNECTIVITY. CPU on SQL Server is low and nothing failed over. The only change this week: brightmart-refund-sapi now calls the payment provider inside its refund flow. Find what holds the database, free it, and change the refund app so this cannot happen again.',
   start() {
     const databases = defaultDatabases(at(1, 8, 39))
     databases.servers[DB].nextSpid = BLOCKER
@@ -46,7 +46,7 @@ const lab = {
           to: OPS,
           subject: 'Order status and stock pages hang',
           body: 'Since about 08:40 the shop cannot show order status or stock. Pages spin for 30 seconds and then fail. The database team sees low CPU and no errors on SQL Server. Please look at it now, the morning sale starts at 10:00.',
-          source: 'Harbor Retail Service Desk',
+          source: 'Brightmart Retail Service Desk',
         },
       ],
       databases,

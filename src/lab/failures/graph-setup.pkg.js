@@ -4,7 +4,7 @@
 import { info, muleError, needs, warn } from '../platform-log.js'
 import { API_PATH, errorText, FRAGMENT, GRAPH_SCOPE, GRAPH_URL, httpMessage, httpType, SIMPLE_LIMIT, tokenFor } from '../platform-msgraph.js'
 
-export const BRIDGE = 'harbor-d365-customer-bridge'
+export const BRIDGE = 'brightmart-d365-customer-bridge'
 export const BRIDGE_JAR = `${BRIDGE}-1.0.0-mule-application.jar`
 const cfgOf = (p) => ({ tenant: p['azure.tenantId'], clientId: p['azure.clientId'], clientSecret: p['azure.clientSecret'] })
 const el = (flow, at, name, dsl) => ({ flow, at, name, dsl })
@@ -39,8 +39,8 @@ function library(ctx, token) {
 
 export const PACKAGES = {
   [BRIDGE]: {
-    note: `The customer bridge of Harbor. GET /health gets a token for Dataverse and one for Microsoft Graph, calls WhoAmI and finds the library. POST /customers with {"accountNumber","name","city"} upserts the account with PATCH /accounts(accountnumber='...'); a record Dataverse refuses is answered 400 and kept in the reject store of the app. POST /customers/{accountNumber}/contract with {"file","size"} files the contract in the library, in an upload session above 4 MB. Properties: azure.tenantId, azure.clientId, the secure azure.clientSecret, dataverse.url, sharepoint.hostname, sharepoint.sitePath, sharepoint.library. Tokens are cached until 5 minutes before they expire.`,
-    sample: { method: 'POST', path: '/customers', body: '{"accountNumber":"C-2001","name":"Harbor Test Customer","city":"Leeds"}' },
+    note: `The customer bridge of Brightmart. GET /health gets a token for Dataverse and one for Microsoft Graph, calls WhoAmI and finds the library. POST /customers with {"accountNumber","name","city"} upserts the account with PATCH /accounts(accountnumber='...'); a record Dataverse refuses is answered 400 and kept in the reject store of the app. POST /customers/{accountNumber}/contract with {"file","size"} files the contract in the library, in an upload session above 4 MB. Properties: azure.tenantId, azure.clientId, the secure azure.clientSecret, dataverse.url, sharepoint.hostname, sharepoint.sitePath, sharepoint.library. Tokens are cached until 5 minutes before they expire.`,
+    sample: { method: 'POST', path: '/customers', body: '{"accountNumber":"C-2001","name":"Brightmart Test Customer","city":"Leeds"}' },
     boot: needs('azure.tenantId', 'azure.clientId', 'azure.clientSecret', 'dataverse.url', 'sharepoint.hostname', 'sharepoint.sitePath', 'sharepoint.library'),
     handle(ctx, req) {
       const path = req.path.split('?')[0]

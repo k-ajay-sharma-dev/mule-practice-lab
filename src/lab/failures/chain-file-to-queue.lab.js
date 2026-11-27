@@ -1,7 +1,7 @@
 // The guided lab chain-file-to-queue. See platform-labs.js for the shape of a lab.
 //
 // One root cause, three systems: a slow consumer with the default prefetch lets STOCK.UPDATES fill the small store of
-// harbor-amq; producer flow control then stalls the nightly importer half way; the importer has no checkpoint, so the
+// brightmart-amq; producer flow control then stalls the nightly importer half way; the importer has no checkpoint, so the
 // file stays in /in and is read from line 1 on every poll. Half the SKUs are sent again and again, the rest never, and
 // the web shop shows yesterday's stock. The lab builds its own state: one Classic broker and one SFTP server.
 import { addMonAlert, advance, at, MINUTE, mark, newApp, newPlatform } from '../platform.js'
@@ -32,7 +32,7 @@ const alertOk = (s) =>
   running(s, WATCH) &&
   alertSize(props(s, WATCH)) !== null
 
-// the store of harbor-amq is 10 MB in the lab (lab-made, a real one has gigabytes): 160 stock messages fill it
+// the store of brightmart-amq is 10 MB in the lab (lab-made, a real one has gigabytes): 160 stock messages fill it
 function broker(clock) {
   const b = classicBroker(clock)
   b.config.storeLimit = 160 * MSG_BYTES
@@ -62,7 +62,7 @@ const lab = {
   group: 'Chained incidents',
   title: 'The shop sells stock it does not have',
   minutes: 35,
-  scenario: `Every night the warehouse system drops a stock file in /in on ${HOST}. ${IMPORTER} reads it and publishes one message per SKU to the ActiveMQ Classic queue ${QUEUE} on harbor-amq. ${API} takes the messages and keeps the availability that the web shop shows. It is Tuesday 08:00. The web shop shows items in stock that the warehouse has sold out, and those orders fail at the warehouse. Nothing was deployed last night. Start where the shop looks and follow the trail down to the cause. Then fix the cause and each weak point that let it spread, and load the night file again.`,
+  scenario: `Every night the warehouse system drops a stock file in /in on ${HOST}. ${IMPORTER} reads it and publishes one message per SKU to the ActiveMQ Classic queue ${QUEUE} on brightmart-amq. ${API} takes the messages and keeps the availability that the web shop shows. It is Tuesday 08:00. The web shop shows items in stock that the warehouse has sold out, and those orders fail at the warehouse. Nothing was deployed last night. Start where the shop looks and follow the trail down to the cause. Then fix the cause and each weak point that let it spread, and load the night file again.`,
   start() {
     const clock = at(1, 1, 59)
     const avail = Object.fromEntries(Array.from({ length: SKUS }, (_, i) => [sku(i), [before(i), YESTERDAY, 0]]))
@@ -86,8 +86,8 @@ const lab = {
       t: at(1, 7, 40),
       to: OPS,
       subject: 'Shop shows sold out items in stock',
-      body: `Since the shop opened, ${sku(SOLD_OUT[0])} and ${sku(SOLD_OUT[1])} show as in stock, and every order for them is rejected by the warehouse as sold out. Some busy items such as ${sku(6)} were also sold more often than we have them. The stock file of last night should have fixed all of this. Harbor Web Shop team`,
-      source: 'Harbor Web Shop',
+      body: `Since the shop opened, ${sku(SOLD_OUT[0])} and ${sku(SOLD_OUT[1])} show as in stock, and every order for them is rejected by the warehouse as sold out. Some busy items such as ${sku(6)} were also sold more often than we have them. The stock file of last night should have fixed all of this. Brightmart Web Shop team`,
+      source: 'Brightmart Web Shop',
     })
     return until(later, at(1, 8))
   },
@@ -99,7 +99,7 @@ const lab = {
     },
     {
       title: 'Look at the broker',
-      how: `ActiveMQ, harbor-amq, Home: read Store percent used. Then Queues, ${QUEUE}: compare Pending, the consumers and Messages in flight, and open Active Consumers to see Prefetch and Dispatched Queue. One consumer holds every message and works through 8 a minute, and the store is full, so producer flow control holds every new send.`,
+      how: `ActiveMQ, brightmart-amq, Home: read Store percent used. Then Queues, ${QUEUE}: compare Pending, the consumers and Messages in flight, and open Active Consumers to see Prefetch and Dispatched Queue. One consumer holds every message and works through 8 a minute, and the store is full, so producer flow control holds every new send.`,
       done: (s) => Boolean(s.seen[`jms:${AMQ}`]) && Boolean(s.seen[`jms-dest:${QUEUE}`]),
     },
     {

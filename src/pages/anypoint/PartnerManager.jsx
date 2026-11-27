@@ -81,7 +81,7 @@ function PartnerList({ b, update, go }) {
           </Btn>
         )}
       </div>
-      <p className="pc-dim">The host Harbor and its trading partners. A partner profile holds the X12 identifiers that its envelopes carry and the endpoints it sends and receives on.</p>
+      <p className="pc-dim">The host Brightmart and its trading partners. A partner profile holds the X12 identifiers that its envelopes carry and the endpoints it sends and receives on.</p>
       {form && (
         <section className="pm-card">
           <h3>New partner</h3>
@@ -183,7 +183,7 @@ function PartnerPage({ b, update, go, p }) {
               <Field label="Signing certificate" hint="Verifies the signature of its messages">
                 <Select value={ep.signCert} onChange={set('signCert')} placeholder="Pick a certificate" options={certs.filter((c) => c.use === 'Signing').map((c) => c.id)} aria-label="Signing certificate" />
               </Field>
-              <Field label="Encryption certificate" hint="Harbor encrypts for the partner with it">
+              <Field label="Encryption certificate" hint="Brightmart encrypts for the partner with it">
                 <Select value={ep.encCert} onChange={set('encCert')} placeholder="Pick a certificate" options={certs.filter((c) => c.use === 'Encryption').map((c) => c.id)} aria-label="Encryption certificate" />
               </Field>
               <Field label="MDN">
@@ -199,7 +199,7 @@ function PartnerPage({ b, update, go, p }) {
               <Btn
                 kind="primary"
                 onClick={() => {
-                  update((s) => setEndpoint(s, p.id, { as2Id: ep.as2Id.trim(), url: ep.url.trim(), signCert: ep.signCert, encCert: ep.encCert, mdn: ep.mdn, mdnSigned: Boolean(ep.mdnSigned), ...(ep.mdn === 'async' && { mdnUrl: 'https://b2b.harbor.example/as2/mdn' }) }))
+                  update((s) => setEndpoint(s, p.id, { as2Id: ep.as2Id.trim(), url: ep.url.trim(), signCert: ep.signCert, encCert: ep.encCert, mdn: ep.mdn, mdnSigned: Boolean(ep.mdnSigned), ...(ep.mdn === 'async' && { mdnUrl: 'https://b2b.brightmart.example/as2/mdn' }) }))
                   setSaved('Endpoint saved.')
                 }}
               >
@@ -490,7 +490,7 @@ function Tracking({ b, update, go }) {
         <div className="pm-actions">
           <Btn onClick={() => update((s) => requestResendFailed(s, partner))}>Request resend of all failed</Btn>
           <Btn onClick={() => update((s) => resendFailed(s, partner))}>Resend all failed</Btn>
-          <span className="pc-dim">Request resend asks the partner for its failed inbound documents. Resend sends Harbor's failed outbound documents again.</span>
+          <span className="pc-dim">Request resend asks the partner for its failed inbound documents. Resend sends Brightmart's failed outbound documents again.</span>
         </div>
       )}
       <Table heads={['Time', 'Direction', 'Partner', 'Type', 'Document', 'ISA13', 'GS06', 'ST02', 'Status', '997', 'MDN']} rows={rows} empty="No transmissions match." />
@@ -717,7 +717,7 @@ function Certificates({ state, b, update }) {
       <div className="pc-title">
         <h2>Certificates</h2>
       </div>
-      <p className="pc-dim">Public certificates of the partners and the certificates of the host. Harbor's private keys stay in its keystore.</p>
+      <p className="pc-dim">Public certificates of the partners and the certificates of the host. Brightmart's private keys stay in its keystore.</p>
       <Table
         heads={['Alias', 'Owner', 'Use', 'Subject', 'SHA-1 fingerprint', 'Valid from', 'Expires', 'Left', 'Used by']}
         rows={certsOf(b).map((c) => (

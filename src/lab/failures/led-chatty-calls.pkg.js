@@ -145,7 +145,7 @@ export const PACKAGES = {
       const skus = (new URLSearchParams(query).get('skus') ?? '').split(',').map((x) => x.trim()).filter(Boolean)
       if (!skus.length || skus.length > BULK_MAX) return { status: 400, ms: 8, flow, error: 'APIKIT:BAD_REQUEST', body: json({ message: `Give 1 to ${BULK_MAX} SKUs in skus` }) }
       const be = ctx.backend('sftp')
-      if (!be.up || ctx.props['sftp.host'] !== 'sftp.harbor.lab') {
+      if (!be.up || ctx.props['sftp.host'] !== 'sftp.brightmart.lab') {
         const error = { flow, file: 'inventory-sapi', at: 1, name: 'Read stock file', dsl: '<sftp:read doc:name="Read stock file" config-ref="SFTP_Config">', type: 'SFTP:CONNECTIVITY', message: `Could not establish SFTP connection with host ${ctx.props['sftp.host']} at port 22: Connection refused` }
         return { status: 500, ms: 3000, flow, error: 'SFTP:CONNECTIVITY', log: [muleError(error)], body: json({ message: 'Internal server error' }) }
       }

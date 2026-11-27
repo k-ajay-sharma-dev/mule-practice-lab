@@ -4,8 +4,8 @@ import { app, ask, call, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { appNamedIn, BASE, grants, KEYSTORE_PASSWORD, newEpic, seedApp, seedKey, setAppScopes, TOKEN_URL } from '../platform-epic.js'
 import { LAB_FEED } from './epic-scope.pkg.js'
 
-const EPIC_APP = 'Harbor Care Lab Feed'
-const KEY = 'harbor-labfeed-2026-09'
+const EPIC_APP = 'Brightmart Care Lab Feed'
+const KEY = 'brightmart-labfeed-2026-09'
 const OBS = 'system/Observation.read'
 const y = (s) => s.epic ?? {}
 const reg = (s) => appNamedIn(y(s), EPIC_APP)
@@ -48,8 +48,8 @@ function start() {
         t: at(1, 9, 5),
         to: OPS,
         subject: 'Lab results tab shows an error',
-        body: `Hello. Since the release of the new Lab results tab this morning the Harbor Care portal shows "Something went wrong" for every patient. Demographics still load. The tab calls ${LAB_FEED}. Harbor Care team`,
-        source: 'Harbor Care team',
+        body: `Hello. Since the release of the new Lab results tab this morning the Brightmart Care portal shows "Something went wrong" for every patient. Demographics still load. The tab calls ${LAB_FEED}. Brightmart Care team`,
+        source: 'Brightmart Care team',
       },
     ],
   })
@@ -61,7 +61,7 @@ const lab = {
   group: 'Epic and healthcare',
   title: 'Patients load, lab results get 403',
   minutes: 20,
-  scenario: `${LAB_FEED} went live this morning with a new Lab results tab in the Harbor Care portal. It gets a token from Epic at Bayview Health, finds the patient by MRN, and then searches the lab Observations. The patient search works, the Observation search fails for every patient. Find why and fix it with the least access that does the job.`,
+  scenario: `${LAB_FEED} went live this morning with a new Lab results tab in the Brightmart Care portal. It gets a token from Epic at Bayview Health, finds the patient by MRN, and then searches the lab Observations. The patient search works, the Observation search fails for every patient. Find why and fix it with the least access that does the job.`,
   start,
   steps: [
     { ...sawLogs(LAB_FEED), how: `Runtime Manager, Applications, ${LAB_FEED}, Logs. Find the HTTP:FORBIDDEN on Search Observation and the OperationOutcome Epic sent with it.` },

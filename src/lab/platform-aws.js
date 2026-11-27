@@ -1,4 +1,4 @@
-// AWS for the Mule Amazon S3, SQS and SNS connectors: one account of Harbor in US East (Ohio). S3 buckets with bucket
+// AWS for the Mule Amazon S3, SQS and SNS connectors: one account of Brightmart in US East (Ohio). S3 buckets with bucket
 // policies, Block Public Access and default encryption (SSE-S3 or SSE-KMS with a key policy), SQS standard and FIFO queues
 // with visibility timeout, receive count, long polling and a redrive policy to a dead-letter queue, SNS topics with SQS
 // subscriptions and filter policies, IAM users, roles, trust policies and policies, STS AssumeRole, and a CloudTrail
@@ -42,7 +42,7 @@
 export const ACCOUNT = '210987654321'
 export const REGION = 'us-east-2'
 export const REGION_NAME = 'US East (Ohio)'
-export const CONSOLE_USER = 'harbor-admin'
+export const CONSOLE_USER = 'brightmart-admin'
 const MINUTE = 60000
 const MAX_TRAIL = 60
 const MAX_QUEUE = 300
@@ -332,17 +332,17 @@ export function newAwsAccount(now = 0, x = {}) {
 // The account of the open console, built the first time the AWS screen opens
 export function defaultAwsAccount(now = 0) {
   return newAwsAccount(now, {
-    users: [{ name: 'svc-web-orders', keys: [{ id: 'AKIA_LAB_0000101', secret: 'lab-only/web-orders-secret-0101', created: now - 30 * 24 * 60 * MINUTE }], policies: { 'send-orders': policyDoc({ Effect: 'Allow', Action: ['sqs:SendMessage', 'sqs:GetQueueAttributes'], Resource: arnQueue('harbor-orders') }) } }],
-    keys: [{ alias: 'alias/harbor-data' }],
+    users: [{ name: 'svc-web-orders', keys: [{ id: 'AKIA_LAB_0000101', secret: 'lab-only/web-orders-secret-0101', created: now - 30 * 24 * 60 * MINUTE }], policies: { 'send-orders': policyDoc({ Effect: 'Allow', Action: ['sqs:SendMessage', 'sqs:GetQueueAttributes'], Resource: arnQueue('brightmart-orders') }) } }],
+    keys: [{ alias: 'alias/brightmart-data' }],
     buckets: [
-      { name: 'harbor-web-assets', objects: { 'banners/black-friday.json': { body: '{"title":"Black Friday","from":"2026-11-27"}', t: now - 60 * MINUTE }, 'robots.txt': { body: 'User-agent: *\nAllow: /', t: now - 3000 * MINUTE } } },
-      { name: 'harbor-data-exports', encryption: { type: 'SSE-KMS', key: 'alias/harbor-data' } },
+      { name: 'brightmart-web-assets', objects: { 'banners/black-friday.json': { body: '{"title":"Black Friday","from":"2026-11-27"}', t: now - 60 * MINUTE }, 'robots.txt': { body: 'User-agent: *\nAllow: /', t: now - 3000 * MINUTE } } },
+      { name: 'brightmart-data-exports', encryption: { type: 'SSE-KMS', key: 'alias/brightmart-data' } },
     ],
     queues: [
-      { name: 'harbor-orders-dlq', retention: 1209600 },
-      { name: 'harbor-orders', visibility: 60, wait: 20, redrive: { dlq: 'harbor-orders-dlq', max: 5 }, messages: [{ body: '{"orderId":"O-1001","total":42.5}', sent: now - 2 * MINUTE }] },
+      { name: 'brightmart-orders-dlq', retention: 1209600 },
+      { name: 'brightmart-orders', visibility: 60, wait: 20, redrive: { dlq: 'brightmart-orders-dlq', max: 5 }, messages: [{ body: '{"orderId":"O-1001","total":42.5}', sent: now - 2 * MINUTE }] },
     ],
-    topics: [{ name: 'harbor-order-events', subs: [{ queue: 'harbor-orders', filter: '{\n  "eventType": ["OrderPlaced"]\n}' }] }],
+    topics: [{ name: 'brightmart-order-events', subs: [{ queue: 'brightmart-orders', filter: '{\n  "eventType": ["OrderPlaced"]\n}' }] }],
   })
 }
 
@@ -961,7 +961,7 @@ export function awsTick(s) {
 }
 
 // ---------- screen actions (pure: state in, { state, result } out) ----------
-// The console acts as harbor-admin with AdministratorAccess. Lab-made: console actions skip the policy checks.
+// The console acts as brightmart-admin with AdministratorAccess. Lab-made: console actions skip the policy checks.
 
 const edit = (state, fn) => {
   const s = structuredClone(state)

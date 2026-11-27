@@ -1,5 +1,5 @@
 // The sample application of the epic-jwt lab. Imports only platform-log.js and the import free Epic engine, so the
-// engine can load it without a cycle. It reads the patients of the Harbor Care roster from Epic at Bayview Health.
+// engine can load it without a cycle. It reads the patients of the Brightmart Care roster from Epic at Bayview Health.
 import { info, line, muleError } from '../platform-log.js'
 import { BASE_URL, bearer, epicConfig, httpErrorType, httpFailText, searchAll, tokenFailure } from '../platform-epic.js'
 
@@ -34,7 +34,7 @@ function readRoster(ctx, cached) {
 
 export const PACKAGES = {
   [ROSTER]: {
-    note: `The roster API of Harbor Care. GET /roster and the flow ${ROSTER_FLOW} (every 5 minutes) read the patients in care.mrns from Epic at Bayview Health over FHIR R4 (${BASE_URL}). Each token request is a SMART backend services call: a JWT signed with the private key of alias epic.jwt.keyAlias from the key store, with kid epic.jwt.kid in its header, sent to epic.tokenUrl as client epic.clientId. The key store password is the secure property epic.keystore.password. The flow keeps the access token in the object store until a minute before it expires.`,
+    note: `The roster API of Brightmart Care. GET /roster and the flow ${ROSTER_FLOW} (every 5 minutes) read the patients in care.mrns from Epic at Bayview Health over FHIR R4 (${BASE_URL}). Each token request is a SMART backend services call: a JWT signed with the private key of alias epic.jwt.keyAlias from the key store, with kid epic.jwt.kid in its header, sent to epic.tokenUrl as client epic.clientId. The key store password is the secure property epic.keystore.password. The flow keeps the access token in the object store until a minute before it expires.`,
     sample: { method: 'GET', path: '/roster' },
     schedules: [{ flow: ROSTER_FLOW, type: 'fixed', value: '5', unit: 'minutes', enabled: true }],
     handle(ctx, req) {

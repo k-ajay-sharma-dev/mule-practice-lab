@@ -17,7 +17,7 @@ export const PACKAGES = {
     run: {
       [FLOW]: (ctx) => {
         const sf = ctx.salesforce
-        const r = sf.query("SELECT Id, Status FROM Order WHERE Harbor_Order_Id__c = 'O-1001'")
+        const r = sf.query("SELECT Id, Status FROM Order WHERE Brightmart_Order_Id__c = 'O-1001'")
         if (!r.ok) return { ok: false, ms: 900, errorType: r.type, log: [block('query', r.type, r.error)] }
         const n = (ctx.store.pushed ?? 0) + 1
         const u = r.records[0] && sf.update('Order', [{ Id: r.records[0].Id, Status: STATUS[n % 2] }])

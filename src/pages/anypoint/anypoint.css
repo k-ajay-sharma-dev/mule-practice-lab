@@ -3075,7 +3075,7 @@ tr.h7-on td { background: var(--pc-soft); }
   .h7-fields, .h7-dl { grid-template-columns: 1fr; }
 }
 
-/* ---------- Shopify: an admin of the Harbor web store (shp-) ---------- */
+/* ---------- Shopify: an admin of the Brightmart web store (shp-) ---------- */
 .shp-app { display: grid; gap: 0; padding: 0; }
 .shp-top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px 14px; background: #1a1a1a; color: #e3e3e3; font-size: 13px; }
 .shp-logo { color: #95bf47; font-size: 16px; letter-spacing: .02em; }
@@ -3171,7 +3171,7 @@ tr.ms-gr-bad td { color: #b10e1c; }
 }
 
 
-/* ---------- AWS at Harbor: AWS console (AwsConsole.jsx) ---------- */
+/* ---------- AWS at Brightmart: AWS console (AwsConsole.jsx) ---------- */
 .aws-app { --aws-ink: #0f141a; --aws-navy: #232f3e; --aws-orange: #ff9900; --aws-blue: #0972d3; --aws-line: #d5dbdb; --aws-dim: #5f6b7a; --aws-red: #d91515; --aws-green: #037f0c; padding: 0; color: var(--aws-ink); background: #f2f3f3; }
 .aws-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 8px 16px; background: var(--aws-navy); color: #fff; }
 .aws-logo { font: 700 20px/1 Arial, sans-serif; letter-spacing: -0.5px; color: #fff; border-bottom: 3px solid var(--aws-orange); padding-bottom: 2px; }

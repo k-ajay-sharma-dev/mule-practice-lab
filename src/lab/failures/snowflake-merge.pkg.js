@@ -27,7 +27,7 @@ export const CHANGES = {
 }
 const TIERS = ['BRONZE', 'SILVER', 'GOLD']
 const ID = (run) => `C-100${3 + (run % 4)}`
-const changesOf = (run, now) => CHANGES[run] ?? [[ID(run), `Harbor customer ${ID(run)}`, `${ID(run).toLowerCase()}@customers.example`, TIERS[run % 3], tsText(now)]]
+const changesOf = (run, now) => CHANGES[run] ?? [[ID(run), `Brightmart customer ${ID(run)}`, `${ID(run).toLowerCase()}@customers.example`, TIERS[run % 3], tsText(now)]]
 const csv = (rows) => `CUSTOMER_ID,NAME,EMAIL,TIER,UPDATED_AT\n${rows.map((r) => r.map((v) => `"${v}"`).join(',')).join('\n')}\n`
 const failed = (r, e, log) => ({ ok: false, ms: r.ms, errorType: r.type, log: [...log, muleError({ ...e, file: CRM_MERGE, type: r.type, message: `net.snowflake.client.jdbc.SnowflakeSQLException: ${r.text}` })] })
 

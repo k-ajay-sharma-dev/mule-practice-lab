@@ -35,7 +35,7 @@ const lab = {
           to: OPS,
           subject: 'Order events failing, stock counts stuck',
           body: 'Since 08:10 the order service reports that order events cannot be published, and the shipping team sees no new orders. The warehouse also says the stock counts of several items in the pick app have not changed since about 07:30, though stock-updates-publisher logs each update as sent. The broker team stopped broker 2 for patching at 08:10 and is still on the disk change of broker 3.',
-          source: 'Harbor Foods Operations',
+          source: 'Brightmart Operations',
         },
       ],
     })

@@ -63,8 +63,8 @@ const lab = {
           t: at(1, 8, 45),
           to: OPS,
           subject: 'Sales report of Monday is empty',
-          body: `The sales report for Monday 2 November shows no shops at all, and the receipt archive has no scans for that day. The POS team says the export files were written at 21:55 as always. Can you check the import? Harbor Finance`,
-          source: 'Harbor Finance',
+          body: `The sales report for Monday 2 November shows no shops at all, and the receipt archive has no scans for that day. The POS team says the export files were written at 21:55 as always. Can you check the import? Brightmart Finance`,
+          source: 'Brightmart Finance',
         },
       ],
     })

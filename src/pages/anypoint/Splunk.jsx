@@ -18,7 +18,7 @@ export default function Splunk({ state, update }) {
   const o = state.observability
   const [page, setPage] = useState('search')
   const [query, setQuery] = useState('index=mule')
-  // a save from before Splunk was built holds a placeholder: seed the Splunk server of Harbor
+  // a save from before Splunk was built holds a placeholder: seed the Splunk server of Brightmart
   useEffect(() => {
     if (o && !o.splunk) update((s) => ({ ...s, observability: upgradeObservability(structuredClone(s.observability), s.clock) }))
   }, [o, update])
@@ -174,7 +174,7 @@ function Visual({ result }) {
 
 // ---------- alerts ----------
 
-const BLANK_ALERT = { name: '', search: '', every: '5', window: '5', threshold: '0', to: 'ops@harbor.example' }
+const BLANK_ALERT = { name: '', search: '', every: '5', window: '5', threshold: '0', to: 'ops@brightmart.example' }
 function Alerts({ state, update, openSearch }) {
   const sp = state.observability.splunk
   const [form, setForm] = useState(null)

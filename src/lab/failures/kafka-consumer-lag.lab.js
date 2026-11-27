@@ -38,7 +38,7 @@ const lab = {
           to: OPS,
           subject: 'Pick lists are half an hour behind',
           body: 'Before the sale an order was on the pick list within a minute. Since the sale started the orders arrive later and later, and now it is close to half an hour. The web shop is fast and the pickers are waiting. Please look at it before the 10:00 courier run.',
-          source: 'Harbor Foods Warehouse',
+          source: 'Brightmart Warehouse',
         },
       ],
     })

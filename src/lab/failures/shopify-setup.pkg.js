@@ -1,15 +1,15 @@
 // The sample applications of the shopify-setup lab. Imports only platform-log.js and the import free Shopify engine, so
 // the engine can load it without a cycle.
 //
-// harbor-shp-order-bridge takes the orders/create webhooks of the Harbor web store on POST /api/webhooks/shopify,
+// brightmart-shp-order-bridge takes the orders/create webhooks of the Brightmart web store on POST /api/webhooks/shopify,
 // checks X-Shopify-Hmac-Sha256 with the API secret key, answers at once and puts the order on the Anypoint MQ queue in
-// orders.queue. harbor-shp-order-api is the Harbor order API: it takes the orders from that queue.
+// orders.queue. brightmart-shp-order-api is the Brightmart order API: it takes the orders from that queue.
 import { info, muleError, needs, warn } from '../platform-log.js'
 import { headerOf, verifyWebhook } from '../platform-shopify.js'
 
-export const BRIDGE = 'harbor-shp-order-bridge'
+export const BRIDGE = 'brightmart-shp-order-bridge'
 export const BRIDGE_JAR = `${BRIDGE}-1.0.0-mule-application.jar`
-export const ORDER_API = 'harbor-shp-order-api'
+export const ORDER_API = 'brightmart-shp-order-api'
 export const BRIDGE_FLOW = 'shopify-webhook-flow'
 export const BRIDGE_PATH = '/webhooks/shopify'
 const word = (v) => String(v ?? '').trim()
@@ -77,7 +77,7 @@ export const PACKAGES = {
     },
   },
   [ORDER_API]: {
-    note: 'The Harbor order API. Its Subscriber takes the orders on the Anypoint MQ queue in mq.queue and stores them. GET /orders lists the orders, GET /orders/{name} reads one, such as /orders/1001 for #1001.',
+    note: 'The Brightmart order API. Its Subscriber takes the orders on the Anypoint MQ queue in mq.queue and stores them. GET /orders lists the orders, GET /orders/{name} reads one, such as /orders/1001 for #1001.',
     sample: { method: 'GET', path: '/orders' },
     boot: needs('mq.queue'),
     consumes: 'mq.queue',

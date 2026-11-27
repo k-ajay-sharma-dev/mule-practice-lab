@@ -16,7 +16,7 @@ const lab = {
   group: 'Runtime Fabric and gateways',
   title: 'Six cart replicas and three stay Pending',
   minutes: 25,
-  scenario: `Harbor runs a Black Friday load test in Sandbox on the Runtime Fabric ${RTF}, three m5.large nodes on Amazon EKS. At 09:00 the team raised ${CART} from 2 to ${SALE} replicas. Twenty minutes later only 3 replicas serve, and kubectl shows the others Pending, although the nodes are almost idle. Find out what blocks the scheduler and get all ${SALE} replicas running without buying more than you need.`,
+  scenario: `Brightmart runs a Black Friday load test in Sandbox on the Runtime Fabric ${RTF}, three m5.large nodes on Amazon EKS. At 09:00 the team raised ${CART} from 2 to ${SALE} replicas. Twenty minutes later only 3 replicas serve, and kubectl shows the others Pending, although the nodes are almost idle. Find out what blocks the scheduler and get all ${SALE} replicas running without buying more than you need.`,
   start() {
     const clock = at(25, 8, 30)
     const s = newPlatform({
@@ -39,7 +39,7 @@ const lab = {
       to: OPS,
       subject: 'Load test: half of the cart replicas do nothing',
       body: `We asked for ${SALE} replicas of ${CART} at 09:00. Runtime Manager still counts 3 ready, and response times climb as we add load. Monitoring shows the nodes at about 10% CPU. Can you get the other replicas up before the 10:00 run?`,
-      source: 'Harbor Performance Team',
+      source: 'Brightmart Performance Team',
     })
     return until(later, at(25, 9, 20))
   },

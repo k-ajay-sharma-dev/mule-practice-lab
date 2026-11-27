@@ -4,8 +4,8 @@ import { app, ask, OPS, sawLogs, until } from '../platform-kit.js'
 import { asUser, blockerOf, countOf, defaultSnowflakeSystem, ETL_PROPS, ETL_SECRETS, runWorksheet, unloadedFiles } from '../platform-snowflake.js'
 import { LOADER, LOADER_FLOW } from './snowflake-warehouse.pkg.js'
 
-const ORDERS = 'HARBOR_DW.RAW.ORDERS'
-const STAGE = 'HARBOR_DW.RAW.ORDERS_STAGE'
+const ORDERS = 'BRIGHTMART_DW.RAW.ORDERS'
+const STAGE = 'BRIGHTMART_DW.RAW.ORDERS_STAGE'
 const QUOTA = 150
 const wh = (s) => s.snowflake?.warehouses?.LOAD_WH
 const mon = (s) => s.snowflake?.monitors?.LOAD_MONITOR
@@ -35,8 +35,8 @@ const lab = {
       t: at(1, 7, 50),
       to: OPS,
       subject: 'Snowflake credits for November',
-      body: `Hello. LOAD_MONITOR has used up its 100 credits for November on day 3. LOAD_WH ran all weekend: since Friday 17:05 it never suspended, and an X-Small warehouse costs 1 credit an hour while it runs. Finance approves a quota of ${QUOTA} credits for November, not more. Please make LOAD_WH stop when it is idle, about a minute, and get the orders load going again without losing orders. Priya turned AUTO_RESUME off this morning to be safe. Harbor finance and data team`,
-      source: 'Harbor finance',
+      body: `Hello. LOAD_MONITOR has used up its 100 credits for November on day 3. LOAD_WH ran all weekend: since Friday 17:05 it never suspended, and an X-Small warehouse costs 1 credit an hour while it runs. Finance approves a quota of ${QUOTA} credits for November, not more. Please make LOAD_WH stop when it is idle, about a minute, and get the orders load going again without losing orders. Priya turned AUTO_RESUME off this morning to be safe. Brightmart finance and data team`,
+      source: 'Brightmart finance',
     })
     return until(s, at(1, 8))
   },
@@ -89,7 +89,7 @@ const lab = {
     },
     {
       title: 'See the backlog load and nothing lost',
-      how: `Runtime Manager, ${LOADER}, Schedules: tick ${LOADER_FLOW} and Run, or move the clock 15 minutes. The PUTs of the failed runs left their files in the stage, so one COPY loads them all. Check Snowflake, Copy History, and in a Worksheet SELECT COUNT(*) FROM ORDERS; against Databases, HARBOR_DW, RAW, ORDERS_STAGE, where no file is left unloaded. Then Admin, Warehouses: LOAD_WH suspends again a minute after the load.`,
+      how: `Runtime Manager, ${LOADER}, Schedules: tick ${LOADER_FLOW} and Run, or move the clock 15 minutes. The PUTs of the failed runs left their files in the stage, so one COPY loads them all. Check Snowflake, Copy History, and in a Worksheet SELECT COUNT(*) FROM ORDERS; against Databases, BRIGHTMART_DW, RAW, ORDERS_STAGE, where no file is left unloaded. Then Admin, Warehouses: LOAD_WH suspends again a minute after the load.`,
       done: (s) => {
         const a = app(s, LOADER)
         const last = a?.schedules.find((x) => x.flow === LOADER_FLOW)?.last

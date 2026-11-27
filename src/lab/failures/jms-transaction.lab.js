@@ -27,7 +27,7 @@ const lab = {
   group: 'ActiveMQ',
   title: 'Orders booked with no confirmation',
   minutes: 25,
-  scenario: `${FEED} puts web orders on the ActiveMQ Classic queue ${IN} of harbor-amq. ${WRITER} takes each order with a JMS listener (ackMode AUTO, no transaction), inserts a row in the orders database and publishes a confirmation to ${REPLY}, which ${RELAY} mails to the customer. Customer service says some customers never got a confirmation, though their orders are in the database. Find out why, make the flow all or nothing, make sure a message that can never work stops in a dead letter queue, and prove it with a bad order of your own.`,
+  scenario: `${FEED} puts web orders on the ActiveMQ Classic queue ${IN} of brightmart-amq. ${WRITER} takes each order with a JMS listener (ackMode AUTO, no transaction), inserts a row in the orders database and publishes a confirmation to ${REPLY}, which ${RELAY} mails to the customer. Customer service says some customers never got a confirmation, though their orders are in the database. Find out why, make the flow all or nothing, make sure a message that can never work stops in a dead letter queue, and prove it with a bad order of your own.`,
   start() {
     const clock = at(1, 7)
     const jms = defaultJms(clock)
@@ -55,7 +55,7 @@ const lab = {
       to: OPS,
       subject: 'Orders without a confirmation mail',
       body: `Since 07:00 ${missing.length} web orders were booked but the customer got no confirmation, for example ${missing.slice(0, 3).join(', ')}. The orders are in the database, so the warehouse ships them, but customers call us to ask whether the order went through. Can you find out what happens?`,
-      source: 'Harbor Foods Customer Service',
+      source: 'Brightmart Customer Service',
     })
     return until(later, at(1, 9))
   },
@@ -63,7 +63,7 @@ const lab = {
     { title: 'Read the mail of customer service', how: 'Open the Inbox from the menu under Lab tools.', done: (s) => Boolean(s.seen.inbox) },
     {
       ...sawLogs(WRITER),
-      how: `Runtime Manager, ${WRITER}, Logs. Look for JMS:PUBLISHING with javax.jms.ResourceAllocationException on ${REPLY}, and the line after it. Then ActiveMQ, harbor-amq, Queues: ${IN} has no pending messages, so the broker considers each of those orders done.`,
+      how: `Runtime Manager, ${WRITER}, Logs. Look for JMS:PUBLISHING with javax.jms.ResourceAllocationException on ${REPLY}, and the line after it. Then ActiveMQ, brightmart-amq, Queues: ${IN} has no pending messages, so the broker considers each of those orders done.`,
     },
     ask(
       'Where the confirmation went',
@@ -118,7 +118,7 @@ const lab = {
     ),
     {
       title: 'Send a bad order and watch it',
-      how: `ActiveMQ, harbor-amq, Send. Destination ${IN}, a queue, and a body that is not valid JSON, such as ${BAD}. Keep Persistent Delivery checked: by default ActiveMQ Classic moves only persistent messages to a dead letter queue and drops a non persistent one. Send it, then move the clock 5 minutes. The log shows the transaction rolled back a few times and the message moved to ORDERS.DLQ, and every new order has one row and one confirmation.`,
+      how: `ActiveMQ, brightmart-amq, Send. Destination ${IN}, a queue, and a body that is not valid JSON, such as ${BAD}. Keep Persistent Delivery checked: by default ActiveMQ Classic moves only persistent messages to a dead letter queue and drops a non persistent one. Send it, then move the clock 5 minutes. The log shows the transaction rolled back a few times and the message moved to ORDERS.DLQ, and every new order has one row and one confirmation.`,
       done: (s) => {
         const a = writer(s)
         if (!txOk(s) || !limitOk(s) || !skipsExisting(props(s)) || s.clock < a.updated + 5 * MINUTE) return false

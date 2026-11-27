@@ -14,7 +14,7 @@ const lab = {
   group: 'Runtime Fabric and gateways',
   title: 'The inventory export keeps restarting',
   minutes: 25,
-  scenario: `${EXPORT} runs on the Runtime Fabric ${RTF}, a Kubernetes cluster of Harbor on Amazon EKS. Every 5 minutes it sends the full inventory file ${FILE} to the marketplace feed. Since the file grew this week, the app restarts every few minutes and the marketplace shows stock from yesterday. It is 09:47 on Black Friday. Find out with kubectl why the pod dies, and make the export run without restarts.`,
+  scenario: `${EXPORT} runs on the Runtime Fabric ${RTF}, a Kubernetes cluster of Brightmart on Amazon EKS. Every 5 minutes it sends the full inventory file ${FILE} to the marketplace feed. Since the file grew this week, the app restarts every few minutes and the marketplace shows stock from yesterday. It is 09:47 on Black Friday. Find out with kubectl why the pod dies, and make the export run without restarts.`,
   start() {
     const clock = at(25, 5)
     const s = newPlatform({
@@ -25,7 +25,7 @@ const lab = {
           target: RTF,
           rtf: { ...rtfDefaults(), cpu: 0.5, limit: 1, memory: 1 },
           vCores: 0.5,
-          props: { 'export.streaming': 'false', 'warehouse.share': 'smb://harbor-wh01/exports' },
+          props: { 'export.streaming': 'false', 'warehouse.share': 'smb://brightmart-wh01/exports' },
           store: { rtfResidentMi: RESIDENT_MI },
         }),
       ],
@@ -38,7 +38,7 @@ const lab = {
       to: OPS,
       subject: 'Marketplace stock is from yesterday',
       body: `The marketplace still shows stock from last night. Runtime Manager says ${EXPORT} restarted many times this morning, but its logs show no error handler and no failed message. We sell out of items that the marketplace still offers.`,
-      source: 'Harbor Ecommerce',
+      source: 'Brightmart Ecommerce',
     })
     return until(later, at(25, 9, 47))
   },

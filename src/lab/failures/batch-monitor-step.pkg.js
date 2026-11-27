@@ -3,10 +3,10 @@
 import { info, line, needs, warn } from '../platform-log.js'
 import { instanceIdOf } from '../platform-batch.js'
 
-export const NAME = 'harbor-catalog-price-sync'
+export const NAME = 'brightmart-catalog-price-sync'
 export const JOB = 'product-sync-job'
 export const FLOW = 'product-sync-flow'
-export const CATALOG = 'catalog@harbor.example'
+export const CATALOG = 'catalog@brightmart.example'
 export const TOTAL = 25000 // products in the nightly file of the five suppliers
 export const BAD_PRICE = 2986 // Nordvik products whose price comes as "12,50"
 export const DUPLICATES = 14 // the same SKU twice in one supplier file, a different problem
@@ -24,7 +24,7 @@ const dayOf = (now) => new Date(BASE + now).toISOString().slice(0, 10)
 const PRICE_ROWS = Array.from({ length: BAD_PRICE }, (_, i) => 217 + i * 8)
 const DUP_ROWS = Array.from({ length: DUPLICATES }, (_, i) => 5011 + i * 1300)
 const nordvik = (row) => `{ "sku": "NVK-${30000 + row}", "supplier": "NVK", "name": "Fjord rain jacket", "price": "${12 + (row % 40)},${String(row % 100).padStart(2, '0')}", "currency": "EUR" }`
-const duplicate = (row) => `{ "sku": "HBS-${String(row).padStart(5, '0')}", "supplier": "HBS", "name": "Harbor canvas tote", "price": 18.90, "currency": "EUR" }`
+const duplicate = (row) => `{ "sku": "HBS-${String(row).padStart(5, '0')}", "supplier": "HBS", "name": "Brightmart canvas tote", "price": 18.90, "currency": "EUR" }`
 
 export function settingsOf(props) {
   const max = int(props['batch.maxFailedRecords'], 0)
@@ -40,7 +40,7 @@ export const limitOk = (set) => set.max === -1 || set.max >= DUPLICATES
 
 export const PACKAGES = {
   [NAME]: {
-    note: `A Batch Job ${JOB} that loads the nightly product file of five suppliers into the price table of the Harbor webshop at 02:00. Step validate-product checks each product, step ${MAP_STEP} maps it with DataWeave and inserts the price into dbo.catalog_price, step publish-webshop sends the new prices to the webshop. mapping.price as-number reads the price with "payload.price as Number". supplier-locale reads it with the number format of the supplier (Nordvik sends a comma decimal). batch.maxFailedRecords (0 is the default, -1 has no limit) and batch.blockSize are attributes of the Batch Job. batch.failuresStep report adds the step ${REPORT_STEP} with acceptPolicy ONLY_FAILURES, which keeps each failed product with its error in dbo.product_sync_rejects, and On Complete mails the counts to ${CATALOG}.`,
+    note: `A Batch Job ${JOB} that loads the nightly product file of five suppliers into the price table of the Brightmart webshop at 02:00. Step validate-product checks each product, step ${MAP_STEP} maps it with DataWeave and inserts the price into dbo.catalog_price, step publish-webshop sends the new prices to the webshop. mapping.price as-number reads the price with "payload.price as Number". supplier-locale reads it with the number format of the supplier (Nordvik sends a comma decimal). batch.maxFailedRecords (0 is the default, -1 has no limit) and batch.blockSize are attributes of the Batch Job. batch.failuresStep report adds the step ${REPORT_STEP} with acceptPolicy ONLY_FAILURES, which keeps each failed product with its error in dbo.product_sync_rejects, and On Complete mails the counts to ${CATALOG}.`,
     boot: needs('batch.maxFailedRecords', 'batch.blockSize', 'mapping.price'),
     schedules: [{ flow: FLOW, type: 'cron', value: '0 0 2 * * ?', tz: 'UTC', enabled: true }],
     run: {

@@ -14,7 +14,7 @@ const lastRun = (s) => a(s)?.schedules.find((x) => x.flow === PORTAL_FLOW)?.last
 
 function instance(now) {
   const y = newServicenow(now)
-  addUser(y, { user_name: SVC, first_name: 'Harbor', last_name: 'Store Portal', roles: [REST_ROLE, 'sn_incident_read'], pw: 'Portal-Harbor-2611', web_service_access_only: true }, now)
+  addUser(y, { user_name: SVC, first_name: 'Brightmart', last_name: 'Store Portal', roles: [REST_ROLE, 'sn_incident_read'], pw: 'Portal-Brightmart-2611', web_service_access_only: true }, now)
   for (let i = 0; i < 34; i++)
     addIncident(y, { short_description: `Store ${String(40 + (i % 9)).padStart(4, '0')}: ${['till freezes', 'card reader offline', 'shelf label printer down', 'scale reads wrong'][i % 4]}`, cmdb_ci: ciId(y, 'STORE-0042-POS'), assignment_group: groupId(y, i < 30 ? GROUP : 'Network'), state: String([1, 2, 3][i % 3]), impact: '3', urgency: '2' }, now - (2000 - i * 50) * MINUTE, 'sam.reyes')
   y.rateRules.push({ sys_id: 'b1e5c0de5a7e11ab9c0d00000000a001', name: 'Store portal sync', resource: 'Table API', type: 'User', who: SVC, limit: LIMIT, active: true })
@@ -26,14 +26,14 @@ const lab = {
   group: 'HR, ITSM and CRM',
   title: 'The store portal stops at half past every hour',
   minutes: 25,
-  scenario: `${PORTAL} keeps the ticket list of the Harbor store portal up to date from ServiceNow ${INSTANCE_URL}, every minute. Since the store network rollout added tickets, store managers see the list freeze for the last half of every hour and come back on the hour. ServiceNow admins added a rate limit rule for the sync user last month. Find out what the instance answers and make the sync fit the limit without asking for more.`,
+  scenario: `${PORTAL} keeps the ticket list of the Brightmart store portal up to date from ServiceNow ${INSTANCE_URL}, every minute. Since the store network rollout added tickets, store managers see the list freeze for the last half of every hour and come back on the hour. ServiceNow admins added a rate limit rule for the sync user last month. Find out what the instance answers and make the sync fit the limit without asking for more.`,
   start() {
     const s = newPlatform({
       clock: at(1, 8),
       apps: [
         newApp(PORTAL, {
           props: { 'snow.instance': INSTANCE_URL, 'snow.username': SVC, 'sync.mode': 'per-record', 'snow.on429': 'fail' },
-          secrets: { 'snow.password': 'Portal-Harbor-2611' },
+          secrets: { 'snow.password': 'Portal-Brightmart-2611' },
           store: {},
         }),
       ],
@@ -43,8 +43,8 @@ const lab = {
           t: at(1, 9, 40),
           to: OPS,
           subject: 'Store portal ticket list frozen again',
-          body: 'Hello. Since 09:33 the ticket list in the store portal does not change. Yesterday it was the same from about half past each hour until the full hour. Store 0042 closed a ticket at 09:35 and still sees it open. Harbor store operations',
-          source: 'Harbor store operations',
+          body: 'Hello. Since 09:33 the ticket list in the store portal does not change. Yesterday it was the same from about half past each hour until the full hour. Store 0042 closed a ticket at 09:35 and still sees it open. Brightmart store operations',
+          source: 'Brightmart store operations',
         },
       ],
     })

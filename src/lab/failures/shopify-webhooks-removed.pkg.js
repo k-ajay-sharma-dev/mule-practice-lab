@@ -1,13 +1,13 @@
 // The sample application of the shopify-webhooks-removed lab. Imports only platform-log.js and the import free Shopify
 // engine, so the engine can load it without a cycle.
 //
-// harbor-shp-orders-sync copies each new web order of the Harbor store to the order hub. It takes orders/create webhooks
+// brightmart-shp-orders-sync copies each new web order of the Brightmart store to the order hub. It takes orders/create webhooks
 // and, on POST /reconcile or in reconcile-flow, reads the orders updated since its watermark with the REST Admin API,
 // plus the transactions of each order it did not have. On 429 it waits for Retry-After.
 import { info, muleError, needs, warn } from '../platform-log.js'
 import { fromIso, headerOf, iso, verifyWebhook } from '../platform-shopify.js'
 
-export const SYNC = 'harbor-shp-orders-sync'
+export const SYNC = 'brightmart-shp-orders-sync'
 export const SYNC_FLOW = 'shopify-webhook-flow'
 export const RECONCILE_FLOW = 'reconcile-flow'
 export const SYNC_PATH = '/webhooks/orders'
@@ -72,7 +72,7 @@ const reconcileError = (text) => muleError({ message: text, type: 'APP:SHOPIFY_E
 
 export const PACKAGES = {
   [SYNC]: {
-    note: `Copies each new web order of harbor-goods.myshopify.com to the order hub. Takes orders/create webhooks on POST /api${SYNC_PATH} and checks the HMAC with shopify.apiSecret. POST /reconcile, and the flow ${RECONCILE_FLOW} when it is enabled, read the orders updated since the watermark with the REST Admin API and shopify.accessToken. GET /orders/count answers how many orders the hub has.`,
+    note: `Copies each new web order of brightmart-goods.myshopify.com to the order hub. Takes orders/create webhooks on POST /api${SYNC_PATH} and checks the HMAC with shopify.apiSecret. POST /reconcile, and the flow ${RECONCILE_FLOW} when it is enabled, read the orders updated since the watermark with the REST Admin API and shopify.accessToken. GET /orders/count answers how many orders the hub has.`,
     sample: { method: 'POST', path: '/reconcile' },
     boot: needs('shopify.shop', 'shopify.apiVersion', 'shopify.accessToken', 'shopify.apiSecret'),
     schedules: [

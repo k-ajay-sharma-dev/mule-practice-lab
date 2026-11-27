@@ -57,7 +57,7 @@ const lab = {
       'Tom says to make Dana an Organization Administrator. Why not?',
       [
         'An Organization Administrator cannot deploy apps',
-        'It gives every permission in Harbor and every business group below it: users, connected apps, all environments of Supply Chain too. Least privilege means the smallest permission that does the job, here deploy rights in Ecommerce Production',
+        'It gives every permission in Brightmart and every business group below it: users, connected apps, all environments of Supply Chain too. Least privilege means the smallest permission that does the job, here deploy rights in Ecommerce Production',
         'Only one Organization Administrator is allowed',
         'It would remove her Sandbox access',
       ],

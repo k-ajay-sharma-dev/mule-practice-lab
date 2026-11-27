@@ -59,7 +59,7 @@ const lab = {
     )
     s.assets.push({ ...s.assets.find((a) => a.assetId === ASSET), version: '1.1.0', raml: RAML_11, t: at(0, 18) })
     const mob = s.assets.find((a) => a.name === mobile.name)
-    mob.raml = mob.raml.replace('"inStock":true}', '"inStock":true,"notifyEmail":"orders@harbordeli.example"}')
+    mob.raml = mob.raml.replace('"inStock":true}', '"inStock":true,"notifyEmail":"orders@mapledeli.example"}')
     Object.assign(s.projects.find((p) => p.name === customers.name), { raml: RAML_11, published: '1.1.0', updated: at(0, 18) })
     Object.assign(s.apis.find((a) => a.id === customers.id), { version: '1.1.0' })
     return until(s, at(1, 9))

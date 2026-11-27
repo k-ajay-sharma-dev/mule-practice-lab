@@ -197,7 +197,7 @@ function AddApi({ state, update, go }) {
               <Input value={f.label} onChange={(label) => set({ label })} placeholder="orders-sbx" />
             </Field>
             <Field label="Consumer endpoint">
-              <Input value={f.consumer} onChange={(consumer) => set({ consumer })} placeholder="https://api.harbor.example/orders/v1" />
+              <Input value={f.consumer} onChange={(consumer) => set({ consumer })} placeholder="https://api.brightmart.example/orders/v1" />
             </Field>
             <Field label="Client provider" required>
               <Select value={f.client} onChange={(client) => set({ client })} options={['Anypoint Platform']} />
@@ -608,7 +608,7 @@ function Alerts({ api, update }) {
   return (
     <>
       <div className="pc-bar">
-        <Btn kind="primary" onClick={() => setA({ name: '', enabled: true, severity: 'Info', type: 'Request Count', codes: [500], ms: 1000, policy: 'Any', atLeast: 1, periods: 1, period: 5, recipients: 'ops@harbor.example' })}>
+        <Btn kind="primary" onClick={() => setA({ name: '', enabled: true, severity: 'Info', type: 'Request Count', codes: [500], ms: 1000, policy: 'Any', atLeast: 1, periods: 1, period: 5, recipients: 'ops@brightmart.example' })}>
           Add alert
         </Btn>
       </div>

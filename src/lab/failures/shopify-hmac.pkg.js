@@ -1,13 +1,13 @@
 // The sample application of the shopify-hmac lab. Imports only platform-log.js and the import free Shopify engine, so
 // the engine can load it without a cycle.
 //
-// harbor-shp-erp-receiver takes the orders/create webhooks of the Harbor web store and books each order in the ERP.
+// brightmart-shp-erp-receiver takes the orders/create webhooks of the Brightmart web store and books each order in the ERP.
 // It checks X-Shopify-Hmac-Sha256 first. webhook.hmacInput says what it hashes: parsed (the body parsed and written
 // again, the bug) or raw (the bytes as they came). shopify.webhookSecret is the key it hashes with.
 import { info, muleError, needs, warn } from '../platform-log.js'
 import { hmacBase64, headerOf, safeEqual } from '../platform-shopify.js'
 
-export const RECEIVER = 'harbor-shp-erp-receiver'
+export const RECEIVER = 'brightmart-shp-erp-receiver'
 export const RECEIVER_FLOW = 'shopify-webhook-flow'
 export const RECEIVER_PATH = '/webhooks/orders'
 const keep = (list, item, n = 200) => [...(list ?? []), item].slice(-n)
@@ -47,7 +47,7 @@ export function receiveOrder(ctx, { id, topic, headers, body }) {
 
 export const PACKAGES = {
   [RECEIVER]: {
-    note: `Takes the orders/create webhooks of ${'harbor-goods.myshopify.com'} on POST /api${RECEIVER_PATH}, checks X-Shopify-Hmac-Sha256 and books each order in the ERP. webhook.hmacInput is parsed or raw: what the HMAC is computed over. shopify.webhookSecret is the key. GET /erp/orders lists the booked orders.`,
+    note: `Takes the orders/create webhooks of ${'brightmart-goods.myshopify.com'} on POST /api${RECEIVER_PATH}, checks X-Shopify-Hmac-Sha256 and books each order in the ERP. webhook.hmacInput is parsed or raw: what the HMAC is computed over. shopify.webhookSecret is the key. GET /erp/orders lists the booked orders.`,
     sample: { method: 'GET', path: '/erp/orders' },
     boot: needs('shopify.shop', 'shopify.webhookSecret'),
     schedules: [{ flow: RECEIVER_FLOW, type: 'fixed', value: '1', unit: 'minutes', enabled: true }],

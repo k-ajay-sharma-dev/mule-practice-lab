@@ -19,11 +19,11 @@ export const CALLERS = {
 }
 const ORIGIN = Object.fromEntries(Object.values(CALLERS).filter((c) => c.origin).map((c) => [c.name, c.origin]))
 
-const LOGGER = 'harbor.stock.access'
+const LOGGER = 'brightmart.stock.access'
 
 export const PACKAGES = {
   'stock-internal-api': {
-    note: 'The internal stock API of Harbor Foods. It logs the address it sees and the X-Forwarded-For value of calls that come through the load balancer.',
+    note: 'The internal stock API of Brightmart. It logs the address it sees and the X-Forwarded-For value of calls that come through the load balancer.',
     sample: { method: 'GET', path: '/stock/SKU-1001' },
     handle(ctx, req) {
       const path = String(req.path).split('?')[0]

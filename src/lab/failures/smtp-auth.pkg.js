@@ -5,7 +5,7 @@ const BASE = Date.UTC(2026, 10, 2) // the first day of the lab clock
 const DAY = 24 * 60 * 60000
 const dayBefore = (now) => new Date(BASE + now - DAY).toISOString().slice(0, 10)
 
-const HOST = 'smtp.mail.harbor.lab'
+const HOST = 'smtp.mail.brightmart.lab'
 const PASSWORD = 'Sales-App-2611'
 
 const at = { flow: 'sales-summary-flow', file: 'sales-summary', at: 3, name: 'Send summary', dsl: '<email:send doc:name="Send summary" config-ref="Email_SMTP" toAddresses="#[vars.managers]" subject="Daily sales summary">' }

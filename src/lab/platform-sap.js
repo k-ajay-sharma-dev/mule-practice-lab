@@ -15,8 +15,8 @@
 //   idocs: [{ docnum, dir, idoctp, mestyp, sndprn, sndprt, rcvprn, rcvprt, sndpor, rcvpor, t, status, ref, vbeln,
 //             segs: [[name, level, fields]], hist: [{ c, t, m }], aud }],
 //   trfc: [{ tid, fm, dest, docnum, t, user, status, tries }], (SM58)
-//   programs: { MULE_HARBOR: { app, t, count, since, closed } }, (SMGW logged on clients)
-//   inbox: { MULE_HARBOR: [docnum] } (IDocs the gateway has handed to a registered program, read by listen)
+//   programs: { MULE_BRIGHTMART: { app, t, count, since, closed } }, (SMGW logged on clients)
+//   inbox: { MULE_BRIGHTMART: [docnum] } (IDocs the gateway has handed to a registered program, read by listen)
 //   sessions: { id: { app, t, luw: [order] } } (RFC sessions with work that is not committed yet)
 //   requests: [{ kunnr, area, at }] (lab-made: a request to the master data team, done 5 lab minutes later)
 //   gwlog: [{ t, text, ok }], calls: [{ t, who, fm, session, text, ok }], n (counter), nextVbeln
@@ -32,18 +32,18 @@
 //   commit(transaction), rollback(transaction)  BAPI_TRANSACTION_COMMIT or ROLLBACK in that session, then the session ends.
 // A failure returns { ok: false, type: 'SAP:CONNECTIVITY' | 'SAP:EXECUTION', error, ms }.
 
-export const SAP_HOST = 'sap.harbor.lab'
+export const SAP_HOST = 'sap.brightmart.lab'
 export const SID = 'HRP'
 export const SAP_CLIENT = '100'
 export const SYSNR = '00'
 export const GW_SERVICE = 'sapgw00'
-export const PROGRAM_ID = 'MULE_HARBOR'
+export const PROGRAM_ID = 'MULE_BRIGHTMART'
 export const RFC_USER = 'MULE_RFC'
-export const WEB_PARTNER = 'HARBORWEB'
+export const WEB_PARTNER = 'BRIGHTWEB'
 export const MULE_PORT = 'MULEPORT'
-export const MULE_DEST = 'MULE_HARBOR_DEST'
+export const MULE_DEST = 'MULE_BRIGHTMART_DEST'
 export const AREA = '1000/10/00'
-export const OPS_MAIL = 'ops@harbor.example'
+export const OPS_MAIL = 'ops@brightmart.example'
 const MINUTE = 60000
 // lab-made limits, so a saved console stays small
 const MAX_IDOCS = 150
@@ -101,15 +101,15 @@ export function newSapSystem(now = 0, extra = {}) {
     host: SAP_HOST,
     sysnr: SYSNR,
     gwserv: GW_SERVICE,
-    users: { [RFC_USER]: { type: 'System', password: 'Rfc-Harbor-2611', locked: false, failed: 0 }, HARBOR_DEV: { type: 'Dialog', password: 'Dev-Harbor-2611', locked: false, failed: 0 } },
+    users: { [RFC_USER]: { type: 'System', password: 'Rfc-Brightmart-2611', locked: false, failed: 0 }, BRIGHT_DEV: { type: 'Dialog', password: 'Dev-Brightmart-2611', locked: false, failed: 0 } },
     customers: {
-      4711: { name: 'Harbor Web Shop', areas: [AREA], changes: [] },
+      4711: { name: 'Brightmart Web Shop', areas: [AREA], changes: [] },
       4712: { name: 'Quay Deli', areas: [AREA], changes: [] },
       4713: { name: 'Pier Cafe', areas: [AREA, '1000/20/00'], changes: [] },
     },
     materials: {
-      'H-1250': { text: 'Harbor deck chair', plant: '1000', sloc: '0001', unrestricted: 240, lockedBy: null },
-      'H-1300': { text: 'Harbor folding table', plant: '1000', sloc: '0001', unrestricted: 85, lockedBy: null },
+      'H-1250': { text: 'Brightmart deck chair', plant: '1000', sloc: '0001', unrestricted: 240, lockedBy: null },
+      'H-1300': { text: 'Brightmart folding table', plant: '1000', sloc: '0001', unrestricted: 85, lockedBy: null },
       'H-2000': { text: 'Rope lantern', plant: '1000', sloc: '0001', unrestricted: 12, lockedBy: null },
     },
     orders: {},
@@ -117,7 +117,7 @@ export function newSapSystem(now = 0, extra = {}) {
       {
         prn: WEB_PARTNER,
         prt: 'LS',
-        text: 'Harbor web shop through MuleSoft',
+        text: 'Brightmart web shop through MuleSoft',
         inbound: [
           { mestyp: 'ORDERS', process: 'ORDE', trigger: 'immediately' },
           { mestyp: 'MATMAS', process: 'MATM', trigger: 'immediately' },
@@ -128,7 +128,7 @@ export function newSapSystem(now = 0, extra = {}) {
         ],
       },
     ],
-    ports: [{ name: MULE_PORT, type: 'Transactional RFC', dest: MULE_DEST, text: 'MuleSoft runtime, Harbor integration' }],
+    ports: [{ name: MULE_PORT, type: 'Transactional RFC', dest: MULE_DEST, text: 'MuleSoft runtime, Brightmart integration' }],
     dests: [
       { name: MULE_DEST, type: 'T', text: 'TCP/IP connection to the Mule SAP connector', activation: 'Registered Server Program', programId: PROGRAM_ID, gwhost: SAP_HOST, gwserv: GW_SERVICE },
       { name: `${SID}CLNT${SAP_CLIENT}`, type: '3', text: 'ABAP connection to this system', host: SAP_HOST },
@@ -153,6 +153,8 @@ const SYSTEM_KEYS = Object.keys(newSapSystem())
 // The system of the open console, with a few IDocs of the night
 export function defaultSapSystem(now = 0) {
   const y = newSapSystem(now)
+  // the article of the web shop that inventory-sys-api of the Brightmart landscape reads and reserves
+  y.materials['H-100'] = { text: 'Brightmart Oat Milk 1L', plant: '1000', sloc: '0001', unrestricted: 340, lockedBy: null }
   for (const [i, [po, m, q]] of [
     ['WEB-7001', 'H-1250', 4],
     ['WEB-7002', 'H-1300', 1],
@@ -526,6 +528,35 @@ const FMS = {
       return { export: { AV_QTY_PLT: String(av), ENDLEADTME: '00000000', RETURN: ret('', '', '000', '') }, tables: { WMDVEX: [{ REQ_QTY: String(orderedOf(y, m)), COM_QTY: String(av) }] } }
     },
   },
+  // Lab made: the purchase order is saved at once. The real BAPI_PO_CREATE1 waits for BAPI_TRANSACTION_COMMIT.
+  BAPI_PO_CREATE1: {
+    text: 'Create Purchase Order',
+    imports: { POHEADER: { DOC_TYPE: 'NB', VENDOR: '300100', PURCH_ORG: '1000', COLLECT_NO: 'PO-1' } },
+    tables: { POITEM: [{ PO_ITEM: '00010', MATERIAL: 'H-1250', PLANT: '1000', QUANTITY: '10' }], RETURN: [] },
+    run(y, session, p, now, who) {
+      const h = p.POHEADER ?? {}
+      const items = (p.POITEM ?? []).map((x, i) => ({ item: pad(word(x.PO_ITEM) || (i + 1) * 10, 5), matnr: word(x.MATERIAL), qty: Number(x.QUANTITY) }))
+      const bad = !word(h.VENDOR) ? 'Enter a vendor' : !items.length ? 'No items were entered' : items.map((it) => (!y.materials[it.matnr] ? MSG.noMaterial(it.matnr) : !(it.qty > 0) ? `Item ${it.item}: enter a quantity` : null)).find(Boolean) // lab-made wording
+      if (bad) return { export: { EXPPURCHASEORDER: '' }, tables: { RETURN: [ret('E', 'ME', '083', bad)] } }
+      y.pos ??= {}
+      y.nextEbeln ??= 4500000101
+      const ebeln = String(y.nextEbeln++)
+      y.pos[ebeln] = { ebeln, vendor: word(h.VENDOR), ref: word(h.COLLECT_NO), items, t: now, by: who }
+      const keys = Object.keys(y.pos)
+      if (keys.length > 30) delete y.pos[keys[0]]
+      return { export: { EXPPURCHASEORDER: ebeln }, tables: { RETURN: [ret('S', '06', '017', `Standard PO created under the number ${ebeln}`)] } }
+    },
+  },
+  BAPI_PO_GETDETAIL1: {
+    text: 'Display Purchase Order Details',
+    imports: { PURCHASEORDER: '4500000101' },
+    tables: { POITEM: [], RETURN: [] },
+    run(y, session, p) {
+      const po = y.pos?.[word(p.PURCHASEORDER)]
+      if (!po) return { export: { POHEADER: {} }, tables: { POITEM: [], RETURN: [ret('E', '06', '019', `Purchase order ${word(p.PURCHASEORDER)} does not exist`)] } }
+      return { export: { POHEADER: { PO_NUMBER: po.ebeln, VENDOR: po.vendor, COLLECT_NO: po.ref } }, tables: { POITEM: po.items.map((x) => ({ PO_ITEM: x.item, MATERIAL: x.matnr, QUANTITY: String(x.qty) })), RETURN: [ret('S', '06', '000', `Purchase order ${po.ebeln} read`)] } } // lab-made wording
+    },
+  },
   RFC_PING: { text: 'Test RFC connection', imports: {}, tables: {}, run: () => ({ export: {}, tables: {} }) },
   IDOC_INBOUND_ASYNCHRONOUS: {
     text: 'Inbound IDocs over tRFC (called by the Send IDoc operation)',
@@ -690,7 +721,7 @@ export function sapTick(s) {
       c.areas.push(r.area)
       c.changes.push({ t: now, by: 'MDM_TEAM', text: `Sales area ${areaText(r.area)} added` })
     }
-    s.mail?.push({ t: now, to: OPS_MAIL, subject: `Customer ${r.kunnr} extended to sales area ${areaText(r.area)}`, body: `Hello, customer ${r.kunnr} ${c?.name ?? ''} has sales area ${areaText(r.area)} again. Sorry, the morning change by MDM_BATCH removed it. IDocs that failed on it need to be processed again. Harbor master data team`, source: 'Harbor master data team' })
+    s.mail?.push({ t: now, to: OPS_MAIL, subject: `Customer ${r.kunnr} extended to sales area ${areaText(r.area)}`, body: `Hello, customer ${r.kunnr} ${c?.name ?? ''} has sales area ${areaText(r.area)} again. Sorry, the morning change by MDM_BATCH removed it. IDocs that failed on it need to be processed again. Brightmart master data team`, source: 'Brightmart master data team' })
     if (s.mail?.length > 40) s.mail.shift()
   }
   y.requests = y.requests.filter((x) => x.at > now)
@@ -745,7 +776,7 @@ export const testInbound = (state, docnum, segs) =>
   edit(state, (s, y, now) => {
     const src = idocOf(y, docnum)
     if (!src) return null
-    const d = inbound(y, { idoctp: src.idoctp, mestyp: src.mestyp, sndprn: src.sndprn, sndprt: src.sndprt, sndpor: src.sndpor, segs: structuredClone(segs ?? src.segs) }, now, 'HARBOR_DEV', true)
+    const d = inbound(y, { idoctp: src.idoctp, mestyp: src.mestyp, sndprn: src.sndprn, sndprt: src.sndprt, sndpor: src.sndpor, segs: structuredClone(segs ?? src.segs) }, now, 'BRIGHT_DEV', true)
     return { docnum: d.docnum, status: d.status, m: d.hist.at(-1)?.m ?? statusText(d.status) }
   })
 
@@ -816,11 +847,11 @@ export const testFunction = (state, name, params, { sequence = false } = {}) =>
     const fname = String(name ?? '').trim().toUpperCase()
     if (!FMS[fname]) return { ok: false, text: `Function module ${fname || '(empty)'} does not exist` }
     if (FMS[fname].sendOnly) return { ok: false, text: `${fname} takes IDocs over tRFC. Test an IDoc in WE19.` }
-    const id = openSession(y, 'HARBOR_DEV (SE37)', now, 'SE37')
-    const r = runFm(y, id, fname, params, now, 'HARBOR_DEV')
+    const id = openSession(y, 'BRIGHT_DEV (SE37)', now, 'SE37')
+    const r = runFm(y, id, fname, params, now, 'BRIGHT_DEV')
     let committed = []
     if (sequence && fname !== 'BAPI_TRANSACTION_COMMIT') {
-      runFm(y, id, 'BAPI_TRANSACTION_COMMIT', { WAIT: 'X' }, now, 'HARBOR_DEV')
+      runFm(y, id, 'BAPI_TRANSACTION_COMMIT', { WAIT: 'X' }, now, 'BRIGHT_DEV')
       committed = y.sessions[id].done ?? []
     }
     const lost = closeSession(y, id, now, 'Test ended')
@@ -832,7 +863,7 @@ export const requestSalesArea = (state, kunnr, area) =>
   edit(state, (s, y, now) => {
     if (!y.customers[kunnr] || y.customers[kunnr].areas.includes(area) || y.requests.some((r) => r.kunnr === kunnr && r.area === area)) return false
     y.requests.push({ kunnr, area, at: now + 5 * MINUTE })
-    y.customers[kunnr].changes.push({ t: now, by: 'HARBOR_DEV', text: `Request to the master data team: add sales area ${areaText(area)}` })
+    y.customers[kunnr].changes.push({ t: now, by: 'BRIGHT_DEV', text: `Request to the master data team: add sales area ${areaText(area)}` })
     return true
   })
 
@@ -845,7 +876,7 @@ export const createUser = (state, { name, type = 'System', password }) =>
     const n = word(name).toUpperCase()
     if (!NAME_OK.test(n) || n.length > 12) return { ok: false, text: 'User names have up to 12 letters, digits or _' }
     if (y.users[n]) return { ok: false, text: `User ${n} already exists` }
-    if (String(password ?? '').length < 8) return { ok: false, text: 'The password must have at least 8 characters' } // lab-made: the login/min_password_lng of Harbor
+    if (String(password ?? '').length < 8) return { ok: false, text: 'The password must have at least 8 characters' } // lab-made: the login/min_password_lng of Brightmart
     y.users[n] = { type: ['System', 'Dialog', 'Communications', 'Service'].includes(type) ? type : 'System', password: String(password), locked: false, failed: 0 }
     return { ok: true, text: `User ${n} created` }
   })
@@ -912,13 +943,13 @@ export const removeInbound = (state, prn, mestyp) =>
 const TEST_OUT = {
   INVOIC: (y) => [seg('E1EDK01', 1, { CURCY: 'EUR', BELNR: `00900${pad(y.n % 100000, 5)}` }), seg('E1EDKA1', 1, { PARVW: 'RE', PARTN: '4712' }), seg('E1EDP01', 1, { POSEX: '000010', MENGE: '2', MENEE: 'PCE' }), seg('E1EDP19', 2, { QUALF: '002', IDTNR: 'H-1300' }), seg('E1EDS01', 1, { SUMID: '011', SUMME: '118.00', WAERQ: 'EUR' })],
   DESADV: () => [seg('E1EDL20', 1, { VBELN: '0080001022', VSTEL: '1000' }), seg('E1EDL24', 2, { POSNR: '000010', MATNR: 'H-1300', LFIMG: '2' })],
-  MATMAS: () => [seg('E1MARAM', 1, { MATNR: 'H-1300', MTART: 'FERT', MEINS: 'PCE' }), seg('E1MAKTM', 2, { SPRAS: 'E', MAKTX: 'Harbor folding table' })],
+  MATMAS: () => [seg('E1MARAM', 1, { MATNR: 'H-1300', MTART: 'FERT', MEINS: 'PCE' }), seg('E1MAKTM', 2, { SPRAS: 'E', MAKTX: 'Brightmart folding table' })],
 }
 export const testOutbound = (state, prn, mestyp) =>
   edit(state, (s, y, now) => {
     const make = TEST_OUT[mestyp]
     if (!make) return { ok: false, text: `No test data for message type ${mestyp}` }
-    const d = outboundIdoc(y, word(prn).toUpperCase(), mestyp, make(y), now, 'HARBOR_DEV')
+    const d = outboundIdoc(y, word(prn).toUpperCase(), mestyp, make(y), now, 'BRIGHT_DEV')
     d.ref = mestyp === 'INVOIC' ? fieldsOf(d, 'E1EDK01')[0].BELNR : ''
     const e = y.trfc.find((x) => x.docnum === d.docnum)
     if (e) deliver(s, y, e, now)

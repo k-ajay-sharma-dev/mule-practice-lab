@@ -4,11 +4,11 @@
 import { info, muleError, needs } from '../platform-log.js'
 import { wdConfig, wdTime } from '../platform-workday.js'
 
-export const BADGE = 'harbor-wd-badge-sync'
+export const BADGE = 'brightmart-wd-badge-sync'
 export const BADGE_FLOW = 'badge-delta-flow'
 const el = {
   raas: { flow: BADGE_FLOW, at: 1, name: 'Get changed workers', dsl: '<http:request method="GET" doc:name="Get changed workers" config-ref="Workday_RaaS_Config" path="/${raas.owner}/${raas.report}">' },
-  soap: { flow: 'get:\\workers\\(id):harbor-wd-badge-sync-config', at: 1, name: 'Get_Workers', dsl: '<wsc:consume doc:name="Get_Workers" config-ref="Workday_Human_Resources" operation="Get_Workers">' },
+  soap: { flow: 'get:\\workers\\(id):brightmart-wd-badge-sync-config', at: 1, name: 'Get_Workers', dsl: '<wsc:consume doc:name="Get_Workers" config-ref="Workday_Human_Resources" operation="Get_Workers">' },
 }
 const err = (e, r) => muleError({ ...e, file: BADGE, type: r.type, message: r.error })
 

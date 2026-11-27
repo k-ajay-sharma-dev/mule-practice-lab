@@ -17,7 +17,7 @@ const lab = {
   group: 'Salesforce and SAP',
   title: 'The nightly sync used the whole API allowance',
   minutes: 25,
-  scenario: `${NAME} keeps the Accounts of the Harbor org in step with the customer master. At 01:00 it upserts every customer, one REST call each, and every 15 minutes it sends the customers that changed. On Monday evening the Larkspur stores joined the customer master, so the file grew from 6,000 to 40,000 customers. It is Tuesday 14:30. Since about lunch time every call fails with REQUEST_LIMIT_EXCEEDED, and the sales team says their quoting tool and the Outlook sync stopped too.`,
+  scenario: `${NAME} keeps the Accounts of the Brightmart org in step with the customer master. At 01:00 it upserts every customer, one REST call each, and every 15 minutes it sends the customers that changed. On Monday evening the Larkspur stores joined the customer master, so the file grew from 6,000 to 40,000 customers. It is Tuesday 14:30. Since about lunch time every call fails with REQUEST_LIMIT_EXCEEDED, and the sales team says their quoting tool and the Outlook sync stopped too.`,
   start() {
     const sfState = newSalesforce({
       orgs: {
@@ -35,13 +35,13 @@ const lab = {
       clock: at(0, 12),
       apps: [
         newApp(NAME, {
-          props: { 'salesforce.url': 'https://login.salesforce.com/services/Soap/u/61.0', 'salesforce.username': 'mule.integration@harbor.example', 'sync.customers': '6000', 'sync.nightly.mode': 'rest', 'sync.delta.mode': 'rest', 'sync.limits.check': 'false', 'sync.limits.minRemaining': '0' },
+          props: { 'salesforce.url': 'https://login.salesforce.com/services/Soap/u/61.0', 'salesforce.username': 'mule.integration@brightmart.example', 'sync.customers': '6000', 'sync.nightly.mode': 'rest', 'sync.delta.mode': 'rest', 'sync.limits.check': 'false', 'sync.limits.minRemaining': '0' },
           secrets: { 'salesforce.password': 'Hrb-Int-Prod-26', 'salesforce.securityToken': 'labTokenProd7x2' },
         }),
       ],
       salesforce: sfState,
       mail: [
-        { t: at(1, 14, 10), to: OPS, subject: 'Salesforce integrations down', body: 'Since about 13:30 Pierline CPQ cannot save quotes and Outlook Integration shows "TotalRequests Limit exceeded." for every rep. Nothing changed on our side. Can you look at what uses the API? Harbor sales operations', source: 'Harbor sales operations' },
+        { t: at(1, 14, 10), to: OPS, subject: 'Salesforce integrations down', body: 'Since about 13:30 Pierline CPQ cannot save quotes and Outlook Integration shows "TotalRequests Limit exceeded." for every rep. Nothing changed on our side. Can you look at what uses the API? Brightmart sales operations', source: 'Brightmart sales operations' },
       ],
     })
     s = until(s, at(0, 19))
@@ -72,7 +72,7 @@ const lab = {
     ),
     {
       title: 'Load the nightly volume with Bulk API 2.0',
-      how: `Runtime Manager, ${NAME}, Settings, Properties. Set sync.nightly.mode to bulk. The run then creates one upsert job on Harbor_Customer_Id__c, uploads the CSV and closes the job. Apply Changes.`,
+      how: `Runtime Manager, ${NAME}, Settings, Properties. Set sync.nightly.mode to bulk. The run then creates one upsert job on Brightmart_Customer_Id__c, uploads the CSV and closes the job. Apply Changes.`,
       done: bulkOk,
     },
     {

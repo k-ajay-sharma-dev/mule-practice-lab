@@ -1,7 +1,7 @@
 // The sample applications of the kafka-min-isr lab. Imports only platform-log.js and platform-led.js, so the engine can load it without a cycle.
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const CLUSTER = 'harbor-events'
+export const CLUSTER = 'brightmart-events'
 export const ORDERS = 'orders.v1'
 export const STOCK = 'stock.v1'
 const ORDERS_PER_MINUTE = 3

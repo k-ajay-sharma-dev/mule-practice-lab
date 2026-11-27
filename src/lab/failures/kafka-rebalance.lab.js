@@ -27,7 +27,7 @@ const lab = {
       apps: [
         newApp(IMPORTER, { props: { ...KAFKA }, store: {} }),
         newApp(NAME, {
-          props: { ...KAFKA, 'app.release': '1.4.0', 'kafka.groupId': GROUP, 'erp.host': 'erp.harbor.lab', 'kafka.listener': 'batch', 'kafka.ackMode': 'AUTO', 'invoice.skipExisting': 'false' },
+          props: { ...KAFKA, 'app.release': '1.4.0', 'kafka.groupId': GROUP, 'erp.host': 'erp.brightmart.lab', 'kafka.listener': 'batch', 'kafka.ackMode': 'AUTO', 'invoice.skipExisting': 'false' },
           store: {},
         }),
       ],
@@ -43,7 +43,7 @@ const lab = {
       to: OPS,
       subject: 'Customers got the same invoice twice',
       body: `This morning ${twice.length} orders were invoiced twice, for example ${twice.slice(0, 3).join(', ')}. They all came in with the 08:10 and the 08:40 imports. The team told us there were releases at 08:12 and 08:42. Please stop this before the next release, and tell us which orders to credit.`,
-      source: 'Harbor Foods Finance',
+      source: 'Brightmart Finance',
     })
     return s
   },

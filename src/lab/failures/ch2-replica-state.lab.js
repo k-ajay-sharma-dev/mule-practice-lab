@@ -18,7 +18,7 @@ const lab = {
   group: 'Scaling and release',
   title: 'Carts vanish after scaling out',
   minutes: 20,
-  scenario: `The Harbor web shop has a sale today. At 09:00 the team scaled ${CART_API} on CloudHub 2.0 from 1 replica to 3 so it copes with the crowd. Since then shoppers say their carts empty at random, or lose items at checkout. Nothing failed in the deployment and the logs show no errors. It is 09:45. Find out why and make the carts survive more replicas and restarts.`,
+  scenario: `The Brightmart web shop has a sale today. At 09:00 the team scaled ${CART_API} on CloudHub 2.0 from 1 replica to 3 so it copes with the crowd. Since then shoppers say their carts empty at random, or lose items at checkout. Nothing failed in the deployment and the logs show no errors. It is 09:45. Find out why and make the carts survive more replicas and restarts.`,
   start() {
     let s = newPlatform({
       clock: at(1, 8),
@@ -41,7 +41,7 @@ const lab = {
           to: OPS,
           subject: 'Sale: shoppers lose their carts',
           body: `Since 09:00, ${lost(all).length} of ${all.length} checkouts failed. The shop said "Your cart is empty" or showed fewer items than the shopper added. Before 09:00 we had no such complaints. We only added replicas for the sale. Can you look before the lunch peak?`,
-          source: 'Harbor web shop team',
+          source: 'Brightmart web shop team',
         },
       ],
     }

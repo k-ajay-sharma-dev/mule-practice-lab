@@ -4,9 +4,9 @@ import { app, ask, called, change, OPS, sawLogs, until } from '../platform-kit.j
 import { arnTopic, newAwsAccount, policyDoc, pollFromConsole, publishFromConsole, REGION } from '../platform-aws.js'
 import { PUBLISHER } from './aws-sns-filter.pkg.js'
 
-const TOPIC = 'harbor-price-changes'
-const CLEARANCE = 'harbor-clearance-signs'
-const STORES = 'harbor-store-prices'
+const TOPIC = 'brightmart-price-changes'
+const CLEARANCE = 'brightmart-clearance-signs'
+const STORES = 'brightmart-store-prices'
 const USER = 'svc-pricing'
 const KEY_ID = 'AKIA_LAB_0004120'
 const SECRET = 'lab-only/pricing-4120'
@@ -24,7 +24,7 @@ const lab = {
   group: 'Data and cloud',
   title: 'The clearance signs stopped updating',
   minutes: 20,
-  scenario: `${PUBLISHER} publishes each price change of Harbor to the SNS topic ${TOPIC}. Two SQS queues subscribe: ${STORES} gets every change for the shelf labels, and ${CLEARANCE} gets only big discounts for the clearance signs, by a filter policy. At 08:00 the pricing team changed the publisher. Since then the store labels update, but the clearance signs show yesterday's prices. Nothing failed: no error in the logs, no failed delivery. Find where the messages go, fix it, and get the missed discounts to the signs.`,
+  scenario: `${PUBLISHER} publishes each price change of Brightmart to the SNS topic ${TOPIC}. Two SQS queues subscribe: ${STORES} gets every change for the shelf labels, and ${CLEARANCE} gets only big discounts for the clearance signs, by a filter policy. At 08:00 the pricing team changed the publisher. Since then the store labels update, but the clearance signs show yesterday's prices. Nothing failed: no error in the logs, no failed delivery. Find where the messages go, fix it, and get the missed discounts to the signs.`,
   start() {
     let s = newPlatform({
       clock: at(1, 7, 50),
@@ -42,8 +42,8 @@ const lab = {
           t: at(1, 9, 10),
           to: OPS,
           subject: 'Clearance signs show old prices',
-          body: 'Hi. The digital clearance signs in all stores still show the prices of last night. The shelf labels are fine. The 35% and 50% offers of this morning are missing on the signs. Harbor store operations',
-          source: 'Harbor store operations',
+          body: 'Hi. The digital clearance signs in all stores still show the prices of last night. The shelf labels are fine. The 35% and 50% offers of this morning are missing on the signs. Brightmart store operations',
+          source: 'Brightmart store operations',
         },
       ],
     })

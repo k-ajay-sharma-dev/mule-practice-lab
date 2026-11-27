@@ -32,7 +32,7 @@ const lab = {
     const s = newPlatform({
       clock: at(1, 8),
       nextId: 10,
-      apps: [newApp(NAME, { props: { 'http.port': '8081', 'db.host': 'sql-orders.harbor.lab', 'db.user': 'orders_app', 'warehouse.host': 'wms.harbor.lab' }, secrets: { 'db.password': 'lab-only-pass' }, xml: START_XML, store: {} })],
+      apps: [newApp(NAME, { props: { 'http.port': '8081', 'db.host': 'sql-orders.brightmart.lab', 'db.user': 'orders_app', 'warehouse.host': 'wms.brightmart.lab' }, secrets: { 'db.password': 'lab-only-pass' }, xml: START_XML, store: {} })],
       traffic: [
         { app: NAME, env: 'Sandbox', method: 'POST', path: '/orders', body: ORDER_BODY, perMinute: 3 },
         { app: NAME, env: 'Sandbox', method: 'GET', path: '/orders', perMinute: 2 },
@@ -43,7 +43,7 @@ const lab = {
           to: OPS,
           subject: 'Orders with no lines',
           body: 'The invoice run found orders in ORDER_HEADER that have no rows in ORDER_LINE. The shop got an error for them, and the customer often ordered again, so we now have empty orders and duplicates. It happens a few times an hour. Can you make sure an order is saved whole or not at all?',
-          source: 'Harbor Foods Finance',
+          source: 'Brightmart Finance',
         },
       ],
     })

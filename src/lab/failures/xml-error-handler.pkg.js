@@ -4,7 +4,7 @@
 import { needs } from '../platform-log.js'
 import { errorLog, flowOf, mappedType, normalType, okStatus, outcomeOf, stepsOf } from '../platform-xml.js'
 
-export const NAME = 'harbor-order-intake-api'
+export const NAME = 'brightmart-order-intake-api'
 export const FLOW = 'post-orders-flow'
 // the customers the check-customer sub-flow knows (lab: the sub-flow reads them from a list, not a database)
 export const KNOWN = ['C-100', 'C-200', 'C-300']
@@ -106,7 +106,7 @@ const DESCRIPTIONS = {
 
 export const PACKAGES = {
   [NAME]: {
-    note: 'Order intake API of Harbor Foods. POST /orders checks the customer in the sub-flow check-customer and sends the order to the warehouse system in warehouse.host. Its Mule configuration is in the Flow editor; the error handler of post-orders-flow decides what a caller gets when something fails. The warehouse answers 503 to about one order in three this week, and now and then closes the connection.',
+    note: 'Order intake API of Brightmart. POST /orders checks the customer in the sub-flow check-customer and sends the order to the warehouse system in warehouse.host. Its Mule configuration is in the Flow editor; the error handler of post-orders-flow decides what a caller gets when something fails. The warehouse answers 503 to about one order in three this week, and now and then closes the connection.',
     boot: needs('http.port', 'warehouse.host'),
     sample: { method: 'POST', path: '/orders', body: '{"customerId":"C-100","lines":[{"sku":"FL-20","qty":4}]}' },
     handle(ctx, req) {

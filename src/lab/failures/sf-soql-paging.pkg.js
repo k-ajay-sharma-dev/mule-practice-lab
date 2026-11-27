@@ -4,7 +4,7 @@ import { API_VERSION, BASE } from '../platform-salesforce.js'
 
 export const NAME = 'sf-hub-account-sync'
 export const FLOW = 'account-sync-scheduler'
-export const FIELDS = 'Id, Name, Harbor_Customer_Id__c, BillingCountry, SystemModstamp'
+export const FIELDS = 'Id, Name, Brightmart_Customer_Id__c, BillingCountry, SystemModstamp'
 const word = (v) => String(v ?? '').trim()
 const yes = (v) => word(v).toLowerCase() === 'true'
 const stamp = (t) => new Date(BASE + t).toISOString()
@@ -36,7 +36,7 @@ function read(sf, soql, follow) {
 
 export const PACKAGES = {
   [NAME]: {
-    note: 'Every 15 minutes copies the Accounts of Salesforce to the Harbor customer hub with an HTTP Request to the REST query resource /services/data/v61.0/query. The first run, or a new configuration with sync.fullReload true, makes a full load of every Account. The other runs read the Accounts changed since the last run, with a WHERE on the field in sync.changedField. Salesforce returns at most 2000 records per batch. With sf.followNextRecordsUrl true the flow calls each nextRecordsUrl until done is true; otherwise it maps only the records of the first response.',
+    note: 'Every 15 minutes copies the Accounts of Salesforce to the Brightmart customer hub with an HTTP Request to the REST query resource /services/data/v61.0/query. The first run, or a new configuration with sync.fullReload true, makes a full load of every Account. The other runs read the Accounts changed since the last run, with a WHERE on the field in sync.changedField. Salesforce returns at most 2000 records per batch. With sf.followNextRecordsUrl true the flow calls each nextRecordsUrl until done is true; otherwise it maps only the records of the first response.',
     boot: needs('salesforce.url', 'salesforce.username', 'salesforce.password', 'salesforce.securityToken', 'sync.changedField'),
     schedules: [{ flow: FLOW, type: 'fixed', value: '15', unit: 'minutes', enabled: true }],
     run: {
@@ -52,7 +52,7 @@ export const PACKAGES = {
           const r = read(sf, soql, follow)
           if (!r.ok) return { ok: false, ms: 900, errorType: 'HTTP:BAD_REQUEST', log: [block('full', 'HTTP:BAD_REQUEST', `HTTP GET on resource '/services/data/v${API_VERSION}/query' failed: bad request (${r.status}). ${r.error}`)] }
           log.push(info(`GET /services/data/v${API_VERSION}/query?q=${soql}: totalSize ${r.totalSize}, ${r.pages} ${r.pages === 1 ? 'batch' : 'batches'}, done ${r.done}${r.done ? '' : `, nextRecordsUrl ${r.nextRecordsUrl}`}`))
-          log.push(info(`Full load finished: ${r.rows} Accounts written to the customer hub. Last record ${r.last?.Harbor_Customer_Id__c ?? ''} ${r.last?.Name ?? ''}`))
+          log.push(info(`Full load finished: ${r.rows} Accounts written to the customer hub. Last record ${r.last?.Brightmart_Customer_Id__c ?? ''} ${r.last?.Name ?? ''}`))
           Object.assign(store, { count: r.rows, total: r.totalSize, full: { t: ctx.now, rows: r.rows, total: r.totalSize }, watermark: ctx.now, cfg: ctx.app.config })
           return { ok: true, ms: 400 * r.pages, log, store }
         }

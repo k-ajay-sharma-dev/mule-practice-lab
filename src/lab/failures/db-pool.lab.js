@@ -4,7 +4,7 @@ import { app, ask, change, propsValue, recent, until } from '../platform-kit.js'
 
 const NAME = 'orders-sapi-sql'
 const SALE = 90 // lab calls a minute during the sale, each one stands for 10 real requests
-const PROPS = { 'db.host': 'sql02.harbor.lab', 'db.pool.max': '5', 'db.pool.maxWait': '10', 'db.query.timeout': '0' }
+const PROPS = { 'db.host': 'sql02.brightmart.lab', 'db.pool.max': '5', 'db.pool.maxWait': '10', 'db.query.timeout': '0' }
 const load = (perMinute) => [{ app: NAME, env: 'Sandbox', path: '/orders', perMinute }]
 const running = (s) => app(s, NAME)?.status === 'Running'
 const num = (s, key) => Number(propsValue(app(s, NAME), key))
@@ -15,7 +15,7 @@ const lab = {
   title: 'The connection pool runs dry in the sale',
   minutes: 12,
   scenario:
-    'Harbor Foods started its winter sale at 08:50. orders-sapi-sql reads orders from SQL Server. Since the sale, calls take seconds and some return 500. The database team says SQL Server is healthy and lightly used. Each call in the lab stands for 10 real requests, so the traffic you see is the sale at a smaller scale.',
+    'Brightmart started its winter sale at 08:50. orders-sapi-sql reads orders from SQL Server. Since the sale, calls take seconds and some return 500. The database team says SQL Server is healthy and lightly used. Each call in the lab stands for 10 real requests, so the traffic you see is the sale at a smaller scale.',
   start() {
     let s = newPlatform({ clock: at(1, 8, 40), apps: [newApp(NAME, { props: { ...PROPS } })], traffic: load(30) })
     s = until(s, at(1, 8, 48))

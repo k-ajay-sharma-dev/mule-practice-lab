@@ -4,7 +4,7 @@ import { app, ask, change, OPS, sawLogs, until, withProp } from '../platform-kit
 import { defaultMailServer, MB, samplePdf, setMailPort } from '../platform-mailserver.js'
 import { BOX, FLOW, forwardMode, NAME, readAs, smtpOf } from './mail-attachments.pkg.js'
 
-const AP = 'ap-team@harbor.example'
+const AP = 'ap-team@brightmart.example'
 const APP_PASSWORD = 'invc-mule-52d8'
 const props = (s) => ({ ...app(s, NAME)?.props, ...app(s, NAME)?.secrets })
 const running = (s) => app(s, NAME)?.status === 'Running'
@@ -54,8 +54,8 @@ const lab = {
       apps: [
         newApp(NAME, {
           props: {
-            'imap.protocol': 'imaps', 'imap.host': 'mail.harbor.lab', 'imap.port': '993', 'imap.user': BOX,
-            'smtp.protocol': 'smtp', 'smtp.host': 'mail.harbor.lab', 'smtp.port': '25', 'smtp.starttls': 'false', 'smtp.user': BOX,
+            'imap.protocol': 'imaps', 'imap.host': 'mail.brightmart.lab', 'imap.port': '993', 'imap.user': BOX,
+            'smtp.protocol': 'smtp', 'smtp.host': 'mail.brightmart.lab', 'smtp.port': '25', 'smtp.starttls': 'false', 'smtp.user': BOX,
             'invoice.readAs': 'text', 'ap.forward': 'attach', 'ap.to': AP,
           },
           secrets: { 'imap.password': APP_PASSWORD, 'smtp.password': APP_PASSWORD },
@@ -68,15 +68,15 @@ const lab = {
           t: at(0, 16, 30),
           to: OPS,
           subject: 'Port 25 is for server to server mail from Tuesday',
-          body: 'From Tuesday 06:00, port 25 of mail.harbor.lab takes mail from other mail servers only and offers no login. Apps send on port 587 with STARTTLS, or on port 465 with SMTPS. The limit for mail you send stays at 10240000 bytes. Mail team',
+          body: 'From Tuesday 06:00, port 25 of mail.brightmart.lab takes mail from other mail servers only and offers no login. Apps send on port 587 with STARTTLS, or on port 465 with SMTPS. The limit for mail you send stays at 10240000 bytes. Mail team',
           source: 'Mail team',
         },
         {
           t: at(1, 8, 45),
           to: OPS,
           subject: 'Invoice PDFs are damaged',
-          body: `Every invoice PDF that the intake forwarded to ${AP} yesterday is damaged: the reader cannot open it. The originals that suppliers send open fine. The large scans from Bluefin Supplies do not reach us at all. And since yesterday evening suppliers write that they get no confirmation. Harbor accounts payable`,
-          source: 'Harbor accounts payable',
+          body: `Every invoice PDF that the intake forwarded to ${AP} yesterday is damaged: the reader cannot open it. The originals that suppliers send open fine. The large scans from Bluefin Supplies do not reach us at all. And since yesterday evening suppliers write that they get no confirmation. Brightmart accounts payable`,
+          source: 'Brightmart accounts payable',
         },
       ],
     })

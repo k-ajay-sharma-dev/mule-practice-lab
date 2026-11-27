@@ -1,5 +1,5 @@
-// The ActiveMQ brokers of the Platform Lab: Apache ActiveMQ Classic 5.18 (harbor-amq, a shared store master/slave
-// pair) and Apache ActiveMQ Artemis 2.x (harbor-artemis). Queues, topics, durable and shared subscriptions, prefetch,
+// The ActiveMQ brokers of the Platform Lab: Apache ActiveMQ Classic 5.18 (brightmart-amq, a shared store master/slave
+// pair) and Apache ActiveMQ Artemis 2.x (brightmart-artemis). Queues, topics, durable and shared subscriptions, prefetch,
 // acknowledgement modes, local transactions, the redelivery policy and dead letter queues, message expiry, memory and
 // store usage with producer flow control, broker restarts and failover. Pure and import free. Lives in state.jms.
 //
@@ -24,11 +24,11 @@ const MINUTE = 60000
 
 export const CLASSIC = 'classic'
 export const ARTEMIS = 'artemis'
-export const AMQ = 'harbor-amq'
-export const ARTEMIS_BROKER = 'harbor-artemis'
-export const AMQ_URL = 'tcp://amq.harbor.lab:61616'
-export const AMQ_FAILOVER = 'failover:(tcp://amq1.harbor.lab:61616,tcp://amq2.harbor.lab:61616)?randomize=false'
-export const ARTEMIS_URL = 'tcp://artemis.harbor.lab:61616'
+export const AMQ = 'brightmart-amq'
+export const ARTEMIS_BROKER = 'brightmart-artemis'
+export const AMQ_URL = 'tcp://amq.brightmart.lab:61616'
+export const AMQ_FAILOVER = 'failover:(tcp://amq1.brightmart.lab:61616,tcp://amq2.brightmart.lab:61616)?randomize=false'
+export const ARTEMIS_URL = 'tcp://artemis.brightmart.lab:61616'
 
 export const CLASSIC_DEFAULTS = { maximumRedeliveries: 6, initialRedeliveryDelay: 1000, queuePrefetch: 1000, topicPrefetch: 32766, durableTopicPrefetch: 100, deadLetterQueue: 'ActiveMQ.DLQ' }
 export const ARTEMIS_DEFAULTS = { maxDeliveryAttempts: 10, redeliveryDelay: 0, consumerWindowSize: MB, maxDiskUsage: 90, deadLetterAddress: 'DLQ', expiryAddress: 'ExpiryQueue' }
@@ -63,10 +63,10 @@ export function classicBroker(now = 0, extra = {}) {
     version: '5.18.6',
     epoch: 1764230400000,
     seq: 0,
-    // amq.harbor.lab is a DNS alias of amq1 (lab-made). Both share one KahaDB store on the NAS; the one holding the lock is master.
+    // amq.brightmart.lab is a DNS alias of amq1 (lab-made). Both share one KahaDB store on the NAS; the one holding the lock is master.
     nodes: [
-      { name: 'amq1', host: 'amq1.harbor.lab', aliases: ['amq.harbor.lab'], port: 61616, web: 8161, role: 'master', up: true, since: now, downUntil: null },
-      { name: 'amq2', host: 'amq2.harbor.lab', aliases: [], port: 61616, web: 8161, role: 'slave', up: true, since: now, downUntil: null },
+      { name: 'amq1', host: 'amq1.brightmart.lab', aliases: ['amq.brightmart.lab'], port: 61616, web: 8161, role: 'master', up: true, since: now, downUntil: null },
+      { name: 'amq2', host: 'amq2.brightmart.lab', aliases: [], port: 61616, web: 8161, role: 'slave', up: true, since: now, downUntil: null },
     ],
     // activemq.xml values the lab reads. memoryLimit and storeLimit are lab-made sizes, smaller than a real broker has.
     config: {
@@ -107,7 +107,7 @@ export function classicBroker(now = 0, extra = {}) {
     conns: [],
     faults: {},
     refused: [],
-    history: [{ t: now, text: 'Broker harbor-amq started on amq1. amq2 waits for the lock on the shared store.' }],
+    history: [{ t: now, text: 'Broker brightmart-amq started on amq1. amq2 waits for the lock on the shared store.' }],
     ...extra,
   }
 }
@@ -121,7 +121,7 @@ export function artemisBroker(now = 0, extra = {}) {
     version: '2.37.0',
     epoch: 1764230400000,
     seq: 0,
-    nodes: [{ name: 'artemis1', host: 'artemis.harbor.lab', aliases: [], port: 61616, web: 8161, role: 'live', up: true, since: now, downUntil: null }],
+    nodes: [{ name: 'artemis1', host: 'artemis.brightmart.lab', aliases: [], port: 61616, web: 8161, role: 'live', up: true, since: now, downUntil: null }],
     config: {
       // disk size of the journal volume, lab-made
       storeLimit: 2 * GB,
@@ -148,7 +148,7 @@ export function artemisBroker(now = 0, extra = {}) {
     conns: [],
     faults: {},
     refused: [],
-    history: [{ t: now, text: 'Broker harbor-artemis started. AMQ221007: Server is now live.' }],
+    history: [{ t: now, text: 'Broker brightmart-artemis started. AMQ221007: Server is now live.' }],
     ...extra,
   }
 }

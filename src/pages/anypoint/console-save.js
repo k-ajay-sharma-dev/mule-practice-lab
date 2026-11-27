@@ -1,10 +1,12 @@
 // Saving a console state in the browser. Shared by the open console and the guided labs.
 import { useEffect, useRef } from 'react'
+import { rebrandText } from '../../lab/rebrand.js'
 
 export const isState = (s) => Number.isFinite(s?.clock) && ['apps', 'apis', 'projects', 'assets', 'studio', 'queues', 'mail', 'events', 'traffic', 'clients', 'monAlerts', 'rmAlerts'].every((k) => Array.isArray(s[k])) && typeof s.seen === 'object' && typeof s.creds === 'object'
 export function read(key) {
   try {
-    return JSON.parse(localStorage.getItem(key))
+    // a save from before the retailer was renamed gets the new names
+    return JSON.parse(rebrandText(localStorage.getItem(key)))
   } catch {
     return null
   }

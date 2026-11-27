@@ -24,7 +24,7 @@ const lab = {
   title: 'Payments captured twice because the lock ran out',
   minutes: 15,
   scenario:
-    'payment-capture-consumer runs on 2 replicas. It takes payment messages from the Anypoint MQ queue payment-captures and captures each payment at the payment gateway of Harbor Foods. Since the gateway release on Monday a capture takes about 95 seconds. This morning Finance sees customers charged twice, while Monitoring shows no errors at all. Find out why and make sure no payment is captured twice.',
+    'payment-capture-consumer runs on 2 replicas. It takes payment messages from the Anypoint MQ queue payment-captures and captures each payment at the payment gateway of Brightmart. Since the gateway release on Monday a capture takes about 95 seconds. This morning Finance sees customers charged twice, while Monitoring shows no errors at all. Find out why and make sure no payment is captured twice.',
   start() {
     const s = newPlatform({
       clock: at(1, 8),
@@ -32,7 +32,7 @@ const lab = {
         newApp(NAME, {
           replicas: 2,
           props: {
-            'gateway.host': 'pay-gw.harbor.lab',
+            'gateway.host': 'pay-gw.brightmart.lab',
             'queue.name': QUEUE,
             'dlq.name': DLQ,
             'mq.ackTimeout': '60',
@@ -53,7 +53,7 @@ const lab = {
           to: OPS,
           subject: 'Customers charged twice for one order',
           body: 'Since this morning the gateway report shows two captures for many payment IDs, each pair about a minute apart. Every order exists once in our system. Please stop this before the noon settlement run. We will refund the extra captures.',
-          source: 'Harbor Foods Finance',
+          source: 'Brightmart Finance',
         },
       ],
     })

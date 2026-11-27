@@ -2,7 +2,7 @@
 import { advance, appNamed, at, callApi, deployApp, eventsOf, finishDeploys, MINUTE } from './platform.js'
 import { defaultSettings } from './policies.js'
 
-export const OPS = 'ops@harbor.example'
+export const OPS = 'ops@brightmart.example'
 export const app = (s, name) => appNamed(s, name, 'Sandbox')
 export const sawLogs = (name) => ({ title: `Open the logs of ${name}`, how: `Runtime Manager, Applications, ${name}, Logs.`, done: (s) => Boolean(s.seen[`logs:${name}`]) })
 export const ask = (title, question, options, right, reason) => ({ title, ask: question, options, right, reason })

@@ -9,7 +9,7 @@ export const PKG = {
 const json = (value) => JSON.stringify(value)
 const inventory = LED_PACKAGES['inventory-sapi']
 const papi = LED_PACKAGES['order-fulfilment-papi']
-// the 24 pieces of v1, split over the two warehouses of Harbor
+// the 24 pieces of v1, split over the two warehouses of Brightmart
 const split = (available) => [{ id: 'W1', available: Math.ceil((available * 2) / 3) }, { id: 'W2', available: available - Math.ceil((available * 2) / 3) }]
 
 // Inventory System API v2: the stock per warehouse instead of one number

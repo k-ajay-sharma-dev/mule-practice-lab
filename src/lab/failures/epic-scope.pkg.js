@@ -1,5 +1,5 @@
 // The sample application of the epic-scope lab. Imports only platform-log.js and the import free Epic engine, so the
-// engine can load it without a cycle. It gives the Harbor Care portal the lab results of a patient from Epic.
+// engine can load it without a cycle. It gives the Brightmart Care portal the lab results of a patient from Epic.
 import { line, muleError } from '../platform-log.js'
 import { bearer, epicConfig, httpErrorType, httpFailText, searchAll, tokenFailure } from '../platform-epic.js'
 
@@ -24,7 +24,7 @@ const fail = (step, r) => {
 
 export const PACKAGES = {
   [LAB_FEED]: {
-    note: `The lab results API of the Harbor Care portal. GET /patients/{mrn}/labs asks Epic at Bayview Health for an access token with the scopes in epic.scopes (space separated), finds the patient by MRN and reads its Observations of category laboratory, every page. The token request is a SMART backend services JWT signed with the key store alias epic.jwt.keyAlias, kid epic.jwt.kid. Each request takes a new token (lab-made: the API keeps no token cache).`,
+    note: `The lab results API of the Brightmart Care portal. GET /patients/{mrn}/labs asks Epic at Bayview Health for an access token with the scopes in epic.scopes (space separated), finds the patient by MRN and reads its Observations of category laboratory, every page. The token request is a SMART backend services JWT signed with the key store alias epic.jwt.keyAlias, kid epic.jwt.kid. Each request takes a new token (lab-made: the API keeps no token cache).`,
     sample: { method: 'GET', path: '/patients/203711/labs' },
     handle(ctx, req) {
       const m = req.path.split('?')[0].match(/^\/patients\/([^/]+)\/labs$/)

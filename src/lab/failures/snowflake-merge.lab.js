@@ -4,9 +4,9 @@ import { app, ask, OPS, sawLogs, until } from '../platform-kit.js'
 import { ADMIN_USER, defaultSnowflakeSystem, ETL_PROPS, ETL_SECRETS, rowsOf, runWorksheet, script, tableAt, viewAt } from '../platform-snowflake.js'
 import { CRM_MERGE, MERGE_FLOW } from './snowflake-merge.pkg.js'
 
-const CUSTOMERS = 'HARBOR_DW.RAW.CUSTOMERS'
-const STAGING = 'HARBOR_DW.RAW.CUSTOMER_CHANGES'
-const VIEW = 'HARBOR_DW.RAW.CUSTOMER_CHANGES_V'
+const CUSTOMERS = 'BRIGHTMART_DW.RAW.CUSTOMERS'
+const STAGING = 'BRIGHTMART_DW.RAW.CUSTOMER_CHANGES'
+const VIEW = 'BRIGHTMART_DW.RAW.CUSTOMER_CHANGES_V'
 const COLS = 'CUSTOMER_ID VARCHAR(20), NAME VARCHAR(100), EMAIL VARCHAR(100), TIER VARCHAR(10), UPDATED_AT TIMESTAMP_NTZ'
 const y = (s) => s.snowflake
 const customers = (s) => rowsOf(y(s), CUSTOMERS)
@@ -35,21 +35,21 @@ function account(now) {
   const x = defaultSnowflakeSystem(now)
   script(
     x,
-    `CREATE TABLE HARBOR_DW.RAW.CUSTOMERS (${COLS}); CREATE TABLE HARBOR_DW.RAW.CUSTOMER_CHANGES (${COLS});
-    INSERT INTO HARBOR_DW.RAW.CUSTOMERS VALUES
+    `CREATE TABLE BRIGHTMART_DW.RAW.CUSTOMERS (${COLS}); CREATE TABLE BRIGHTMART_DW.RAW.CUSTOMER_CHANGES (${COLS});
+    INSERT INTO BRIGHTMART_DW.RAW.CUSTOMERS VALUES
       ('C-1001', 'Quay Deli', 'buying@quaydeli.example', 'SILVER', '2026-10-12 10:00:00'),
       ('C-1002', 'Pier Cafe', 'info@piercafe.example', 'BRONZE', '2026-10-20 15:30:00'),
-      ('C-1003', 'Harbor Fish Market', 'office@fishmarket.example', 'GOLD', '2026-09-01 09:00:00'),
+      ('C-1003', 'Brightmart Fish Market', 'office@fishmarket.example', 'GOLD', '2026-09-01 09:00:00'),
       ('C-1004', 'Lighthouse Inn', 'desk@lighthouse.example', 'SILVER', '2026-10-02 11:15:00'),
       ('C-1005', 'Dock 7 Coffee', 'beans@dock7.example', 'BRONZE', '2026-10-30 08:20:00'),
       ('C-1006', 'Seawall Grocers', 'shop@seawall.example', 'SILVER', '2026-10-25 17:45:00');
-    CREATE VIEW HARBOR_DW.RAW.CUSTOMER_CHANGES_V AS SELECT * FROM HARBOR_DW.RAW.CUSTOMER_CHANGES;
-    CREATE FILE FORMAT HARBOR_DW.RAW.CSV_CUSTOMERS TYPE = CSV SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '"';
-    CREATE STAGE HARBOR_DW.RAW.CUSTOMER_STAGE FILE_FORMAT = (FORMAT_NAME = 'HARBOR_DW.RAW.CSV_CUSTOMERS');
-    GRANT SELECT, INSERT, UPDATE ON TABLE HARBOR_DW.RAW.CUSTOMERS TO ROLE LOADER;
-    GRANT SELECT, INSERT, TRUNCATE ON TABLE HARBOR_DW.RAW.CUSTOMER_CHANGES TO ROLE LOADER;
-    GRANT SELECT ON VIEW HARBOR_DW.RAW.CUSTOMER_CHANGES_V TO ROLE LOADER;
-    GRANT READ, WRITE ON STAGE HARBOR_DW.RAW.CUSTOMER_STAGE TO ROLE LOADER; GRANT USAGE ON FILE FORMAT HARBOR_DW.RAW.CSV_CUSTOMERS TO ROLE LOADER;`,
+    CREATE VIEW BRIGHTMART_DW.RAW.CUSTOMER_CHANGES_V AS SELECT * FROM BRIGHTMART_DW.RAW.CUSTOMER_CHANGES;
+    CREATE FILE FORMAT BRIGHTMART_DW.RAW.CSV_CUSTOMERS TYPE = CSV SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '"';
+    CREATE STAGE BRIGHTMART_DW.RAW.CUSTOMER_STAGE FILE_FORMAT = (FORMAT_NAME = 'BRIGHTMART_DW.RAW.CSV_CUSTOMERS');
+    GRANT SELECT, INSERT, UPDATE ON TABLE BRIGHTMART_DW.RAW.CUSTOMERS TO ROLE LOADER;
+    GRANT SELECT, INSERT, TRUNCATE ON TABLE BRIGHTMART_DW.RAW.CUSTOMER_CHANGES TO ROLE LOADER;
+    GRANT SELECT ON VIEW BRIGHTMART_DW.RAW.CUSTOMER_CHANGES_V TO ROLE LOADER;
+    GRANT READ, WRITE ON STAGE BRIGHTMART_DW.RAW.CUSTOMER_STAGE TO ROLE LOADER; GRANT USAGE ON FILE FORMAT BRIGHTMART_DW.RAW.CSV_CUSTOMERS TO ROLE LOADER;`,
     now,
   )
   return x
@@ -69,8 +69,8 @@ const lab = {
       t: at(1, 9, 35),
       to: OPS,
       subject: 'C-5003 is in the customer dashboard twice',
-      body: 'Hello. New Pier Bakery, C-5003, was created in the CRM at 08:41 and moved to GOLD at 08:52. The dashboard now counts it twice, once SILVER and once GOLD, so the GOLD totals are off. And Pier Cafe, C-1002, changed twice this morning but Snowflake still shows the old data. Harbor CRM analytics',
-      source: 'Harbor CRM analytics',
+      body: 'Hello. New Pier Bakery, C-5003, was created in the CRM at 08:41 and moved to GOLD at 08:52. The dashboard now counts it twice, once SILVER and once GOLD, so the GOLD totals are off. And Pier Cafe, C-1002, changed twice this morning but Snowflake still shows the old data. Brightmart CRM analytics',
+      source: 'Brightmart CRM analytics',
     })
     return until(s, at(1, 9, 40))
   },

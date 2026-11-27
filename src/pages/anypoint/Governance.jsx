@@ -266,7 +266,7 @@ function ProfileForm({ state, update, profile, onClose, onDone }) {
             <Check checked={f.notify} onChange={(notify) => set({ notify })}>Send notifications</Check>
             {f.notify && (
               <Field label="Recipients" hint="Email addresses, separated by commas">
-                <Input value={f.recipients} onChange={(recipients) => set({ recipients })} placeholder="architecture@harbor.example" />
+                <Input value={f.recipients} onChange={(recipients) => set({ recipients })} placeholder="architecture@brightmart.example" />
               </Field>
             )}
           </fieldset>

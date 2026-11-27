@@ -4,8 +4,8 @@
 // which the store app shows as stock on its way.
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const BOX = 'asn@harbor.example'
-export const CLUSTER = 'harbor-events'
+export const BOX = 'asn@brightmart.example'
+export const CLUSTER = 'brightmart-events'
 export const TOPIC = 'inbound-asn.v1'
 export const GROUP = 'wms-inbound'
 export const INTAKE = 'asn-mail-intake'

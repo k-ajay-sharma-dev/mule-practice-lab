@@ -2,7 +2,7 @@
 // their control, data and status records, BD87 processes IDocs again, WE19 tests IDocs, SM58 shows the tRFC queue,
 // SM59 the RFC destinations, SMGW the gateway, WE20, WE21 and BD54 the ALE setup, VA03, MMBE and XD03 the business
 // data, SE37 runs function modules and SU01 keeps the users. The tab "In the Mule app" maps all of it to the SAP
-// connector configuration of each app. A lab tool: one dialog user, HARBOR_DEV, does everything.
+// connector configuration of each app. A lab tool: one dialog user, BRIGHT_DEV, does everything.
 import { useEffect, useMemo, useState } from 'react'
 import { mark, stamp, timeText } from '../../lab/platform.js'
 import {
@@ -143,7 +143,7 @@ export default function SapGui({ state, update, place }) {
             {bar && <b>{bar.type === 'E' ? 'Error' : bar.type === 'W' ? 'Warning' : 'Done'}</b>}
             <span>{bar?.text ?? ''}</span>
             <span className="sg-clock">
-              {y.sid} | HARBOR_DEV | {timeText(state.clock)}
+              {y.sid} | BRIGHT_DEV | {timeText(state.clock)}
             </span>
           </footer>
         </div>

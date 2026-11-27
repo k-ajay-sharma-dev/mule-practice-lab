@@ -3,7 +3,7 @@
 import { info, muleError, warn } from '../platform-log.js'
 import { cfgOf } from '../platform-servicenow.js'
 
-export const WMS = 'harbor-wms-incident-bridge'
+export const WMS = 'brightmart-wms-incident-bridge'
 export const WMS_JAR = `${WMS}-1.0.0-mule-application.jar`
 export const WMS_ALERT = '{"key":"WMS-APP-01:pick_queue","ci":"WMS-APP-01","summary":"WMS-APP-01 pick queue above 500 orders","impact":2}'
 export const WMS_BAD = '{"ci":"WMS-APP-01","summary":"alert without a key"}'
@@ -20,7 +20,7 @@ const has = (p, k) => Boolean(String(p[k] ?? '').trim())
 
 export const PACKAGES = {
   [WMS]: {
-    note: `The bridge from Harbor warehouse monitoring to ServiceNow. GET /health sends GET /api/now/table/incident?sysparm_limit=1 as the integration user and answers UP or DOWN. POST /alerts with {"key","ci","summary","impact"} looks for an open incident with correlation_id = key and adds a work note to it, or creates one with POST /api/now/table/incident, assignment group snow.assignmentGroup. An alert without key or summary is rejected with 400 and never reaches ServiceNow. Properties: snow.instance (https://<instance>), snow.auth basic or oauth, snow.username with the secure snow.password for basic, snow.clientId with the secure snow.clientSecret for OAuth client credentials, snow.assignmentGroup.`,
+    note: `The bridge from Brightmart warehouse monitoring to ServiceNow. GET /health sends GET /api/now/table/incident?sysparm_limit=1 as the integration user and answers UP or DOWN. POST /alerts with {"key","ci","summary","impact"} looks for an open incident with correlation_id = key and adds a work note to it, or creates one with POST /api/now/table/incident, assignment group snow.assignmentGroup. An alert without key or summary is rejected with 400 and never reaches ServiceNow. Properties: snow.instance (https://<instance>), snow.auth basic or oauth, snow.username with the secure snow.password for basic, snow.clientId with the secure snow.clientSecret for OAuth client credentials, snow.assignmentGroup.`,
     sample: { method: 'POST', path: '/alerts', body: WMS_ALERT },
     boot({ props: p }) {
       const need = ['snow.instance', 'snow.assignmentGroup', ...(String(p['snow.auth'] ?? 'basic').trim().toLowerCase() === 'oauth' ? ['snow.clientId', 'snow.clientSecret'] : ['snow.username', 'snow.password'])]
@@ -55,7 +55,7 @@ export const PACKAGES = {
         if (!u.ok) return fail(u, el.update)
         return { status: 200, ms: f.ms + u.ms + 10, flow: FLOW, log: [info(`Alert ${a.key}: work note added to ${open.number}`)], body: JSON.stringify({ incident: open.number, status: 'updated' }) }
       }
-      const c = sn.table(cfg, 'POST', 'incident', { sysparm_fields: 'number,sys_id' }, { short_description: a.summary, cmdb_ci: a.ci ?? '', correlation_id: a.key, correlation_display: 'Harbor warehouse monitoring', assignment_group: ctx.props['snow.assignmentGroup'], impact: String(a.impact ?? 2), urgency: '2', category: 'software' })
+      const c = sn.table(cfg, 'POST', 'incident', { sysparm_fields: 'number,sys_id' }, { short_description: a.summary, cmdb_ci: a.ci ?? '', correlation_id: a.key, correlation_display: 'Brightmart warehouse monitoring', assignment_group: ctx.props['snow.assignmentGroup'], impact: String(a.impact ?? 2), urgency: '2', category: 'software' })
       if (!c.ok) return fail(c, el.create)
       ctx.store.created = (ctx.store.created ?? 0) + 1
       return { status: 201, ms: f.ms + c.ms + 10, flow: FLOW, log: [info(`Alert ${a.key}: incident ${c.body.result.number} created`)], body: JSON.stringify({ incident: c.body.result.number, status: 'created' }) }

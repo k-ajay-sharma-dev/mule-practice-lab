@@ -1,7 +1,7 @@
 // The sample application of the files-sftp-rights lab. Imports only platform-log.js, so the engine can load it without a cycle.
 import { info, muleError, needs } from '../platform-log.js'
 
-export const HOST = 'sftp.harbor.lab'
+export const HOST = 'sftp.brightmart.lab'
 export const NAME = 'north-orders-intake'
 export const FLOW = 'north-orders-flow'
 const dirOf = (v) => `/${String(v ?? '').trim().split('/').filter(Boolean).join('/')}`
@@ -18,7 +18,7 @@ const fail = (log, where, type, message) => ({ ok: false, ms: 20000, errorType: 
 
 export const PACKAGES = {
   [NAME]: {
-    note: 'Every 15 minutes it lists sftp.inDir on the SFTP server of Harbor, where the partner Harbor North uploads its order files. It loads the orders of each JSON file into the order system and moves the file to sftp.doneDir. The SFTP connection checks the host key against the known_hosts of the app (sftp.knownHosts in the lab).',
+    note: 'Every 15 minutes it lists sftp.inDir on the SFTP server of Brightmart, where the partner Brightmart North uploads its order files. It loads the orders of each JSON file into the order system and moves the file to sftp.doneDir. The SFTP connection checks the host key against the known_hosts of the app (sftp.knownHosts in the lab).',
     boot: needs('sftp.host', 'sftp.port', 'sftp.user', 'sftp.password', 'sftp.inDir', 'sftp.doneDir', 'sftp.knownHosts'),
     schedules: [{ flow: FLOW, type: 'fixed', value: '15', unit: 'minutes', enabled: true }],
     run: {
@@ -43,7 +43,7 @@ export const PACKAGES = {
           } catch {
             return fail(log, 'read', 'MULE:EXPRESSION', `"Unexpected character in ${file.name}, the file is not JSON"`)
           }
-          log.push(info(`Loaded ${orders} orders of Harbor North from ${file.name}`))
+          log.push(info(`Loaded ${orders} orders of Brightmart North from ${file.name}`))
           const m = f.move(file.path, `${dirOf(props['sftp.doneDir'])}/`, { overwrite: true })
           if (!m.ok) return fail(log, 'move', m.type ?? 'SFTP:CONNECTIVITY', m.error)
           store.loaded = [...store.loaded, { name: file.name, t: now, orders }].slice(-20)

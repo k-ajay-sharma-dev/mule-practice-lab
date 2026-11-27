@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { defaultHybrid, openConsole } from '../../lab/platform-project.js'
 import { defaultSystems } from '../../lab/platform-systems.js'
-import { harborKafka } from '../../lab/platform-kafka.js'
+import { brightmartKafka } from '../../lab/platform-kafka.js'
 import { defaultDatabases } from '../../lab/platform-db.js'
 import { defaultMailServer } from '../../lab/platform-mailserver.js'
 import { defaultServiceBus } from '../../lab/platform-servicebus.js'
@@ -61,10 +61,10 @@ function loadConsole() {
     if (!isState(saved)) return openConsole()
     const withHybrid = saved.hybrid ? saved : { ...saved, hybrid: defaultHybrid() }
     const withSystems = withHybrid.systems ? withHybrid : { ...withHybrid, systems: defaultSystems(withHybrid.clock) }
-    // and a console saved before Kafka gets the harbor-events cluster
-    const withKafka = withSystems.kafka ? withSystems : { ...withSystems, kafka: harborKafka(withSystems.clock) }
+    // and a console saved before Kafka gets the brightmart-events cluster
+    const withKafka = withSystems.kafka ? withSystems : { ...withSystems, kafka: brightmartKafka(withSystems.clock) }
     const withLater = Object.entries(LATER).reduce((x, [k, make]) => (x[k] ? x : { ...x, [k]: make(x.clock) }), withKafka)
-    // a console saved before the Harbor enterprise landscape gets its APIs, apps and the welcome mail once
+    // a console saved before the Brightmart enterprise landscape gets its APIs, apps and the welcome mail once
     if (withLater.apps.some((a) => a.name === 'mobile-app-exp-api')) return enterpriseProjects(withLater)
     try {
       return welcomeMail(addEnterprise(withLater))
@@ -92,7 +92,7 @@ export default function OpenConsole() {
   return (
     <div className="pc-wrap">
       <div className="lab-row-head">
-        <p className="muted small lab-grow">A working practice environment with the pages and steps of Anypoint Platform. The order project of Harbor Foods runs in it with three API layers: open Visualizer to see it. Change anything, break anything, then reset it.</p>
+        <p className="muted small lab-grow">A working practice environment with the pages and steps of Anypoint Platform. The order project of Brightmart runs in it with three API layers: open Visualizer to see it. Change anything, break anything, then reset it.</p>
         <button className="btn btn-sm btn-ghost" onClick={() => setState(openConsole())}>
           Reset the console
         </button>

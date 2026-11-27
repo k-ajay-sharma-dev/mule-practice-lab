@@ -4,7 +4,7 @@ import { app, ask, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { defaultSystems, norm, putFile, putLocal, removeFile, transfer } from '../platform-systems.js'
 import { APP, settingsOf } from './files-sftp-double-pickup.pkg.js'
 
-const HOST = 'sftp.harbor.lab'
+const HOST = 'sftp.brightmart.lab'
 const FIRST = 'stock-in-2026-11-03.csv'
 const NEXT = 'stock-in-2026-11-04.csv'
 const RECEIPTS = 'sku,warehouse,received\nH-100,DUB-1,24\nH-200,DUB-1,40\nH-300,ROT-2,12\nH-410,ROT-2,60\n'
@@ -64,7 +64,7 @@ const lab = {
       to: OPS,
       subject: 'Goods receipts booked twice',
       body: `Good morning. The receipts file ${FIRST} of this morning has 4 lines and 136 units. The stock on hand went up by 272 units, so pickers are sent to shelves that are empty. We fix the numbers in the warehouse system. Please make sure the next file is booked once.`,
-      source: 'Harbor Foods Warehouse',
+      source: 'Brightmart Warehouse',
     })
     return s
   },

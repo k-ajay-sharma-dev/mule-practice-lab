@@ -6,10 +6,10 @@ import {
 } from '../platform-epic.js'
 import { PATIENT_SYNC, SYNC_FLOW } from './epic-setup.pkg.js'
 
-const EPIC_APP = 'Harbor Care Patient Sync'
+const EPIC_APP = 'Brightmart Care Patient Sync'
 const MRNS = ['203711', '203714', '203715']
-const ALIAS = 'harbor-sync-2026-11'
-const ALERT_TO = 'care-integrations@harbor.example'
+const ALIAS = 'brightmart-sync-2026-11'
+const ALERT_TO = 'care-integrations@brightmart.example'
 const LEAST = ['system/Patient.read', 'system/Observation.read']
 const word = (v) => String(v ?? '').trim()
 const y = (s) => s.epic ?? {}
@@ -17,7 +17,7 @@ const reg = (s) => (y(s).apps ?? []).find((a) => a.name.toLowerCase() === EPIC_A
 const a = (s) => app(s, PATIENT_SYNC)
 const props = (s) => a(s)?.props ?? {}
 const otherKids = (s) => (y(s).apps ?? []).filter((x) => x !== reg(s)).flatMap((x) => x.keys.map((k) => k.kid))
-// a key of the Harbor key store whose public key Epic has for the new app, and no other app uses
+// a key of the Brightmart key store whose public key Epic has for the new app, and no other app uses
 const ownKey = (s, kid) => {
   const k = (y(s).keystore ?? []).find((x) => !kid || x.kid === kid)
   return k && !otherKids(s).includes(k.kid) && publicKeysOf(y(s), reg(s)).some((p) => p.kid === k.kid && p.thumb === k.thumb) ? k : null
@@ -64,7 +64,7 @@ const synced = (s) => {
 const MAIL = {
   t: at(1, 8, 30),
   to: OPS,
-  subject: 'New Epic integration: Harbor Care patient sync',
+  subject: 'New Epic integration: Brightmart Care patient sync',
   body: [
     'Hello integration team,',
     `Bayview Health has signed the remote monitoring program. Please set up ${PATIENT_SYNC}, which is built and waiting in Runtime Manager:`,
@@ -74,21 +74,21 @@ const MAIL = {
     `4. The enrolled patients are MRN ${MRNS.join(', ')} (sync.mrns).`,
     `5. Failures go to ${ALERT_TO}.`,
     'Done means the three patients and all their vital signs show in our sync, and a wrong MRN does not break anything.',
-    'Harbor Care program lead',
+    'Brightmart Care program lead',
   ].join('\n\n'),
-  source: 'Harbor Care program lead',
+  source: 'Brightmart Care program lead',
 }
 
 const lab = {
   id: 'p-epic-setup',
   group: 'Epic and healthcare',
-  title: 'Set up the Epic patient sync for Harbor Care',
+  title: 'Set up the Epic patient sync for Brightmart Care',
   minutes: 40,
-  scenario: `Harbor Care starts remote monitoring for patients of Bayview Health. ${PATIENT_SYNC} is built and its jar is in Runtime Manager, but nothing is configured: Bayview has no backend app for it, there is no key, and the app has no properties. Register the app at Epic, give it a key and the least scopes, deploy with the key kept secret, then prove a token, the data and a bad MRN, and add an alert. The Inbox has the request.`,
+  scenario: `Brightmart Care starts remote monitoring for patients of Bayview Health. ${PATIENT_SYNC} is built and its jar is in Runtime Manager, but nothing is configured: Bayview has no backend app for it, there is no key, and the app has no properties. Register the app at Epic, give it a key and the least scopes, deploy with the key kept secret, then prove a token, the data and a bad MRN, and add an alert. The Inbox has the request.`,
   start() {
     const e = newEpic(at(1, 8))
-    seedKey(e, { alias: 'harbor-epic-2026-11', t: at(0, 2) })
-    seedApp(e, { name: 'Harbor Care Roster', scopes: ['system/Patient.read'], kids: ['harbor-epic-2026-11'], t: at(0, 2) })
+    seedKey(e, { alias: 'brightmart-epic-2026-11', t: at(0, 2) })
+    seedApp(e, { name: 'Brightmart Care Roster', scopes: ['system/Patient.read'], kids: ['brightmart-epic-2026-11'], t: at(0, 2) })
     const s = newPlatform({ clock: at(1, 8), jars: [PATIENT_SYNC], epic: e, mail: [MAIL] })
     return until(s, at(1, 9))
   },
@@ -106,7 +106,7 @@ const lab = {
     },
     {
       title: 'Make the key pair and give Epic the public key',
-      how: `Epic (FHIR), Harbor keys. Under Generate key pair enter Alias ${ALIAS} and Key ID (kid) ${ALIAS}, and press Generate key pair. Then Backend apps, ${EPIC_APP}, Public keys: pick ${ALIAS} and press Add public key. Publishing it on the Harbor JWK Set URL and saving that URL on the app works too.`,
+      how: `Epic (FHIR), Brightmart keys. Under Generate key pair enter Alias ${ALIAS} and Key ID (kid) ${ALIAS}, and press Generate key pair. Then Backend apps, ${EPIC_APP}, Public keys: pick ${ALIAS} and press Add public key. Publishing it on the Brightmart JWK Set URL and saving that URL on the app works too.`,
       done: keyReady,
     },
     ask(
@@ -114,7 +114,7 @@ const lab = {
       'Where does each part of the key pair go?',
       [
         'Upload the private key to Epic, so Epic can sign for the app',
-        'The private key stays in the key store of the app at Harbor, and the key store password goes in a protected property. Epic gets only the public key, uploaded or from the JWK Set URL, under the kid the app puts in the JWT header',
+        'The private key stays in the key store of the app at Brightmart, and the key store password goes in a protected property. Epic gets only the public key, uploaded or from the JWK Set URL, under the kid the app puts in the JWT header',
         'Put the private key in a plain property, so operations can check it',
         'Mail the private key to the Epic team of Bayview',
       ],
@@ -159,7 +159,7 @@ const lab = {
       'An access token from the backend services flow lives for expires_in seconds, 3600 at Bayview. Reusing it saves a signature and a round trip per call and keeps the token endpoint quiet. The JWT is the opposite: it is a one time proof, so a new jti each time, and a short exp.',
     ),
   ],
-  why: `An Epic backend integration in short: register a backend app at the hospital, pick only the APIs the use case needs, make a key pair per app and give Epic only the public key (upload or JWK Set URL), keep the private key in the key store of the app with its password protected, and deploy with the token URL, FHIR base, client ID, key alias and kid. Then prove it: a token with the right scope, every page of the data compared with the totals in Epic, a wrong MRN answered with 404 and not lost in a 500, and an alert for failures. In the lab the Harbor keys page stands for the key store tooling of Harbor, and Epic grants an app right after it is saved; at a real hospital the client ID needs time to sync and each API needs approval.`,
+  why: `An Epic backend integration in short: register a backend app at the hospital, pick only the APIs the use case needs, make a key pair per app and give Epic only the public key (upload or JWK Set URL), keep the private key in the key store of the app with its password protected, and deploy with the token URL, FHIR base, client ID, key alias and kid. Then prove it: a token with the right scope, every page of the data compared with the totals in Epic, a wrong MRN answered with 404 and not lost in a 500, and an alert for failures. In the lab the Brightmart keys page stands for the key store tooling of Brightmart, and Epic grants an app right after it is saved; at a real hospital the client ID needs time to sync and each API needs approval.`,
   docs: 'https://hl7.org/fhir/smart-app-launch/backend-services.html',
   solve(start) {
     let s = mark(start, 'inbox')

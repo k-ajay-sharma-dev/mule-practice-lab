@@ -6,9 +6,9 @@ import { SNAPSHOT } from './files-azure-share.pkg.js'
 
 const NAME = 'stock-snapshot-export'
 const FLOW = 'snapshot-flow'
-const ACCOUNT = 'harborstore'
+const ACCOUNT = 'brightmartstore'
 const SHARE = 'stock-share'
-const OFFICE = '198.51.100.0/24' // lab made: the Harbor office and warehouse range (a documentation range)
+const OFFICE = '198.51.100.0/24' // lab made: the Brightmart office and warehouse range (a documentation range)
 const CHANGE = at(1, 7, 30) // when the storage team made its changes
 const DAY = 24 * 60 * 60000
 
@@ -43,10 +43,10 @@ const sasOk = (s) => {
 const MAIL_STORAGE = {
   t: at(1, 7, 35),
   to: OPS,
-  subject: 'harborstore: quarterly hardening done',
+  subject: 'brightmartstore: quarterly hardening done',
   body: [
     'Hello team,',
-    'at 07:30 we made two changes to the storage account harborstore, as planned in the security review:',
+    'at 07:30 we made two changes to the storage account brightmartstore, as planned in the security review:',
     `1. We rotated key1. key2 follows on Thursday 5 November, so both keys are new by the end of the week.`,
     `2. Public network access is now "Enabled from selected virtual networks and IP addresses". The rule allows the office and warehouse range ${OFFICE}.`,
     'Tell us if an app needs another address on the list. Storage team',
@@ -66,19 +66,19 @@ const lab = {
   group: 'Files, SFTP and batch',
   title: 'The file share answers 403 after a hardening change',
   minutes: 18,
-  scenario: `It is 09:00 on Tuesday. ${NAME} writes a stock snapshot every 15 minutes to the Azure File Share ${SHARE} in the storage account ${ACCOUNT}. The warehouse servers mount the share over SMB and the handheld scanners read ${SNAPSHOT} from it. The app runs in the private space harbor-ps, whose static outbound address is ${DEFAULT_EGRESS}. It uses the File REST API with a SAS token in the protected property share.sas. The application is Running, yet the warehouse sees stock from 07:15. The Inbox has two mails.`,
+  scenario: `It is 09:00 on Tuesday. ${NAME} writes a stock snapshot every 15 minutes to the Azure File Share ${SHARE} in the storage account ${ACCOUNT}. The warehouse servers mount the share over SMB and the handheld scanners read ${SNAPSHOT} from it. The app runs in the private space brightmart-ps, whose static outbound address is ${DEFAULT_EGRESS}. It uses the File REST API with a SAS token in the protected property share.sas. The application is Running, yet the warehouse sees stock from 07:15. The Inbox has two mails.`,
   start() {
     const store = newStorage(ACCOUNT, { shares: { [SHARE]: newShare({ [`out/${SNAPSHOT}`]: fileRec('sku,warehouse,available\n', { t: at(1, 5) }) }, { dirs: ['', 'in', 'out'] }) } })
     let s = newPlatform({ clock: at(1, 6), systems: systemsOf({ storage: [store] }), mail: [MAIL_STORAGE, MAIL_WAREHOUSE] })
     // the SAS the app has used since October: the share only, create and write, signed with key1
     const made = createSas(s, ACCOUNT, { name: `${NAME} app`, services: 'f', box: SHARE, perms: 'cw', expires: at(60), key: 'key1' })
     s = made.state
-    s.apps.push(newApp(NAME, { target: 'harbor-ps', props: { 'share.account': ACCOUNT, 'share.name': SHARE, 'share.dir': 'out' }, secrets: { 'share.sas': made.token }, store: {} }))
+    s.apps.push(newApp(NAME, { target: 'brightmart-ps', props: { 'share.account': ACCOUNT, 'share.name': SHARE, 'share.dir': 'out' }, secrets: { 'share.sas': made.token }, store: {} }))
     s = until(s, CHANGE)
     s = setNetwork(regenerateKey(s, ACCOUNT, 'key1'), 'storage', ACCOUNT, { mode: 'Selected networks', ips: [OFFICE] })
     // the activity log names the storage team, not the learner
-    for (const l of s.systems.storage[ACCOUNT].log) if (l.t === CHANGE && l.who === 'you') l.who = 'storage-admin@harbor.lab'
-    s.systems.storage[ACCOUNT].log.push({ t: CHANGE, who: 'storage-admin@harbor.lab', op: 'Update Storage Account', path: '', ok: true, text: `Public network access: Selected networks, ${OFFICE}` })
+    for (const l of s.systems.storage[ACCOUNT].log) if (l.t === CHANGE && l.who === 'you') l.who = 'storage-admin@brightmart.lab'
+    s.systems.storage[ACCOUNT].log.push({ t: CHANGE, who: 'storage-admin@brightmart.lab', op: 'Update Storage Account', path: '', ok: true, text: `Public network access: Selected networks, ${OFFICE}` })
     return until(s, at(1, 9))
   },
   steps: [

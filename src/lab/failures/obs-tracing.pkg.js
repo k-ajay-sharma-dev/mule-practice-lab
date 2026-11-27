@@ -37,7 +37,7 @@ export const PACKAGES = {
   [EAPI]: {
     layer: 'Experience',
     traced: true,
-    note: `POST /checkout of the Harbor web shop. It calls the checkout Process API at papi.url, POST /orders, with responseTimeout 10000 ms.`,
+    note: `POST /checkout of the Brightmart web shop. It calls the checkout Process API at papi.url, POST /orders, with responseTimeout 10000 ms.`,
     sample: { method: 'POST', path: '/checkout', body: '{"items":["H-100","H-200"]}' },
     boot: needs('papi.url'),
     handle(ctx, req) {
@@ -58,7 +58,7 @@ export const PACKAGES = {
       const n = itemsOf(req.body)
       const flow = 'post:\\orders:basket-checkout-papi-config'
       const q = quote(modeOf(ctx.props), n)
-      const spans = [{ op: 'db:select stock', kind: 'client', ms: 38 }, q.span, { op: 'http:request POST https://payments.harbor.lab/v2/reservations', kind: 'client', ms: 61 }]
+      const spans = [{ op: 'db:select stock', kind: 'client', ms: 38 }, q.span, { op: 'http:request POST https://payments.brightmart.lab/v2/reservations', kind: 'client', ms: 61 }]
       const ms = 6 + 38 + 1 + q.ms + 1 + 61 + 4
       const log = q.ms > 1000 ? [warn(`Shipping quote took ${q.ms} ms for ${n} items, mode ${modeOf(ctx.props)}`)] : []
       return { status: 201, ms, flow, spans, log, body: json({ orderId: `O-${8000 + (Math.floor(ctx.now / 60000) % 1000)}`, items: n, shippingQuoteMs: q.ms }) }

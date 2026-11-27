@@ -6,12 +6,12 @@ import {
 } from '../platform-aws.js'
 import { POD_BRIDGE, POD_JAR, POD_SAMPLE } from './aws-setup.pkg.js'
 
-const BUCKET = 'harbor-pod-archive'
-const QUEUE = 'harbor-pod-events'
-const DLQ = 'harbor-pod-events-dlq'
+const BUCKET = 'brightmart-pod-archive'
+const QUEUE = 'brightmart-pod-events'
+const DLQ = 'brightmart-pod-events-dlq'
 const USER = 'svc-pod-bridge'
-const KMS_ALIAS = 'alias/harbor-logistics'
-const ALERT_TO = 'logistics-integration@harbor.example'
+const KMS_ALIAS = 'alias/brightmart-logistics'
+const ALERT_TO = 'logistics-integration@brightmart.example'
 const POISON = '{"type":"PodReceived","shipment":"SL-4'
 
 const y = (s) => s.aws ?? {}
@@ -41,12 +41,12 @@ const NEEDS = (s) => [
 ]
 const NOT = (s) => [
   ['s3:DeleteObject', POD_KEY],
-  ['s3:PutObject', arnBucket('harbor-web-assets', 'index.html')],
+  ['s3:PutObject', arnBucket('brightmart-web-assets', 'index.html')],
   ['s3:DeleteBucket', arnBucket(BUCKET)],
   ['s3:PutBucketPolicy', arnBucket(BUCKET)],
   ['sqs:DeleteQueue', arnQueue(QUEUE)],
   ['sqs:PurgeQueue', arnQueue(QUEUE)],
-  ['sqs:SendMessage', arnQueue('harbor-orders')],
+  ['sqs:SendMessage', arnQueue('brightmart-orders')],
   ['kms:ScheduleKeyDeletion', keyArn(s)],
   ['iam:CreateAccessKey', '*'],
 ]
@@ -70,7 +70,7 @@ const poisoned = (s) => (y(s).queues?.[DLQ]?.messages ?? []).some((m) => m.src =
 
 const MAIL = {
   t: at(1, 8, 40),
-  to: 'ops@harbor.example',
+  to: 'ops@brightmart.example',
   subject: 'Swiftline proof of delivery goes to AWS',
   body: [
     'Hello integration team,',
@@ -81,9 +81,9 @@ const MAIL = {
     '4. Its keys never in plain properties.',
     `5. Failures alert ${ALERT_TO}.`,
     'Please send three test PODs and one broken event before you call it done.',
-    'Harbor logistics platform team',
+    'Brightmart logistics platform team',
   ].join('\n\n'),
-  source: 'Harbor logistics platform team',
+  source: 'Brightmart logistics platform team',
 }
 
 const lab = {
@@ -91,15 +91,15 @@ const lab = {
   group: 'Data and cloud',
   title: 'Set up the AWS integration for proof of delivery',
   minutes: 35,
-  scenario: `It is 09:00. Harbor's carrier Swiftline Freight will post a proof of delivery for every parcel. ${POD_BRIDGE} stores each one in S3 and puts an event on SQS, and a listener in the same app marks the order delivered. The app is built and its jar is in Runtime Manager, but nothing exists on the AWS side yet: no bucket, no queues, no IAM user, no properties. Done means three PODs arrive end to end, a broken event lands in the dead-letter queue, and failures raise an alert. The Inbox has the request.`,
+  scenario: `It is 09:00. Brightmart's carrier Swiftline Freight will post a proof of delivery for every parcel. ${POD_BRIDGE} stores each one in S3 and puts an event on SQS, and a listener in the same app marks the order delivered. The app is built and its jar is in Runtime Manager, but nothing exists on the AWS side yet: no bucket, no queues, no IAM user, no properties. Done means three PODs arrive end to end, a broken event lands in the dead-letter queue, and failures raise an alert. The Inbox has the request.`,
   start() {
     return newPlatform({
       clock: at(1, 9),
       jars: [{ pkg: POD_BRIDGE, jar: POD_JAR }],
       aws: newAwsAccount(at(1, 9), {
         keys: [{ alias: KMS_ALIAS, created: at(-120, 10) }],
-        buckets: [{ name: 'harbor-web-assets', created: at(-300, 9) }],
-        queues: [{ name: 'harbor-orders', visibility: 60, wait: 20, created: at(-200, 9) }],
+        buckets: [{ name: 'brightmart-web-assets', created: at(-300, 9) }],
+        queues: [{ name: 'brightmart-orders', visibility: 60, wait: 20, created: at(-200, 9) }],
       }),
       mail: [MAIL],
     })
@@ -128,7 +128,7 @@ const lab = {
         'Fine for a service user, since nobody logs in with it',
         `No. Those policies allow every action on every bucket and queue of the account. A leaked key could delete the archive or read the queues of other teams. The inline policy grants the few actions the app runs, on this bucket path, this queue and this key`,
         'Better to attach AdministratorAccess, so no deploy fails later',
-        'Use the access key of harbor-admin instead of a new user',
+        'Use the access key of brightmart-admin instead of a new user',
       ],
       1,
       'Least privilege means the actions the code calls, on the resources it uses: Put Object needs s3:PutObject on the key path and, with SSE-KMS, kms:GenerateDataKey on the key; Head bucket needs s3:ListBucket; the listener needs ReceiveMessage and DeleteMessage. The IAM policy simulator, or the Access Analyzer policy generation from CloudTrail, confirms the set.',
@@ -171,7 +171,7 @@ const lab = {
       'The SQS defaults are 30 seconds visibility, short polling (0 seconds) and no dead-letter queue. A poison message without a redrive policy comes back until the retention period ends, 4 days by default. Set the dead-letter queue retention longer than the source queue, so a moved message is not lost early.',
     ),
   ],
-  why: `The AWS setup checklist: create the resources the way the mail says (a bucket with Block Public Access and SSE-KMS, a queue with a dead-letter queue and a redrive policy, a visibility timeout above the processing time and long polling), then an IAM user or role with a policy that names the actions and the ARNs the app uses, including kms:GenerateDataKey for an SSE-KMS bucket. Put the secret access key in a protected property, deploy, and prove it with a health call, data end to end, and a poison message that ends in the dead-letter queue. Add an alert on the error count. In the lab the key policy of ${KMS_ALIAS} lets IAM decide, and the console user harbor-admin has full rights.`,
+  why: `The AWS setup checklist: create the resources the way the mail says (a bucket with Block Public Access and SSE-KMS, a queue with a dead-letter queue and a redrive policy, a visibility timeout above the processing time and long polling), then an IAM user or role with a policy that names the actions and the ARNs the app uses, including kms:GenerateDataKey for an SSE-KMS bucket. Put the secret access key in a protected property, deploy, and prove it with a health call, data end to end, and a poison message that ends in the dead-letter queue. Add an alert on the error count. In the lab the key policy of ${KMS_ALIAS} lets IAM decide, and the console user brightmart-admin has full rights.`,
   docs: 'https://docs.mulesoft.com/amazon-sqs-connector/latest/',
   solve(start) {
     let s = mark(start, 'inbox')

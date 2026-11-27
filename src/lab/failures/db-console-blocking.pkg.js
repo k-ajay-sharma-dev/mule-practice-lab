@@ -3,10 +3,10 @@
 // pools show in the Databases console.
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const DB = 'harbor-sql'
-export const REFUND = 'harbor-refund-sapi'
-export const STATUS = 'harbor-order-status-sapi'
-export const STOCK = 'harbor-stock-sapi'
+export const DB = 'brightmart-sql'
+export const REFUND = 'brightmart-refund-sapi'
+export const STATUS = 'brightmart-order-status-sapi'
+export const STOCK = 'brightmart-stock-sapi'
 // lab-made: the caller of a read API gives up after 30 seconds and the lab writes that as 504
 const CALLER_TIMEOUT_MS = 30000
 const body500 = '{"message":"Internal server error"}'

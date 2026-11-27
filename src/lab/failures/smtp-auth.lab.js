@@ -20,13 +20,13 @@ const lab = {
     until(
       newPlatform({
         clock: at(0, 5),
-        apps: [newApp(NAME, { props: { 'smtp.host': 'smtp.mail.harbor.lab', 'smtp.port': '587', 'smtp.user': 'sales-reports@harbor.example' }, secrets: { 'smtp.password': 'Sales-Old-0926' } })],
+        apps: [newApp(NAME, { props: { 'smtp.host': 'smtp.mail.brightmart.lab', 'smtp.port': '587', 'smtp.user': 'sales-reports@brightmart.example' }, secrets: { 'smtp.password': 'Sales-Old-0926' } })],
         mail: [
           {
             t: at(0, 4),
             to: OPS,
             subject: 'App password for sales-reports',
-            body: 'From Monday 06:00 the mail server accepts only app passwords for sales-reports@harbor.example. The old password stops working then. The practice app password is Sales-App-2611. Nothing else changes: smtp.mail.harbor.lab, port 587, STARTTLS.',
+            body: 'From Monday 06:00 the mail server accepts only app passwords for sales-reports@brightmart.example. The old password stops working then. The practice app password is Sales-App-2611. Nothing else changes: smtp.mail.brightmart.lab, port 587, STARTTLS.',
             source: 'Mail team',
           },
         ],

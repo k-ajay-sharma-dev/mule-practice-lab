@@ -4,7 +4,7 @@ import { app, ask, change, recent, until } from '../platform-kit.js'
 import { settingsOf } from './db-sql-deadlock.pkg.js'
 
 const NAME = 'order-payments-sapi'
-const PROPS = { 'db.host': 'sql03.harbor.lab', 'db.lockOrder.reservations': 'stock-then-orders', 'tx.scope': 'whole-flow', 'retry.on': 'none', 'retry.max': '0', 'retry.waitMs': '60000' }
+const PROPS = { 'db.host': 'sql03.brightmart.lab', 'db.lockOrder.reservations': 'stock-then-orders', 'tx.scope': 'whole-flow', 'retry.on': 'none', 'retry.max': '0', 'retry.waitMs': '60000' }
 const load = () => [
   { app: NAME, env: 'Sandbox', method: 'POST', path: '/payments/O-5001', perMinute: 12 },
   { app: NAME, env: 'Sandbox', method: 'POST', path: '/reservations/O-5001', perMinute: 12 },
@@ -20,7 +20,7 @@ const lab = {
   title: 'Deadlock victims on SQL Server',
   minutes: 15,
   scenario:
-    'Harbor Outdoor added stock reservations to order-payments-sapi on Monday. Since then a few payments and reservations a minute fail with 500, always on the same busy orders. The database team says SQL Server is healthy. One more thing: a partner keeps paying for an order that does not exist, O-9001.',
+    'Brightmart Outdoor added stock reservations to order-payments-sapi on Monday. Since then a few payments and reservations a minute fail with 500, always on the same busy orders. The database team says SQL Server is healthy. One more thing: a partner keeps paying for an order that does not exist, O-9001.',
   start() {
     const s = newPlatform({ clock: at(1, 8, 30), apps: [newApp(NAME, { props: { ...PROPS } })], traffic: load() })
     return until(s, at(1, 9, 30))

@@ -3,7 +3,7 @@
 import { info, line, muleError, needs } from '../platform-log.js'
 import { parseWd, wdConfig, wdTime } from '../platform-workday.js'
 
-export const DIRECTORY = 'harbor-wd-directory-sync'
+export const DIRECTORY = 'brightmart-wd-directory-sync'
 export const DIR_FLOW = 'directory-sync-flow'
 const HOUR = 3600000
 const el = { flow: DIR_FLOW, at: 1, name: 'Get worker report', dsl: '<http:request method="GET" doc:name="Get worker report" config-ref="Workday_RaaS_Config" path="/${raas.owner}/${raas.report}">' }

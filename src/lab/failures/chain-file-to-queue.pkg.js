@@ -1,12 +1,12 @@
 // The sample applications of the chain-file-to-queue lab. Imports only platform-log.js and the import free JMS engine.
 //
-// The chain: the warehouse system drops a stock file on sftp.harbor.lab every night. wms-stock-importer reads it and
-// publishes one message per SKU to STOCK.UPDATES on harbor-amq. shop-availability-api takes them and keeps the
+// The chain: the warehouse system drops a stock file on sftp.brightmart.lab every night. wms-stock-importer reads it and
+// publishes one message per SKU to STOCK.UPDATES on brightmart-amq. shop-availability-api takes them and keeps the
 // availability that the web shop reads. stock-queue-watch reads queue sizes over Jolokia and mails when one is too big.
 import { info, muleError, needs, warn } from '../platform-log.js'
 import { connOf, parseUrl } from '../platform-jms.js'
 
-export const HOST = 'sftp.harbor.lab'
+export const HOST = 'sftp.brightmart.lab'
 export const IMPORTER = 'wms-stock-importer'
 export const API = 'shop-availability-api'
 export const WATCH = 'stock-queue-watch'
@@ -225,7 +225,7 @@ export const PACKAGES = {
           const st = jms.stats(connOf(props), q)
           if (!st.ok || limit === null || st.QueueSize <= limit || now - (store.mailed?.[q] ?? -Infinity) < HOUR) continue
           store.mailed = { ...(store.mailed ?? {}), [q]: now }
-          mail.push({ to: clean(props['alert.to']), subject: `ActiveMQ: ${q} has ${st.QueueSize} messages`, body: `${q} on harbor-amq has ${st.QueueSize} messages and ${st.ConsumerCount} consumers, above the limit of ${limit}. The store is ${st.storePercentUsage}% used. When it reaches 100% producer flow control stops the senders.` })
+          mail.push({ to: clean(props['alert.to']), subject: `ActiveMQ: ${q} has ${st.QueueSize} messages`, body: `${q} on brightmart-amq has ${st.QueueSize} messages and ${st.ConsumerCount} consumers, above the limit of ${limit}. The store is ${st.storePercentUsage}% used. When it reaches 100% producer flow control stops the senders.` })
           log.push(warn(`${q} has ${st.QueueSize} messages, above ${limit}. Alert mailed.`))
         }
         return { ok: true, ms: 100, log, store, ...(mail.length && { mail }) }

@@ -36,7 +36,7 @@ const lab = {
       to: OPS,
       subject: 'Customers charged several times',
       body: `Customer care has calls from customers who were charged two or more times for one order, for example ${many.slice(0, 3).map(([id, n]) => `${id} (${n} times)`).join(', ')}. Many orders still show as not paid in the shop and got no confirmation. We are refunding by hand. Please stop it and make sure the payments that are stuck go through once.`,
-      source: 'Harbor Foods Customer Care',
+      source: 'Brightmart Customer Care',
     })
     return s
   },
@@ -44,7 +44,7 @@ const lab = {
     { title: 'Read the mail of Customer Care', how: 'Open the Inbox from the menu under Lab tools.', done: (s) => Boolean(s.seen.inbox) },
     {
       title: 'Read the logs and the dead letter queue',
-      how: `Runtime Manager, ${SETTLER}, Logs: find MessageLockLost and a payment with a rising delivery count. Then Azure Service Bus, harbor-bus, Queues, ${QUEUE}: the counts on the Overview, then Service Bus Explorer, Dead-letter tab, Peek from start. Open a message and read DeadLetterReason.`,
+      how: `Runtime Manager, ${SETTLER}, Logs: find MessageLockLost and a payment with a rising delivery count. Then Azure Service Bus, brightmart-bus, Queues, ${QUEUE}: the counts on the Overview, then Service Bus Explorer, Dead-letter tab, Peek from start. Open a message and read DeadLetterReason.`,
       done: (s) => Boolean(s.seen[`logs:${SETTLER}`]) && Boolean(s.seen[`sb-dlq:${QUEUE}`]),
     },
     ask(
@@ -73,7 +73,7 @@ const lab = {
     ),
     {
       title: 'Hold the lock as long as the work',
-      how: `Azure Service Bus, harbor-bus, Queues, ${QUEUE}, Properties: set Message lock duration above 45 seconds, such as 2 minutes (the most is 5 minutes), and Save changes. Or set sb.autoLockRenewal to true on ${SETTLER} so the listener renews the lock while the flow runs. Keep sb.receiveMode at PeekLock.`,
+      how: `Azure Service Bus, brightmart-bus, Queues, ${QUEUE}, Properties: set Message lock duration above 45 seconds, such as 2 minutes (the most is 5 minutes), and Save changes. Or set sb.autoLockRenewal to true on ${SETTLER} so the listener renews the lock while the flow runs. Keep sb.receiveMode at PeekLock.`,
       done: lockOk,
     },
     {

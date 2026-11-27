@@ -4,7 +4,7 @@ import { app, ask, called, change, OPS, sawLogs, until } from '../platform-kit.j
 import { API_VERSION, labStore, levelOf, SHOP, variants, WAREHOUSE } from '../platform-shopify.js'
 import { STOCK, STOCK_PATH } from './shopify-oversell.pkg.js'
 
-const APP_NAME = 'Harbor Stock Sync'
+const APP_NAME = 'Brightmart Stock Sync'
 const shopApp = (s) => (s.shopify?.apps ?? []).find((a) => a.name === APP_NAME)
 const a = (s) => app(s, STOCK)
 const running = (s) => a(s)?.status === 'Running'
@@ -39,8 +39,8 @@ function start() {
         t: at(1, 9, 15),
         to: OPS,
         subject: 'Marketplace sold rope lanterns we do not have',
-        body: `Hello. The marketplace channel kept selling the rope lantern H-2000 this morning, and now we have marketplace orders we cannot ship. The web shop says it is sold out at Harbor Warehouse. The marketplace reads its stock from ${STOCK}. Harbor ecommerce team`,
-        source: 'Harbor ecommerce team',
+        body: `Hello. The marketplace channel kept selling the rope lantern H-2000 this morning, and now we have marketplace orders we cannot ship. The web shop says it is sold out at Brightmart Warehouse. The marketplace reads its stock from ${STOCK}. Brightmart ecommerce team`,
+        source: 'Brightmart ecommerce team',
       },
     ],
   })
@@ -55,10 +55,10 @@ const lab = {
   scenario: `${STOCK} keeps the warehouse stock that the marketplace channel sells from. It takes the inventory_levels/update webhooks of ${SHOP} and writes the available quantity of each item. On busy mornings two orders for the same product come seconds apart. Today the marketplace sold rope lanterns that Shopify had at 0. Find why the stock is wrong, fix the app and put the stock right.`,
   start,
   steps: [
-    { title: 'Read the mail', how: 'Open the Inbox and read the mail of the Harbor ecommerce team.', done: (s) => Boolean(s.seen.inbox) },
+    { title: 'Read the mail', how: 'Open the Inbox and read the mail of the Brightmart ecommerce team.', done: (s) => Boolean(s.seen.inbox) },
     {
       title: 'Compare Shopify and the app',
-      how: `Shopify from the console menu, Products: H-2000 has 0 available at Harbor Warehouse. API client, application ${STOCK}, GET /stock/H-2000: the app still has some.`,
+      how: `Shopify from the console menu, Products: H-2000 has 0 available at Brightmart Warehouse. API client, application ${STOCK}, GET /stock/H-2000: the app still has some.`,
       done: (s) => Boolean(s.seen['shopify:products']) && called(s, STOCK, 200, 'GET', /^\/stock\/H-2000/),
     },
     {

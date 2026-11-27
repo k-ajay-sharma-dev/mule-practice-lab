@@ -679,7 +679,7 @@ const HybridRuntime = () => (
 const HybridIngress = ({ app }) => (
   <div className="pc-split">
     <b>Load balancer</b>
-    <p className="pc-dim">Neither a server group nor an on premises cluster has a built in load balancer. Harbor puts its own in front of the servers: {app.name ? endpointOf(app) : 'give the application a name first'}.</p>
+    <p className="pc-dim">Neither a server group nor an on premises cluster has a built in load balancer. Brightmart puts its own in front of the servers: {app.name ? endpointOf(app) : 'give the application a name first'}.</p>
   </div>
 )
 const LoggingTab = () => (
@@ -775,7 +775,7 @@ function Alerts({ state, update }) {
 }
 
 function AlertForm({ state, onClose, onSave }) {
-  const [a, setA] = useState({ name: '', severity: 'Critical', app: 'All', condition: 'Deployment failure', subject: '${severity}: ${resource}', message: '', recipients: 'ops@harbor.example' })
+  const [a, setA] = useState({ name: '', severity: 'Critical', app: 'All', condition: 'Deployment failure', subject: '${severity}: ${resource}', message: '', recipients: 'ops@brightmart.example' })
   const set = (patch) => setA({ ...a, ...patch })
   const errors = [!a.name.trim() && 'Give the alert a name.', a.name.length > 40 && 'A name has at most 40 characters.', !a.recipients.trim() && 'Add a recipient.'].filter(Boolean)
   return (

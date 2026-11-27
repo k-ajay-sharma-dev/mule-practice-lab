@@ -25,11 +25,11 @@ const lab = {
   group: 'Scaling and release',
   title: 'Size an API for Black Friday',
   minutes: 25,
-  scenario: `${DEALS_API} serves the offers on the home page of the Harbor web shop. Today it runs on CloudHub 2.0 as 1 replica of 0.5 vCore, with about ${NORMAL} requests a minute at about 70 percent CPU. Black Friday is next week and marketing expects 6 times the traffic. You have ${BUDGET} vCores for this API. Size it so it keeps peak CPU under ${CPU_TARGET} percent, survives the loss of one replica, and answers with a p95 under ${P95} ms.`,
+  scenario: `${DEALS_API} serves the offers on the home page of the Brightmart web shop. Today it runs on CloudHub 2.0 as 1 replica of 0.5 vCore, with about ${NORMAL} requests a minute at about 70 percent CPU. Black Friday is next week and marketing expects 6 times the traffic. You have ${BUDGET} vCores for this API. Size it so it keeps peak CPU under ${CPU_TARGET} percent, survives the loss of one replica, and answers with a p95 under ${P95} ms.`,
   start() {
     let s = newPlatform({
       clock: at(1, 8),
-      apps: [newApp(DEALS_API, { vCores: 0.5, props: { 'pricing.url': 'https://harbor-pricing-sapi-lab1a2.internal-sbx.usa-e2.cloudhub.example/api' } })],
+      apps: [newApp(DEALS_API, { vCores: 0.5, props: { 'pricing.url': 'https://brightmart-pricing-sapi-lab1a2.internal-sbx.usa-e2.cloudhub.example/api' } })],
       traffic: [{ app: DEALS_API, env: 'Sandbox', method: 'GET', path: '/deals', perMinute: NORMAL / SAMPLE, sample: SAMPLE, client: '' }],
     })
     s = until(s, at(1, 9, 50))
@@ -42,7 +42,7 @@ const lab = {
           to: OPS,
           subject: 'Black Friday: deals API',
           body: `Last year the home page was slow for an hour on Black Friday. This year we expect 6 times the normal traffic, about ${PEAK} requests a minute, from 08:00 to 12:00. Finance gives the deals API at most ${BUDGET} vCores. Please size it and prove it with a load test before Friday. Target: no 503s and a p95 under ${P95} ms.`,
-          source: 'Harbor ecommerce lead',
+          source: 'Brightmart ecommerce lead',
         },
       ],
     }

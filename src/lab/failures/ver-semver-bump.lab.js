@@ -34,7 +34,7 @@ const lab = {
   title: 'Patch, minor or major: number each change',
   minutes: 25,
   scenario:
-    'The Orders System API of Harbor Foods is at asset version 1.2.3 in Exchange, API version v1. Three changes wait in its spec. First, the description of GET /orders/{orderId} says the answer has the name of the customer, but it has the ID. Second, the warehouse wants a new optional field channel in the order. Third, the Customers team wants customerId renamed to customerRef. Publish each change from Design Center with the version number it needs, and keep the API instance of v1 serving v1.',
+    'The Orders System API of Brightmart is at asset version 1.2.3 in Exchange, API version v1. Three changes wait in its spec. First, the description of GET /orders/{orderId} says the answer has the name of the customer, but it has the ID. Second, the warehouse wants a new optional field channel in the order. Third, the Customers team wants customerId renamed to customerRef. Publish each change from Design Center with the version number it needs, and keep the API instance of v1 serving v1.',
   start() {
     const s = ledProject()
     const base = s.assets.find((a) => a.assetId === ASSET)

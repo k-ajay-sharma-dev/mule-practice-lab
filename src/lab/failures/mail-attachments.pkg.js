@@ -5,7 +5,7 @@ import { readAttachment } from '../platform-mailserver.js'
 
 export const NAME = 'invoice-mail-intake'
 export const FLOW = 'invoice-mail-flow'
-export const BOX = 'invoices@harbor.example'
+export const BOX = 'invoices@brightmart.example'
 const keep = (list, item, n = 40) => [...(list ?? []), item].slice(-n)
 const yes = (v) => String(v ?? '').trim().toLowerCase() === 'true'
 const word = (v) => String(v ?? '').trim().toLowerCase()
@@ -64,14 +64,14 @@ export const PACKAGES = {
             from: `Invoice intake <${smtp.user}>`,
             to: props['ap.to'],
             subject: `Invoice from ${supplierOf(m.from)}: ${m.subject}`,
-            text: link ? `New invoice from ${supplierOf(m.from)}.\n${parts.map((a) => `https://docs.harbor.lab/ap/invoices/${a.name}`).join('\n')}` : `New invoice from ${supplierOf(m.from)}. The PDF is attached.`,
+            text: link ? `New invoice from ${supplierOf(m.from)}.\n${parts.map((a) => `https://docs.brightmart.lab/ap/invoices/${a.name}`).join('\n')}` : `New invoice from ${supplierOf(m.from)}. The PDF is attached.`,
             attachments: link ? [] : parts.map(({ damaged, ...a }) => a), // eslint-disable-line no-unused-vars
           })
           if (!fwd.ok) {
             park(m, 'forward', fwd)
             continue
           }
-          const ok = mb.send(smtp, { from: `Harbor accounts payable <${smtp.user}>`, to: m.from, subject: `Received: ${m.subject}`, text: 'Thank you. We received your invoice and will pay it on the agreed terms.' })
+          const ok = mb.send(smtp, { from: `Brightmart accounts payable <${smtp.user}>`, to: m.from, subject: `Received: ${m.subject}`, text: 'Thank you. We received your invoice and will pay it on the agreed terms.' })
           if (!ok.ok) {
             park(m, 'confirm', ok)
             continue

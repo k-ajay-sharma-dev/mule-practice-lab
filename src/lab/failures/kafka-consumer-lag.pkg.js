@@ -1,7 +1,7 @@
 // The sample applications of the kafka-consumer-lag lab. Imports only platform-log.js and platform-led.js, so the engine can load it without a cycle.
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const CLUSTER = 'harbor-events'
+export const CLUSTER = 'brightmart-events'
 export const TOPIC = 'orders.v1'
 export const GROUP = 'warehouse-pick'
 export const PARTITIONS = 6

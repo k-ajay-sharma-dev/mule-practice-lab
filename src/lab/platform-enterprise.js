@@ -1,4 +1,4 @@
-// The enterprise estate of Harbor in the open console. Harbor sells online and in stores and runs its own supply
+// The enterprise estate of Brightmart in the open console. Brightmart sells online and in stores and runs its own supply
 // chain. 37 APIs over the three API-led layers, each with an Exchange asset, an API instance and an application in
 // Sandbox, and the 13 of phase 1 also in Production. Five planned APIs are only in Exchange. The definitions and the packages are in platform-enterprise-packages.js.
 //
@@ -8,7 +8,7 @@
 // - products-sys-api runs v1 and v2 side by side. store-ops-prc-api still calls v1.
 // - customers-sys-api v1 is deprecated and retires on 31 January 2027. returns-prc-api still calls it.
 // - catalog-prc-api 2.2.0 runs in Sandbox, Production still runs 2.1.0.
-// - carriers-sys-api in Production has an expired carrier key, so its API alert fires. The new key is in harbor-kv.
+// - carriers-sys-api in Production has an expired carrier key, so its API alert fires. The new key is in brightmart-kv.
 // - promotions-sys-api failed its last deploy in Sandbox, loyalty-sys-api is stopped in Sandbox.
 // - five APIs of phase 3 are designed and published in Exchange as development versions, and not deployed yet.
 // - replenishment-nightly-job runs every night at 02:30.
@@ -16,8 +16,9 @@ import { at, callApi, newApi, newApp } from './platform.js'
 import { change, creds, OPS, policy } from './platform-kit.js'
 import { LAYER_PROPERTY } from './platform-led.js'
 import { callsOf, DEPLOYED, ESTATE, SAMPLE, secretOf, urlKey } from './platform-enterprise-packages.js'
+import { BRIGHTMART_CUSTOMERS, seedAccounts } from './platform-salesforce.js'
 
-const SPACE = 'harbor-ps' // the private space of Harbor, the same as PRIVATE_SPACE of platform-project.js
+const SPACE = 'brightmart-ps' // the private space of Brightmart, the same as PRIVATE_SPACE of platform-project.js
 const short = (env) => (env === 'Sandbox' ? 'sbx' : 'prd')
 const internal = (name, env) => `https://${name}-lab1a2.internal-${short(env)}.usa-e2.cloudhub.example/api`
 const apiIdOf = (i, env) => `${env === 'Sandbox' ? 188 : 189}00${String(100 + i)}`
@@ -55,7 +56,7 @@ const TIERS = [
 const PARTNER = ['partner-b2b-exp-api', 'supplier-exp-api']
 function policiesOf(def) {
   if (PARTNER.includes(def.name)) return [policy('jwt'), policy('rate-limit-sla')]
-  if (def.name === 'web-shop-exp-api') return [policy('client-id'), policy('header-inject', { inbound: 'x-harbor-channel: web', outbound: '' })]
+  if (def.name === 'web-shop-exp-api') return [policy('client-id'), policy('header-inject', { inbound: 'x-brightmart-channel: web', outbound: '' })]
   if (def.layer === 'Experience') return [policy('client-id')]
   const list = [policy('client-id'), policy('ip-allow', { list: '10.0.0.0/8' })]
   // the promotion engine is fragile, so a spike control protects it. It has no steady traffic, so its window stays small.
@@ -63,8 +64,8 @@ function policiesOf(def) {
 }
 // the client applications of the channels and partners, and who holds a contract on which Experience API
 export const CHANNELS = [
-  { name: 'Harbor Web Shop', clientId: 'hws-41a7', clientSecret: 'hws-secret-58' },
-  { name: 'Harbor Mobile App', clientId: 'hma-90c3', clientSecret: 'hma-secret-12' },
+  { name: 'Brightmart Web Shop', clientId: 'hws-41a7', clientSecret: 'hws-secret-58' },
+  { name: 'Brightmart Mobile App', clientId: 'hma-90c3', clientSecret: 'hma-secret-12' },
   { name: 'Store Tablet', clientId: 'stt-27e1', clientSecret: 'stt-secret-36' },
   { name: 'Driftwood Cafes', clientId: 'dwc-6b52', clientSecret: 'dwc-secret-71' },
   { name: 'Pelican Wholesale', clientId: 'pel-3d08', clientSecret: 'pel-secret-94' },
@@ -75,8 +76,8 @@ export const CHANNELS = [
 ]
 const ok = (client, tier = '', extra = {}) => ({ client, tier, status: 'approved', ...extra })
 const CHANNEL_CONTRACTS = {
-  'web-shop-exp-api': () => [ok('Harbor Web Shop')],
-  'mobile-app-exp-api': () => [ok('Harbor Mobile App')],
+  'web-shop-exp-api': () => [ok('Brightmart Web Shop')],
+  'mobile-app-exp-api': () => [ok('Brightmart Mobile App')],
   'store-tablet-exp-api': () => [ok('Store Tablet')],
   'carrier-exp-api': () => [ok('Bayline Logistics'), ok('Kestrel Parcel')],
   // a new partner is waiting in Sandbox: Gold needs a manual approval
@@ -123,11 +124,11 @@ function appOf(s, def, i, env, build = def.build) {
 
 // Few flows at a low rate, so a week of the console stays small. Each one runs a main path end to end.
 export const ENTERPRISE_TRAFFIC = [
-  { app: 'web-shop-exp-api', env: 'Sandbox', client: 'Harbor Web Shop', method: 'POST', path: '/checkout', body: '{"cartId":"K-55","payment":"card"}', perMinute: 1, every: 30 },
+  { app: 'web-shop-exp-api', env: 'Sandbox', client: 'Brightmart Web Shop', method: 'POST', path: '/checkout', body: '{"cartId":"K-55","payment":"card"}', perMinute: 1, every: 30 },
   { app: 'store-tablet-exp-api', env: 'Sandbox', client: 'Store Tablet', path: '/returns/R-310', perMinute: 1, every: 30 },
   // four calls in one minute on a tier of three: one of them gets 429
   { app: 'supplier-exp-api', env: 'Sandbox', client: 'Northwind Supplies', token: 'valid', path: '/purchase-orders/PO-7781', perMinute: 4, every: 30 },
-  { app: 'mobile-app-exp-api', env: 'Production', client: 'Harbor Mobile App', path: '/products/H-100', perMinute: 1, every: 30 },
+  { app: 'mobile-app-exp-api', env: 'Production', client: 'Brightmart Mobile App', path: '/products/H-100', perMinute: 1, every: 30 },
 ]
 
 const MAIL = [
@@ -137,10 +138,10 @@ const MAIL = [
   '3. products-sys-api runs v1 and v2 side by side. The API instances page of the asset in Exchange shows who still uses v1. It is store-ops-prc-api.',
   '4. customers-sys-api v1 is deprecated and retires on 31 January 2027. returns-prc-api is the last consumer.',
   '5. catalog-prc-api 2.2.0 passed its tests in Sandbox. Production still runs 2.1.0. Promote it. Compare the properties of both environments first, because the hosts and the keys differ.',
-  '6. The carrier alert fired in Production. carriers-sys-api gets 401 from Bayline. Bayline rotated the key. The new one is in the key vault harbor-kv as carrier-apikey-prd. Update the secure property carrier.apikey.',
+  '6. The carrier alert fired in Production. carriers-sys-api gets 401 from Bayline. Bayline rotated the key. The new one is in the key vault brightmart-kv as carrier-apikey-prd. Update the secure property carrier.apikey.',
   '7. promotions-sys-api failed its last deploy in Sandbox. Read the logs and fix the property. loyalty-sys-api is stopped in Sandbox while the loyalty platform gets an upgrade.',
   '8. replenishment-nightly-job runs at 02:30 every night. Check its last run in the Schedules tab.',
-  '9. Send POST /checkout to web-shop-exp-api with the API client, then open Visualizer. Follow the order from the web shop through orders-prc-api to payment, stock, warehouse, carrier and the customer mail.',
+  '9. Send POST /checkout to web-shop-exp-api with the API client, then open Visualizer. Follow the order from the web shop through orders-prc-api to the customer in Salesforce, payment, the stock reservation in SAP, warehouse, carrier and the customer mail. Then find the order in the systems: the sales order in SAP (VA03), the API usage of customers-sys-api in Salesforce and the mail in the webmail of the customer on the mail server.',
   'Lena Dorsey, integration lead',
 ].join(' ')
 
@@ -172,14 +173,14 @@ export function addEnterprise(state) {
     })
   }
   // the nightly job of the supply chain, next to the APIs in Sandbox
-  s.apps.push(newApp('replenishment-nightly-job', { target: SPACE, publicEndpoint: false, updated: at(-9, 15), props: { [LAYER_PROPERTY]: 'Process', 'sftp.host': 'sftp.harbor.lab', 'forecast.folder': '/planning/outbound' }, secrets: { 'sftp.password': 'lab' } }))
+  s.apps.push(newApp('replenishment-nightly-job', { target: SPACE, publicEndpoint: false, updated: at(-9, 15), props: { [LAYER_PROPERTY]: 'Process', 'sftp.host': 'sftp.brightmart.lab', 'forecast.folder': '/planning/outbound' }, secrets: { 'sftp.password': 'lab' } }))
   s.jars.push(jarOf(PROMOTE, '2.1.0'), jarOf(PROMOTE, '2.2.0'), 'replenishment-nightly-job')
   s.traffic.push(...structuredClone(ENTERPRISE_TRAFFIC))
   // the Production API instance of carriers-sys-api has an alert for server errors
   s.apis.find((a) => a.env === 'Production' && a.label === 'carriers-sys-api-prd').alerts.push({ id: 'ent-al-carriers', enabled: true, state: 'OK', name: 'Carrier errors', severity: 'Critical', type: 'Response Code', codes: [500], atLeast: 1, periods: 1, period: 60, recipients: OPS })
   s.monAlerts.push({ id: 'ent-al-checkout', enabled: true, created: at(-5), state: 'No data', env: 'Sandbox', title: 'Checkout errors', resource: 'Application', name_: 'orders-prc-api', metric: 'Message Error Count', severity: 'High', operator: 'Above', threshold: 0, recipients: OPS, minutes: 1 })
-  // the new carrier key next to the old one, in the key vault of Harbor
-  const kv = s.systems?.vaults?.['harbor-kv']
+  // the new carrier key next to the old one, in the key vault of Brightmart
+  const kv = s.systems?.vaults?.['brightmart-kv']
   if (kv) kv.secrets['carrier-apikey-prd'] = { versions: [
     { id: hash('carrier-old') + hash('carrier-old-2') + hash('a') + hash('b'), value: 'carriers-prd-2025', created: at(-300), enabled: true, expires: at(0, 6), contentType: 'API key' },
     { id: hash('carrier-new') + hash('carrier-new-2') + hash('c') + hash('d'), value: 'carriers-prd-2026', created: at(-2, 14), enabled: true, contentType: 'API key' },
@@ -201,6 +202,7 @@ export function addEnterprise(state) {
 // Design Center: one API project for each asset of the landscape, so every API has the project it was published from.
 // It adds only the projects that are missing, so it can run on a console saved before the projects existed.
 export function enterpriseProjects(state) {
+  state = estateCalls(state)
   const have = new Set(state.projects.map((p) => p.assetId).filter(Boolean))
   const add = []
   for (const assetId of new Set(ESTATE.map((d) => d.asset ?? d.name))) {
@@ -211,9 +213,43 @@ export function enterpriseProjects(state) {
   return add.length ? { ...state, projects: [...state.projects, ...add] } : state
 }
 
+// A console saved before a call was added to the landscape gets the address property of the caller and its contract
+// on the API it calls, once. A property the learner set is kept.
+const ADDED_CALLS = [['orders-prc-api', 'customers-sys-api']] // orders-prc-api reads the customer from Salesforce
+function estateCalls(state) {
+  let s = state
+  for (const [from, to] of ADDED_CALLS) {
+    const key = urlKey(to)
+    for (const env of ['Sandbox', 'Production']) {
+      const app = s.apps.find((a) => a.name === from && a.env === env)
+      if (!app || key in (app.props ?? {})) continue
+      if (s === state) s = structuredClone(state)
+      s.apps.find((a) => a.name === from && a.env === env).props[key] = internal(to, env)
+      const api = s.apis.find((a) => a.env === env && a.id === apiIdOf(ESTATE.findIndex((x) => x.name === to), env))
+      if (api && !api.contracts.some((c) => c.client === from)) api.contracts.push(ok(from))
+    }
+  }
+  // systems filled before they held the records of the landscape: the article of the web shop in SAP, the retail
+  // customers in Salesforce. A placeholder gets them when it fills.
+  if (s.sap?.sid && !s.sap.materials?.['H-100']) {
+    if (s === state) s = structuredClone(state)
+    s.sap.materials['H-100'] = { text: 'Brightmart Oat Milk 1L', plant: '1000', sloc: '0001', unrestricted: 340, lockedBy: null }
+  }
+  for (const org of Object.keys(s.salesforce?.orgs ?? {})) {
+    if (s.salesforce.orgs[org].records?.Account?.some((a) => a.Brightmart_Customer_Id__c === BRIGHTMART_CUSTOMERS[0][1])) continue
+    if (s === state) s = structuredClone(state)
+    for (const [name, hc, tier, city, country, email] of BRIGHTMART_CUSTOMERS) {
+      const [acc] = seedAccounts(s, org, [{ Name: name, Type: 'Customer', BillingCity: city, BillingCountry: country, Brightmart_Customer_Id__c: hc, Loyalty_Tier__c: tier }])
+      const [first, last] = name.split(' ')
+      if (acc?.id) seedAccounts(s, org, [{ FirstName: first, LastName: last, Email: email, AccountId: acc.id }], 'Contact')
+    }
+  }
+  return s
+}
+
 export function welcomeMail(state) {
-  const c = CHANNELS.find((x) => x.name === 'Harbor Mobile App')
+  const c = CHANNELS.find((x) => x.name === 'Brightmart Mobile App')
   let s = state
   for (const path of ['/orders/O-2001/tracking']) s = callApi(s, { env: 'Production', app: 'mobile-app-exp-api', method: 'GET', path, client: c.name, clientId: c.clientId, clientSecret: c.clientSecret }).state
-  return { ...s, lastCalls: state.lastCalls ?? [], mail: [...s.mail, { t: s.clock, to: 'you@harbor.example', subject: 'Your first week at Harbor', body: MAIL, source: 'Lena Dorsey' }] }
+  return { ...s, lastCalls: state.lastCalls ?? [], mail: [...s.mail, { t: s.clock, to: 'you@brightmart.example', subject: 'Your first week at Brightmart', body: MAIL, source: 'Lena Dorsey' }] }
 }

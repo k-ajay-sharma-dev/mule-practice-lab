@@ -1,18 +1,18 @@
 // The sample applications of the chain-db-to-api lab. Imports only platform-log.js, so the engine can load it without a cycle.
-// Four apps of Harbor: the mobile Experience API, the prices Process API, the prices System API on SQL Server (through
+// Four apps of Brightmart: the mobile Experience API, the prices Process API, the prices System API on SQL Server (through
 // ctx.db, so its sessions and locks show in the Databases console) and the price import that loads the file of the
 // pricing system from SFTP (through ctx.systems).
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const DB = 'harbor-sql'
-export const HOST = 'sftp.harbor.lab'
-export const EAPI = 'harbor-mobile-eapi'
-export const PAPI = 'harbor-prices-papi'
-export const SAPI = 'harbor-prices-sapi'
-export const IMPORT = 'harbor-price-import'
+export const DB = 'brightmart-sql'
+export const HOST = 'sftp.brightmart.lab'
+export const EAPI = 'brightmart-mobile-eapi'
+export const PAPI = 'brightmart-prices-papi'
+export const SAPI = 'brightmart-prices-sapi'
+export const IMPORT = 'brightmart-price-import'
 export const IMPORT_FLOW = 'price-import-flow'
 export const PRICE_DIR = '/inbound/prices'
-export const OPS_MAIL = 'ops@harbor.example'
+export const OPS_MAIL = 'ops@brightmart.example'
 // lab-made: a flow that waits on a lock never answers; the lab records its call as 60 s, and the caller cuts it at its own timeout
 const HUNG_MS = 60000
 const MINUTE = 60000
@@ -59,7 +59,7 @@ export const PACKAGES = {
   [EAPI]: {
     layer: 'Experience',
     traced: true,
-    note: 'The API of the Harbor mobile app. GET /products/{sku}/price and POST /checkout call the prices Process API at papi.url. papi.timeout is the responseTimeout of that call in milliseconds.',
+    note: 'The API of the Brightmart mobile app. GET /products/{sku}/price and POST /checkout call the prices Process API at papi.url. papi.timeout is the responseTimeout of that call in milliseconds.',
     sample: { method: 'GET', path: '/products/SKU-22/price' },
     boot: needs('papi.url'),
     handle(ctx, req) {

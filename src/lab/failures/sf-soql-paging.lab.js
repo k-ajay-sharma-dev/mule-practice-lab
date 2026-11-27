@@ -19,9 +19,9 @@ function salesforce() {
     // the Saltmere migration loaded 4,500 Accounts on Friday morning. Lab made: the rows are generated when a query reads
     // them, and Account counts as a large object from 4,000 rows (in a real org the selectivity thresholds start in the
     // hundreds of thousands), so the lab stays small.
-    virtual: { Account: { count: MIGRATED, start: at(-3, 6), step: 500, template: { Name: 'Saltmere Customer {n}', Harbor_Customer_Id__c: 'HC-S{n}', Type: 'Customer', BillingCity: 'Saltmere', BillingCountry: 'Denmark' } } },
+    virtual: { Account: { count: MIGRATED, start: at(-3, 6), step: 500, template: { Name: 'Saltmere Customer {n}', Brightmart_Customer_Id__c: 'HC-S{n}', Type: 'Customer', BillingCity: 'Saltmere', BillingCountry: 'Denmark' } } },
     largeObject: 4000,
-    editors: { every: 30, from: 8, to: 18, by: 'sales.ops@harbor.example' },
+    editors: { every: 30, from: 8, to: 18, by: 'sales.ops@brightmart.example' },
   })
   return newSalesforce({ orgs: { Production: prod, Sandbox: newOrg('Sandbox') } })
 }
@@ -31,20 +31,20 @@ const lab = {
   group: 'Salesforce and SAP',
   title: 'The customer hub stops at 2,000',
   minutes: 25,
-  scenario: `${NAME} copies the Accounts of Salesforce to the Harbor customer hub every 15 minutes. It went live this morning at 07:00 with a full load, after the Saltmere migration added 4,500 Accounts on Friday. It is Monday 10:00. Customer service cannot find most Saltmere customers in the hub, and since 07:15 every run of the sync fails.`,
+  scenario: `${NAME} copies the Accounts of Salesforce to the Brightmart customer hub every 15 minutes. It went live this morning at 07:00 with a full load, after the Saltmere migration added 4,500 Accounts on Friday. It is Monday 10:00. Customer service cannot find most Saltmere customers in the hub, and since 07:15 every run of the sync fails.`,
   start() {
     let s = newPlatform({
       clock: at(0, 6, 59),
       apps: [
         newApp(NAME, {
-          props: { 'salesforce.url': 'https://login.salesforce.com/services/Soap/u/61.0', 'salesforce.username': 'mule.integration@harbor.example', 'sf.followNextRecordsUrl': 'false', 'sync.changedField': 'LastModifiedDate', 'sync.fullReload': 'false' },
+          props: { 'salesforce.url': 'https://login.salesforce.com/services/Soap/u/61.0', 'salesforce.username': 'mule.integration@brightmart.example', 'sf.followNextRecordsUrl': 'false', 'sync.changedField': 'LastModifiedDate', 'sync.fullReload': 'false' },
           secrets: { 'salesforce.password': 'Hrb-Int-Prod-26', 'salesforce.securityToken': 'labTokenProd7x2' },
         }),
       ],
       salesforce: salesforce(),
     })
     s = until(s, at(0, 9, 40))
-    s.mail.push({ t: s.clock, to: OPS, subject: 'Saltmere customers missing in the hub', body: `The hub has ${store(s).count ?? 0} customers, but Salesforce has ${total(s)} Accounts. Saltmere Customer 3120 (HC-S3120) and most other Saltmere customers are not there. Changes our team made in Salesforce this morning are not in the hub either. Harbor customer service`, source: 'Harbor customer service' })
+    s.mail.push({ t: s.clock, to: OPS, subject: 'Saltmere customers missing in the hub', body: `The hub has ${store(s).count ?? 0} customers, but Salesforce has ${total(s)} Accounts. Saltmere Customer 3120 (HC-S3120) and most other Saltmere customers are not there. Changes our team made in Salesforce this morning are not in the hub either. Brightmart customer service`, source: 'Brightmart customer service' })
     return until(s, at(0, 10))
   },
   steps: [
@@ -75,7 +75,7 @@ const lab = {
     ),
     {
       title: 'Find the indexed fields',
-      how: 'Salesforce, Object Manager, Account, Fields & Relationships. Harbor Customer Id is an External ID and Unique, so it is indexed. The standard fields Id, Name, CreatedDate and SystemModstamp are indexed too. LastModifiedDate and Type are not.',
+      how: 'Salesforce, Object Manager, Account, Fields & Relationships. Brightmart Customer Id is an External ID and Unique, so it is indexed. The standard fields Id, Name, CreatedDate and SystemModstamp are indexed too. LastModifiedDate and Type are not.',
       done: (s) => Boolean(s.seen['sf:objects']),
     },
     {

@@ -3,7 +3,7 @@ import { info, needs } from '../platform-log.js'
 
 export const PACKAGES = {
   'hyb-stock-api': {
-    note: 'The stock API of the Harbor warehouses. Its mule-artifact.json sets minMuleVersion to 4.9.0, so an older runtime refuses it.',
+    note: 'The stock API of the Brightmart warehouses. Its mule-artifact.json sets minMuleVersion to 4.9.0, so an older runtime refuses it.',
     sample: { method: 'GET', path: '/stock/SKU-1001' },
     minMule: '4.9.0',
     traced: true,

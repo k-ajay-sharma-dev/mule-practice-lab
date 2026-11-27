@@ -6,7 +6,7 @@ import { customerMap, idempotent, MERGED_FROM, MERGED_INTO, outageLogs } from '.
 const NAME = 'invoice-sync-consumer'
 const QUEUE = 'invoice-events'
 const DLQ = 'invoice-events-dlq'
-const HOST = 'billing.harbor.lab'
+const HOST = 'billing.brightmart.lab'
 const COUNT = 300
 const CUSTOMERS = ['C-0102', 'C-0233', 'C-0389', 'C-0471', 'C-0518', 'C-0640']
 const MERGED_AT = [41, 162, 255] // the invoices of the merged customer
@@ -42,7 +42,7 @@ const lab = {
   title: '300 invoices waiting in the dead letter queue',
   minutes: 25,
   scenario:
-    'invoice-sync-consumer takes invoice events from the Anypoint MQ queue invoice-events and creates each invoice in the billing system of Harbor Foods. Billing was down for an upgrade from 09:00 to 10:00. Every invoice of that hour failed 5 times and went to the dead letter queue invoice-events-dlq. Billing says it is back. Bring all 300 invoices in, each one exactly once.',
+    'invoice-sync-consumer takes invoice events from the Anypoint MQ queue invoice-events and creates each invoice in the billing system of Brightmart. Billing was down for an upgrade from 09:00 to 10:00. Every invoice of that hour failed 5 times and went to the dead letter queue invoice-events-dlq. Billing says it is back. Bring all 300 invoices in, each one exactly once.',
   start() {
     const times = [at(1, 9, 1), at(1, 9, 31), at(1, 9, 59)]
     return newPlatform({
@@ -66,7 +66,7 @@ const lab = {
           to: OPS,
           subject: 'Billing 7.2 is live again',
           body: 'The upgrade is done and billing takes invoices again since 10:00. Two notes. Shortly before 09:00 billing was slow: some invoices were written, but the answer came after your timeout, so you may hold those as failed too. During the upgrade we also merged duplicate customer accounts. Please do not send the whole hour as new invoices without a check, because customers get every invoice by mail.',
-          source: 'Harbor Foods Billing',
+          source: 'Brightmart Billing',
         },
       ],
     })

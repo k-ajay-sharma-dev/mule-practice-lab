@@ -15,7 +15,7 @@ const el = {
 const err = (r, e) => muleError({ ...e, file: STOCK_APP, type: r.type, message: `net.snowflake.client.jdbc.SnowflakeSQLException: ${r.text}` })
 const json = (o) => JSON.stringify(o)
 
-// lab-made sample data: the stock of 6 SKUs in 2 distribution centres of Harbor
+// lab-made sample data: the stock of 6 SKUs in 2 distribution centres of Brightmart
 const SKUS = ['H-1250', 'H-1300', 'H-2000', 'H-2210', 'H-3105', 'H-4400']
 export const snapshotCsv = (now, n) => `${HEADER}\n${SKUS.flatMap((sku, i) => ['DC-NORTH', 'DC-SOUTH'].map((dc, k) => `${sku},${dc},${(i * 37 + k * 11 + n * 3) % 200},${tsText(now)}`)).join('\n')}\n`
 

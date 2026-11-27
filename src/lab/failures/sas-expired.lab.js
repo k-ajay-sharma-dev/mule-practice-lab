@@ -14,7 +14,7 @@ const MAIL = {
   subject: 'New SAS token for container invoices',
   body: [
     'Hello team,',
-    'the SAS token that document-archive uses for container invoices in the storage account harborarchive ends at 00:00 UTC on 3 November.',
+    'the SAS token that document-archive uses for container invoices in the storage account brightmartarchive ends at 00:00 UTC on 3 November.',
     'Here is the new token. It is valid until 3 February and allows create and write on that container only:',
     NEW_SAS,
     'Please keep it in a protected place. Storage team',
@@ -33,7 +33,7 @@ const lab = {
     until(
       newPlatform({
         clock: at(0, 0, 30),
-        apps: [newApp(NAME, { props: { 'blob.account': 'harborarchive', 'blob.container': 'invoices', 'blob.sas': OLD_SAS }, store: { through: -2 } })],
+        apps: [newApp(NAME, { props: { 'blob.account': 'brightmartarchive', 'blob.container': 'invoices', 'blob.sas': OLD_SAS }, store: { through: -2 } })],
         mail: [MAIL],
       }),
       at(1, 9),

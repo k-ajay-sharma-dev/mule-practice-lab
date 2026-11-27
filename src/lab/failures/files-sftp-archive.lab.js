@@ -41,7 +41,7 @@ const lab = {
   title: 'The file that never leaves /in',
   minutes: 20,
   scenario:
-    'stock-archive-poll lists the CSV files in /in on sftp.harbor.lab every 5 minutes, posts the stock levels of each file to the stock service, and then moves the file to /archive. It is Tuesday 09:00. The stock team says the same files were posted dozens of times since 06:00, and stock counts jump back and forth. On Monday evening the app was moved to a new SFTP account after an access review. The Inbox has the mails.',
+    'stock-archive-poll lists the CSV files in /in on sftp.brightmart.lab every 5 minutes, posts the stock levels of each file to the stock service, and then moves the file to /archive. It is Tuesday 09:00. The stock team says the same files were posted dozens of times since 06:00, and stock counts jump back and forth. On Monday evening the app was moved to a new SFTP account after an access review. The Inbox has the mails.',
   start() {
     const s = newPlatform({
       clock: at(1, 6),
@@ -65,8 +65,8 @@ const lab = {
           t: at(1, 8, 40),
           to: OPS,
           subject: 'Stock levels posted again and again',
-          body: 'Since 06:00 the stock service gets the files stock-2026-11-03.csv and stock-2026-11-02.csv every 5 minutes. The second one is a corrected file for Monday that we sent again this morning. A third file from Dublin 2 never arrives at all. Please stop the repeats before the shops open at 10:00. Harbor Stock team',
-          source: 'Harbor Stock team',
+          body: 'Since 06:00 the stock service gets the files stock-2026-11-03.csv and stock-2026-11-02.csv every 5 minutes. The second one is a corrected file for Monday that we sent again this morning. A third file from Dublin 2 never arrives at all. Please stop the repeats before the shops open at 10:00. Brightmart Stock team',
+          source: 'Brightmart Stock team',
         },
       ],
     })

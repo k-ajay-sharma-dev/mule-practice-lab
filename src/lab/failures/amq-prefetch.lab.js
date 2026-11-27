@@ -32,7 +32,7 @@ const lab = {
       to: OPS,
       subject: 'Month end invoices are too slow',
       body: `Only ${done} of 200 invoice PDFs are done after 35 minutes. At this pace the last ones are out after 09:00, and the customers must have them by 08:30. We added replicas for this, so why is it still slow?`,
-      source: 'Harbor Foods Billing',
+      source: 'Brightmart Billing',
     })
     return until(later, at(1, 7, 40))
   },
@@ -40,7 +40,7 @@ const lab = {
     { title: 'Read the mail of billing', how: 'Open the Inbox from the menu under Lab tools.', done: (s) => Boolean(s.seen.inbox) },
     {
       title: `Look at the consumers of ${QUEUE}`,
-      how: `ActiveMQ, harbor-amq, Queues, ${QUEUE}, Active Consumers. Compare Dispatched Queue and Prefetch of the three consumers, and the Messages in flight on the queue.`,
+      how: `ActiveMQ, brightmart-amq, Queues, ${QUEUE}, Active Consumers. Compare Dispatched Queue and Prefetch of the three consumers, and the Messages in flight on the queue.`,
       done: (s) => Boolean(s.seen[`jms-dest:${QUEUE}`]),
     },
     ask(

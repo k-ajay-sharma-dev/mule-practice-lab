@@ -1,7 +1,7 @@
 // The sample application of the hyb-server-group lab. Imports only platform-log.js, so the engine can load it without a cycle.
 export const PACKAGES = {
   'price-lookup-sapi': {
-    note: 'A price lookup API of Harbor. Each answer names the server that handled it.',
+    note: 'A price lookup API of Brightmart. Each answer names the server that handled it.',
     sample: { method: 'GET', path: '/prices/SKU-1001' },
     handle({ node }, req) {
       const m = req.path.split('?')[0].match(/^\/prices\/([\w-]+)$/)

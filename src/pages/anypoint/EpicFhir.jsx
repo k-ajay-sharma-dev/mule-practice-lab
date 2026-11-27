@@ -1,18 +1,18 @@
 // Epic (FHIR): the Epic side of Bayview Health, a fictional hospital. Backend apps holds the SMART backend services
 // registrations with their client IDs, incoming APIs (scopes) and public keys, as on the Build Apps page of Epic on FHIR.
-// Harbor keys is a lab tool for the signing keys in the key store of the Harbor apps. The FHIR browser runs R4 queries
+// Brightmart keys is a lab tool for the signing keys in the key store of the Brightmart apps. The FHIR browser runs R4 queries
 // as an Epic analyst, the Audit log lists the FHIR calls of the apps, and Token requests the calls to the token endpoint
 // with the reason Epic gives in its own log. The rules live in lab/platform-epic.js.
 import { useEffect, useState } from 'react'
 import { mark, stamp, timeText } from '../../lab/platform.js'
 import {
-  addPublicKey, appOf, BASE, browse, createBackendApp, generateKeyPair, HARBOR_JWKS, isFilled, MAX_COUNT, MAX_EXP, ORG, publicJwk, publicKeysOf, RATE, removePublicKey, SCOPES, setAppScopes, setInJwks, setJwksUrl, TOKEN_URL,
+  addPublicKey, appOf, BASE, browse, createBackendApp, generateKeyPair, BRIGHTMART_JWKS, isFilled, MAX_COUNT, MAX_EXP, ORG, publicJwk, publicKeysOf, RATE, removePublicKey, SCOPES, setAppScopes, setInJwks, setJwksUrl, TOKEN_URL,
   upgradeEpic,
 } from '../../lab/platform-epic.js'
 import { Btn, Check, Field, Input, Link, Note, Select, SideNav, Table } from './parts.jsx'
 
-const VIEWS = ['Backend apps', 'Harbor keys', 'FHIR browser', 'Audit log', 'Token requests']
-const SEEN = { 'Backend apps': 'epic:apps', 'Harbor keys': 'epic:keys', 'Audit log': 'epic:audit', 'Token requests': 'epic:tokens' }
+const VIEWS = ['Backend apps', 'Brightmart keys', 'FHIR browser', 'Audit log', 'Token requests']
+const SEEN = { 'Backend apps': 'epic:apps', 'Brightmart keys': 'epic:keys', 'Audit log': 'epic:audit', 'Token requests': 'epic:tokens' }
 const json = (v) => JSON.stringify(v, null, 2)
 const Status = ({ code }) => <span className={`ep-code ep-${code >= 400 || code === 0 ? 'bad' : 'good'}`}>{code}</span>
 
@@ -54,7 +54,7 @@ export default function EpicFhir({ state, update, place, go }) {
           <span className="ep-clock">FHIR R4 | {timeText(state.clock)}</span>
         </header>
         {view === 'Backend apps' && (place?.app && appOf(y, place.app) ? <AppPage key={place.app} {...props} a={appOf(y, place.app)} /> : <AppList {...props} />)}
-        {view === 'Harbor keys' && <Keys {...props} />}
+        {view === 'Brightmart keys' && <Keys {...props} />}
         {view === 'FHIR browser' && <Browser {...props} />}
         {view === 'Audit log' && <Audit y={y} nameOf={nameOf} />}
         {view === 'Token requests' && <Tokens y={y} nameOf={nameOf} />}
@@ -187,7 +187,7 @@ function AppPage({ y, a, act, go }) {
           ))}
         />
         <div className="ep-grid">
-          <Field label="Harbor public key" hint="From Harbor keys. Only the public part is sent.">
+          <Field label="Brightmart public key" hint="From Brightmart keys. Only the public part is sent.">
             <Select value={pick} onChange={setPick} placeholder="Pick a kid" options={y.keystore.map((k) => k.kid)} />
           </Field>
           <div className="ep-row ep-end">
@@ -195,7 +195,7 @@ function AppPage({ y, a, act, go }) {
               Add public key
             </Btn>
           </div>
-          <Field label="Non-Production JWK Set URL" hint={`Epic fetches the keys from this URL. Harbor publishes at ${HARBOR_JWKS}`}>
+          <Field label="Non-Production JWK Set URL" hint={`Epic fetches the keys from this URL. Brightmart publishes at ${BRIGHTMART_JWKS}`}>
             <Input value={url} onChange={setUrl} aria-label="Non-Production JWK Set URL" />
           </Field>
           <div className="ep-row ep-end">
@@ -206,7 +206,7 @@ function AppPage({ y, a, act, go }) {
 
       <section className="ep-card">
         <h3>In the Mule app</h3>
-        <p className="pc-dim">The properties a Harbor app needs for this registration. The key store password is a protected property.</p>
+        <p className="pc-dim">The properties a Brightmart app needs for this registration. The key store password is a protected property.</p>
         <Table
           heads={['Property', 'Value']}
           rows={[
@@ -231,7 +231,7 @@ function AppPage({ y, a, act, go }) {
   )
 }
 
-// ---------- Harbor keys ----------
+// ---------- Brightmart keys ----------
 
 function Keys({ y, act }) {
   const [form, setForm] = useState({ alias: '', kid: '' })
@@ -240,8 +240,8 @@ function Keys({ y, act }) {
   const users = (kid) => y.apps.filter((a) => publicKeysOf(y, a).some((k) => k.kid === kid)).map((a) => a.name)
   return (
     <>
-      <h2>Harbor keys</h2>
-      <Note>Lab tool: the signing keys in the key store of the Harbor apps. The private key never leaves Harbor; Epic gets the public JWK. Keys marked Published in JWKS are served at {HARBOR_JWKS}.</Note>
+      <h2>Brightmart keys</h2>
+      <Note>Lab tool: the signing keys in the key store of the Brightmart apps. The private key never leaves Brightmart; Epic gets the public JWK. Keys marked Published in JWKS are served at {BRIGHTMART_JWKS}.</Note>
       {msg && <p className={msg.ok ? 'ep-ok' : 'ep-err'} role="status">{msg.text}</p>}
       <Table
         heads={['Alias', 'Key ID (kid)', 'Thumbprint', 'Created', 'Published in JWKS', 'Used by', '']}

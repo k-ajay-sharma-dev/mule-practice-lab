@@ -10,7 +10,7 @@
 // that the platform picks and that can change when the app is deployed again.
 //
 // ---------- API in short (for lab and package authors) ----------
-// State: state.network = defaultNetwork(now), or newNetwork({ spaces: [newSpace('harbor-ps', {...})], ... }) in a lab.
+// State: state.network = defaultNetwork(now), or newNetwork({ spaces: [newSpace('brightmart-ps', {...})], ... }) in a lab.
 //   spaces[name]   { name, region, envs, cidr, reserved, staticIps: { enabled, state, ips, pool }, firewall: { inbound, outbound },
 //                    vpns: [{ name, remoteIp, routing, routes, tunnels: [{ name, outsideIp, insideCidr, status }], status, pending, log }],
 //                    tgws: [{ name, tgwId, status, routes }], dns: [{ domain, servers }], tls: [...], domains: [...], log }
@@ -100,8 +100,8 @@ export const newSpace = (name, extra = {}) => ({
   vpns: [],
   tgws: [],
   dns: [],
-  tls: [{ name: 'harbor-api-tls', cn: '*.api.harbor.example', issuer: 'Harbor Issuing CA 2', expires: '2027-08-31' }],
-  domains: [{ domain: 'orders.api.harbor.example', tls: 'harbor-api-tls' }],
+  tls: [{ name: 'brightmart-api-tls', cn: '*.api.brightmart.example', issuer: 'Brightmart Issuing CA 2', expires: '2027-08-31' }],
+  domains: [{ domain: 'orders.api.brightmart.example', tls: 'brightmart-api-tls' }],
   log: [],
   ...extra,
 })
@@ -127,9 +127,9 @@ export const newNetwork = ({ spaces = [], ...extra } = {}) => ({
   dcEgress: '192.0.2.10', // the company firewall, which apps on your own servers call out from
   corpDns: ['10.20.0.53', '10.20.0.54'],
   onPrem: {
-    'erp.corp.harbor.lab': { ip: '10.40.12.30', ports: [8443] },
-    'wms.corp.harbor.lab': { ip: '10.20.6.14', ports: [443, 8080] },
-    'sql01.corp.harbor.lab': { ip: '10.20.7.21', ports: [1433] },
+    'erp.corp.brightmart.lab': { ip: '10.40.12.30', ports: [8443] },
+    'wms.corp.brightmart.lab': { ip: '10.20.6.14', ports: [443, 8080] },
+    'sql01.corp.brightmart.lab': { ip: '10.20.7.21', ports: [1433] },
   },
   internet: {
     'login.microsoftonline.com': { ip: '192.0.2.150', ports: [443] },
@@ -139,13 +139,13 @@ export const newNetwork = ({ spaces = [], ...extra } = {}) => ({
   ...extra,
 })
 
-// The console of the lab: harbor-ps with static IPs, a VPN to the data center and the company domain forwarded
+// The console of the lab: brightmart-ps with static IPs, a VPN to the data center and the company domain forwarded
 export function defaultNetwork(now = 0) {
-  const ps = newSpace('harbor-ps', {
+  const ps = newSpace('brightmart-ps', {
     staticIps: { enabled: true, state: 'Available', ips: ['203.0.113.24', '203.0.113.25'], pool: ['203.0.113.24', '203.0.113.25'] },
-    vpns: [newVpn('harbor-dc-vpn', { routes: ['10.20.0.0/16', '10.40.0.0/16'], log: [{ t: now, text: 'Tunnel 1 is UP. Tunnel 2 is UP.' }] })],
-    tgws: [{ name: 'harbor-tgw', tgwId: 'tgw-0a51e7c2d9', status: 'Available', routes: ['172.20.0.0/16'] }],
-    dns: [{ domain: 'corp.harbor.lab', servers: ['10.20.0.53', '10.20.0.54'] }],
+    vpns: [newVpn('brightmart-dc-vpn', { routes: ['10.20.0.0/16', '10.40.0.0/16'], log: [{ t: now, text: 'Tunnel 1 is UP. Tunnel 2 is UP.' }] })],
+    tgws: [{ name: 'brightmart-tgw', tgwId: 'tgw-0a51e7c2d9', status: 'Available', routes: ['172.20.0.0/16'] }],
+    dns: [{ domain: 'corp.brightmart.lab', servers: ['10.20.0.53', '10.20.0.54'] }],
   })
   return newNetwork({ spaces: [ps], created: now })
 }
@@ -312,15 +312,15 @@ export function networkTick(s) {
     const found = ipsIn(`${m.subject} ${m.body}`)
     const wide = found.filter((c) => Number(c.split('/')[1] ?? 32) < 24)
     let body
-    if (!found.length) body = `Hello Harbor team. Your mail has no IP address in it, so we changed nothing. Please send the addresses your calls come from. ${rec.owner} integration team`
-    else if (wide.length) body = `Hello Harbor team. We cannot allow ${wide.join(', ')}: our security policy accepts single addresses and ranges up to /24 only. Please send the exact outbound addresses. Nothing was changed. ${rec.owner} integration team`
+    if (!found.length) body = `Hello Brightmart team. Your mail has no IP address in it, so we changed nothing. Please send the addresses your calls come from. ${rec.owner} integration team`
+    else if (wide.length) body = `Hello Brightmart team. We cannot allow ${wide.join(', ')}: our security policy accepts single addresses and ranges up to /24 only. Please send the exact outbound addresses. Nothing was changed. ${rec.owner} integration team`
     else {
       const add = found.map((c) => (c.includes('/') ? c : `${c}/32`)).filter((c) => !cidrError(c))
       rec.allow = [...new Set([...(rec.allow ?? []), ...add])]
-      body = `Hello Harbor team. We added ${add.join(', ')} to the allowlist of ${host}. It now holds ${rec.allow.join(', ')}. ${rec.owner} integration team`
+      body = `Hello Brightmart team. We added ${add.join(', ')} to the allowlist of ${host}. It now holds ${rec.allow.join(', ')}. ${rec.owner} integration team`
     }
     s.mail ??= []
-    s.mail.push({ t: s.clock, to: 'ops@harbor.example', subject: `Re: ${m.subject}`, body, source: rec.owner })
+    s.mail.push({ t: s.clock, to: 'ops@brightmart.example', subject: `Re: ${m.subject}`, body, source: rec.owner })
     if (s.mail.length > 40) s.mail.shift()
   }
   return s

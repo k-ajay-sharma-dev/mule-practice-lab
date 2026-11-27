@@ -37,7 +37,7 @@ const lab = {
           to: OPS,
           subject: 'Security review: personal data in the partner API',
           body: 'A sample answer of GET /partner-orders/O-1001 holds customer.phone, customer.dateOfBirth, customer.loyaltyCard and customer.creditLimit. The contract in Exchange lists none of them. After the review last month someone added response.exclude=customer.phone to partner-orders-eapi, but more fields came since. Please fix it today.',
-          source: 'Harbor Foods security team',
+          source: 'Brightmart security team',
         },
       ],
     })

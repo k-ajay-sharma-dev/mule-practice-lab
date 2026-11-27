@@ -23,10 +23,10 @@
 // only while that file keeps the Log4J2CloudhubLogAppender. CloudHub 2.0 handles its own log capture differently;
 // the lab applies the CloudHub 1.0 rule to every app. Source: cloudhub/custom-log-appender.
 
-export const SPLUNK_HOST = 'splunk.harbor.lab'
+export const SPLUNK_HOST = 'splunk.brightmart.lab'
 export const HEC_PORT = 8088
 export const HEC_URL = `https://${SPLUNK_HOST}:${HEC_PORT}/services/collector`
-export const ELK_HOST = 'elk.harbor.lab'
+export const ELK_HOST = 'elk.brightmart.lab'
 const MINUTE = 60000
 const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
@@ -501,7 +501,7 @@ export const testAlert = (state, name) =>
     see(s, 'splunk:search')
     see(s, 'splunk:alerts')
   })
-export const newAlert = (extra) => ({ name: 'alert', search: '', every: 5, window: 5, threshold: 0, to: 'ops@harbor.example', enabled: true, throttle: 60, lastRun: null, lastCount: null, fired: 0, lastFired: null, tested: null, ...extra })
+export const newAlert = (extra) => ({ name: 'alert', search: '', every: 5, window: 5, threshold: 0, to: 'ops@brightmart.example', enabled: true, throttle: 60, lastRun: null, lastCount: null, fired: 0, lastFired: null, tested: null, ...extra })
 
 // ---------- log4j2.xml templates ----------
 

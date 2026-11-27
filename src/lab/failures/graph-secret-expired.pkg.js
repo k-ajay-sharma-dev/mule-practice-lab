@@ -3,19 +3,19 @@
 import { info, muleError, needs } from '../platform-log.js'
 import { API_PATH, errorText, httpMessage, httpType, tokenFor } from '../platform-msgraph.js'
 
-export const EXPORT = 'harbor-d365-order-export'
+export const EXPORT = 'brightmart-d365-order-export'
 export const EXPORT_FLOW = 'order-export-flow'
 const PAGE = 40
 const cfgOf = (p) => ({ tenant: p['azure.tenantId'], clientId: p['azure.clientId'], clientSecret: p['azure.clientSecret'] })
 const el = {
   token: { flow: EXPORT_FLOW, at: 1, name: 'Get Dataverse token', dsl: '<http:request doc:name="Get Dataverse token" method="POST" config-ref="Entra_Token_Config" path="/${azure.tenantId}/oauth2/v2.0/token">' },
-  upsert: { flow: EXPORT_FLOW, at: 3, name: 'Upsert sales order', dsl: '<http:request doc:name="Upsert sales order" method="PATCH" config-ref="Dataverse_Config" path="/salesorders(harbor_weborderid=\'#[vars.orderId]\')">' },
+  upsert: { flow: EXPORT_FLOW, at: 3, name: 'Upsert sales order', dsl: '<http:request doc:name="Upsert sales order" method="PATCH" config-ref="Dataverse_Config" path="/salesorders(brightmart_weborderid=\'#[vars.orderId]\')">' },
 }
 export const orderId = (n) => `W-${6001 + n}`
 
 export const PACKAGES = {
   [EXPORT]: {
-    note: `Exports web orders to Dynamics 365. The flow ${EXPORT_FLOW} runs every 5 minutes. It gets a token for dataverse.url with the client credentials grant of azure.clientId and the secure property azure.clientSecret, then upserts each waiting order with PATCH /salesorders(harbor_weborderid='W-...'), up to ${PAGE} a run. Lab-made: the web shop leaves one order in the app's object store every 5 minutes; a failed run leaves them waiting.`,
+    note: `Exports web orders to Dynamics 365. The flow ${EXPORT_FLOW} runs every 5 minutes. It gets a token for dataverse.url with the client credentials grant of azure.clientId and the secure property azure.clientSecret, then upserts each waiting order with PATCH /salesorders(brightmart_weborderid='W-...'), up to ${PAGE} a run. Lab-made: the web shop leaves one order in the app's object store every 5 minutes; a failed run leaves them waiting.`,
     boot: needs('azure.tenantId', 'azure.clientId', 'azure.clientSecret', 'dataverse.url'),
     schedules: [{ flow: EXPORT_FLOW, type: 'fixed', value: '5', unit: 'minutes', enabled: true }],
     run: {
@@ -34,7 +34,7 @@ export const PACKAGES = {
         const end = Math.min(store.made, store.sent + PAGE)
         while (store.sent < end) {
           const id = orderId(store.sent)
-          const path = `${API_PATH}/salesorders(harbor_weborderid='${id}')`
+          const path = `${API_PATH}/salesorders(brightmart_weborderid='${id}')`
           const r = ctx.msgraph.dataverse(tok.token, 'PATCH', `${url}${path}`, { name: `Web order ${id}`, ordernumber: `ORD-${id.slice(2)}-WEB`, totalamount: 40 + ((store.sent * 37) % 160) })
           if (!r.ok) {
             const type = httpType(r.status)

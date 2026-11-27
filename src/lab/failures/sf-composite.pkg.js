@@ -45,7 +45,7 @@ function perRecord(sf, orders, now) {
   const errors = []
   let ok = 0
   for (const o of orders) {
-    const found = sf.query(`SELECT Id FROM Account WHERE Harbor_Customer_Id__c = '${o.customer}'`)
+    const found = sf.query(`SELECT Id FROM Account WHERE Brightmart_Customer_Id__c = '${o.customer}'`)
     if (!found.ok) {
       errors.push(found.type)
       log.push(block('query', found.type, found.error))
@@ -53,7 +53,7 @@ function perRecord(sf, orders, now) {
     }
     let accId = found.records[0]?.Id
     if (!accId) {
-      const a = sf.rest('POST', '/services/data/v61.0/sobjects/Account', { ...account(o), Harbor_Customer_Id__c: o.customer })
+      const a = sf.rest('POST', '/services/data/v61.0/sobjects/Account', { ...account(o), Brightmart_Customer_Id__c: o.customer })
       if (a.status >= 400) {
         errors.push('SALESFORCE:INVALID_INPUT')
         log.push(block('account', 'SALESFORCE:INVALID_INPUT', `${firstError(a.body).errorCode}: ${firstError(a.body).message}`))
@@ -61,13 +61,13 @@ function perRecord(sf, orders, now) {
       }
       accId = a.body.id
     }
-    const c = sf.rest('POST', '/services/data/v61.0/sobjects/Contact', { ...contact(o), Harbor_Contact_Id__c: o.contact, AccountId: accId })
+    const c = sf.rest('POST', '/services/data/v61.0/sobjects/Contact', { ...contact(o), Brightmart_Contact_Id__c: o.contact, AccountId: accId })
     if (c.status >= 400) {
       errors.push('SALESFORCE:INVALID_INPUT')
       log.push(block('contact', 'SALESFORCE:INVALID_INPUT', `${firstError(c.body).errorCode}: ${firstError(c.body).message} Order ${o.order} was not created. Account ${accId} (${o.customer}) was already saved and stays without a contact.`))
       continue
     }
-    const r = sf.rest('POST', '/services/data/v61.0/sobjects/Order', { ...order(o, now), Harbor_Order_Id__c: o.order, AccountId: accId })
+    const r = sf.rest('POST', '/services/data/v61.0/sobjects/Order', { ...order(o, now), Brightmart_Order_Id__c: o.order, AccountId: accId })
     if (r.status >= 400) {
       errors.push('SALESFORCE:INVALID_INPUT')
       log.push(block('order', 'SALESFORCE:INVALID_INPUT', `${firstError(r.body).errorCode}: ${firstError(r.body).message}`))
@@ -83,9 +83,9 @@ function perRecord(sf, orders, now) {
 // Order point at the Account with @{acc_k.id}
 function subrequests(orders, now) {
   return orders.flatMap((o, k) => [
-    { method: 'PATCH', url: `/services/data/v61.0/sobjects/Account/Harbor_Customer_Id__c/${o.customer}`, referenceId: `acc_${k}`, body: account(o) },
-    { method: 'PATCH', url: `/services/data/v61.0/sobjects/Contact/Harbor_Contact_Id__c/${o.contact}`, referenceId: `con_${k}`, body: { ...contact(o), AccountId: `@{acc_${k}.id}` } },
-    { method: 'PATCH', url: `/services/data/v61.0/sobjects/Order/Harbor_Order_Id__c/${o.order}`, referenceId: `ord_${k}`, body: { ...order(o, now), AccountId: `@{acc_${k}.id}` } },
+    { method: 'PATCH', url: `/services/data/v61.0/sobjects/Account/Brightmart_Customer_Id__c/${o.customer}`, referenceId: `acc_${k}`, body: account(o) },
+    { method: 'PATCH', url: `/services/data/v61.0/sobjects/Contact/Brightmart_Contact_Id__c/${o.contact}`, referenceId: `con_${k}`, body: { ...contact(o), AccountId: `@{acc_${k}.id}` } },
+    { method: 'PATCH', url: `/services/data/v61.0/sobjects/Order/Brightmart_Order_Id__c/${o.order}`, referenceId: `ord_${k}`, body: { ...order(o, now), AccountId: `@{acc_${k}.id}` } },
   ])
 }
 
@@ -135,7 +135,7 @@ function composite(sf, orders, props, now) {
 export const PACKAGES = {
   [NAME]: {
     note:
-      'Every 15 minutes takes the new orders of the Harbor webshop and saves each as an Account, a Contact and an Order in Salesforce. sync.mode per-record looks the customer up with a query and then makes one REST create call for the Account, the Contact and the Order. sync.mode composite sends POST /composite with three upsert subrequests per order: the Contact and the Order point at the new Account with @{acc_k.id}. composite.ordersPerRequest is how many orders go in one composite request, and composite.allOrNone true rolls back the whole request when one subrequest fails. Then the flow sends the orders that came back PROCESSING_HALTED again once, without the failed order, which goes to an error queue.',
+      'Every 15 minutes takes the new orders of the Brightmart webshop and saves each as an Account, a Contact and an Order in Salesforce. sync.mode per-record looks the customer up with a query and then makes one REST create call for the Account, the Contact and the Order. sync.mode composite sends POST /composite with three upsert subrequests per order: the Contact and the Order point at the new Account with @{acc_k.id}. composite.ordersPerRequest is how many orders go in one composite request, and composite.allOrNone true rolls back the whole request when one subrequest fails. Then the flow sends the orders that came back PROCESSING_HALTED again once, without the failed order, which goes to an error queue.',
     boot: needs('salesforce.url', 'salesforce.username', 'salesforce.password', 'salesforce.securityToken'),
     schedules: [{ flow: FLOW, type: 'fixed', value: '15', unit: 'minutes', enabled: true }],
     run: {

@@ -35,7 +35,7 @@ const lab = {
       clock: at(0, 12),
       apps: [
         newApp(NAME, {
-          props: { 'db.host': 'sql.harbor.lab', 'db.port': '1433', 'db.database': 'HarborOrders', 'db.user': 'mule_etl', 'db.pool.max': '2', 'db.queryTimeout': '0', 'db.fetchSize': '500', 'settlement.sql': SLOW_SQL },
+          props: { 'db.host': 'sql.brightmart.lab', 'db.port': '1433', 'db.database': 'BrightmartOrders', 'db.user': 'mule_etl', 'db.pool.max': '2', 'db.queryTimeout': '0', 'db.fetchSize': '500', 'settlement.sql': SLOW_SQL },
           secrets: { 'db.password': 'Etl-Lab-2026' },
           store: {},
           logs: [

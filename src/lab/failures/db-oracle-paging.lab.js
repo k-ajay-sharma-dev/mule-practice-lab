@@ -5,7 +5,7 @@ import { settingsOf } from './db-oracle-paging.pkg.js'
 
 const NAME = 'customer-export-nightly'
 const FLOW = 'customer-export-flow'
-const PROPS = { 'db.host': 'ora02.harbor.lab', 'export.mode': 'single', 'page.size': '5000', 'db.fetchSize': '10', 'db.query.timeout': '60' }
+const PROPS = { 'db.host': 'ora02.brightmart.lab', 'export.mode': 'single', 'page.size': '5000', 'db.fetchSize': '10', 'db.query.timeout': '60' }
 const running = (s) => app(s, NAME)?.status === 'Running'
 const set = (s) => settingsOf({ ...app(s, NAME)?.props, ...app(s, NAME)?.secrets })
 const last = (s) => app(s, NAME)?.store?.last
@@ -17,7 +17,7 @@ const lab = {
   title: 'The nightly Oracle export runs out of memory',
   minutes: 15,
   scenario:
-    'customer-export-nightly writes every customer of Harbor Retail from Oracle to a CSV file at 02:00. The reports read that file at 06:00. The table passed 4 million rows last month, and last night the replica restarted during the export. The budget stays at 0.1 vCores.',
+    'customer-export-nightly writes every customer of Brightmart Retail from Oracle to a CSV file at 02:00. The reports read that file at 06:00. The table passed 4 million rows last month, and last night the replica restarted during the export. The budget stays at 0.1 vCores.',
   start: () => until(newPlatform({ clock: at(0, 12), apps: [newApp(NAME, { props: { ...PROPS } })] }), at(1, 9)),
   steps: [
     sawLogs(NAME),
@@ -57,7 +57,7 @@ const lab = {
     ),
     ask(
       'ROWNUM on an older database',
-      'OFFSET and FETCH NEXT came with Oracle 12c. On an older database a teammate writes SELECT ... FROM harbor.customers WHERE ROWNUM <= 5000 ORDER BY customer_id. What does it return?',
+      'OFFSET and FETCH NEXT came with Oracle 12c. On an older database a teammate writes SELECT ... FROM brightmart.customers WHERE ROWNUM <= 5000 ORDER BY customer_id. What does it return?',
       [
         'The 5000 lowest customer IDs',
         'Any 5000 rows, sorted afterwards. Oracle assigns ROWNUM before the ORDER BY runs, so sort in an inline view first: SELECT * FROM (SELECT ... ORDER BY customer_id) WHERE ROWNUM <= 5000',

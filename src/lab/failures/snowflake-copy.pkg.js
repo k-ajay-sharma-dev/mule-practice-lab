@@ -23,7 +23,7 @@ export function posCsv(store, date, n, bad = 0) {
 
 export const PACKAGES = {
   [POS_COPY]: {
-    note: `Every night at 02:00 UTC it loads the till files that the stores wrote to the external stage @POS_STAGE (s3://harbor-pos-exports/sales/) into POS_SALES: ${POS_SQL} ON_ERROR = the property snowflake.copy.onError, ABORT_STATEMENT when it is empty, the default of COPY. It logs the result of each file, and for rows that did not load it logs the query ID to pass to VALIDATE.`,
+    note: `Every night at 02:00 UTC it loads the till files that the stores wrote to the external stage @POS_STAGE (s3://brightmart-pos-exports/sales/) into POS_SALES: ${POS_SQL} ON_ERROR = the property snowflake.copy.onError, ABORT_STATEMENT when it is empty, the default of COPY. It logs the result of each file, and for rows that did not load it logs the query ID to pass to VALIDATE.`,
     boot: ({ props }) => {
       const gone = needed.filter((k) => !String(props[k] ?? '').trim())
       return gone.length ? `Couldn't find configuration property value for key \${${gone[0]}} from properties provider "Environment properties"` : null

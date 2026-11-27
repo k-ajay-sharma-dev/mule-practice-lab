@@ -1,14 +1,14 @@
 // The sample application of the net-vpn-dns lab. Imports only platform-log.js, so the engine can load it without a cycle.
 import { info, muleError, needs } from '../platform-log.js'
 
-export const NAME = 'harbor-erp-stock-sync'
+export const NAME = 'brightmart-erp-stock-sync'
 export const FLOW = 'erp-stock-flow'
 
 const el = { at: 2, name: 'Get stock from ERP', dsl: '<http:request method="GET" config-ref="ERP_HTTPS" path="/api/stock" />' }
 
 export const PACKAGES = {
   [NAME]: {
-    note: 'Every 5 minutes it reads the stock levels from the ERP in the Harbor data center, at https://erp.host:erp.port/api/stock, and updates the web shop. It runs in a private space and reaches the data center over the VPN.',
+    note: 'Every 5 minutes it reads the stock levels from the ERP in the Brightmart data center, at https://erp.host:erp.port/api/stock, and updates the web shop. It runs in a private space and reaches the data center over the VPN.',
     boot: needs('erp.host', 'erp.port'),
     schedules: [{ flow: FLOW, type: 'fixed', value: '5', unit: 'minutes', enabled: true }],
     run: {

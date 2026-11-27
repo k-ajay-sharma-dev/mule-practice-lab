@@ -6,7 +6,7 @@ import { SFTP_HOST, SFTP_USER } from './sec-secrets.pkg.js'
 
 const NAME = 'supplier-file-pull'
 const FLOW = 'price-list-flow'
-const VAULT = 'harbor-kv'
+const VAULT = 'brightmart-kv'
 const SECRET = 'sftp-password'
 const ROTATION = at(1, 7)
 // practice values of the lab, not real passwords
@@ -61,7 +61,7 @@ const lab = {
       dirs: ['/', '/in', '/archive'],
       files: { '/archive/price-list-20261102-1630.csv': fileRec(PRICE, { t: at(0, 16, 30), owner: SFTP_USER }) },
     })
-    const vault = newVault(VAULT, { access: { [NAME]: ['get'], 'Harbor Platform Admins': ['get', 'list', 'set', 'delete', 'recover', 'backup', 'restore'] } })
+    const vault = newVault(VAULT, { access: { [NAME]: ['get'], 'Brightmart Platform Admins': ['get', 'list', 'set', 'delete', 'recover', 'backup', 'restore'] } })
     let s = newPlatform({ clock: at(1, 5), systems: systemsOf({ servers: [sftp], vaults: [vault] }), mail: [MAIL_SECURITY, MAIL_PURCHASING] })
     s = addSecretVersion(s, VAULT, SECRET, OLD_PASSWORD, { contentType: 'password' })
     const v1 = kv(s).secrets[SECRET].versions[0].id

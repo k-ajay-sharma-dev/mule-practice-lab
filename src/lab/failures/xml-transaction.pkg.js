@@ -6,7 +6,7 @@
 import { needs, warn, info } from '../platform-log.js'
 import { errorLog, flowOf, handlerFor, okStatus, outcomeOf, retryOf, stepsOf, txOf } from '../platform-xml.js'
 
-export const NAME = 'harbor-order-store-sapi'
+export const NAME = 'brightmart-order-store-sapi'
 export const FLOW = 'save-order-flow'
 export const READ_FLOW = 'get-orders-flow'
 export const ORDER_BODY = '{"customerId":"C-100","lines":[{"sku":"FL-20","qty":4},{"sku":"FL-31","qty":2}]}'
@@ -126,7 +126,7 @@ const sqlOf = (step) => step.parts.find((p) => p.kind === 'db:sql')?.text ?? ''
 
 export const PACKAGES = {
   [NAME]: {
-    note: 'Order System API of Harbor Foods on SQL Server. POST /orders writes the order header and then each line to ORDERS, and reserves the stock at the warehouse system. GET /orders lists the last orders with their number of lines, for the warehouse dashboard. Its Mule configuration is in the Flow editor. The shop sends a line without a quantity now and then, and the warehouse answers 503 twice in a row to some reservations this week.',
+    note: 'Order System API of Brightmart on SQL Server. POST /orders writes the order header and then each line to ORDERS, and reserves the stock at the warehouse system. GET /orders lists the last orders with their number of lines, for the warehouse dashboard. Its Mule configuration is in the Flow editor. The shop sends a line without a quantity now and then, and the warehouse answers 503 twice in a row to some reservations this week.',
     boot: needs('http.port', 'db.host', 'db.user', 'db.password', 'warehouse.host'),
     sample: { method: 'POST', path: '/orders', body: ORDER_BODY },
     handle(ctx, req) {

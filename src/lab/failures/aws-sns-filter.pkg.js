@@ -3,7 +3,7 @@
 import { info, muleError, needs } from '../platform-log.js'
 import { awsCfg } from '../platform-aws.js'
 
-export const PUBLISHER = 'harbor-price-sns-publisher'
+export const PUBLISHER = 'brightmart-price-sns-publisher'
 export const PRICE_FLOW = 'price-change-flow'
 // the price changes the pricing engine makes, in turn: sku, region, discount in percent
 export const CHANGES = [

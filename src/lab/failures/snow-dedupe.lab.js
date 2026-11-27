@@ -4,12 +4,12 @@ import { app, ask, change, OPS, until } from '../platform-kit.js'
 import { addIncident, addUser, ciId, dt, groupId, INSTANCE_URL, newServicenow, REST_ROLE, rowsOf, updateSelected } from '../platform-servicenow.js'
 import { ALERT, ALERT_KEY, BRIDGE, modeOf } from './snow-dedupe.pkg.js'
 
-const SVC = 'svc_harbor_monitoring'
+const SVC = 'svc_brightmart_monitoring'
 const SUMMARY = JSON.parse(ALERT).summary
 const OPEN = ['1', '2', '3']
 const a = (s) => app(s, BRIDGE)
 const incidents = (s) => rowsOf(s.servicenow, 'incident')
-const coalesced = (s) => (s.servicenow?.transforms ?? []).some((m) => m.active && m.source === 'u_harbor_alert_import' && m.fields.some((f) => f.target === 'correlation_id' && f.coalesce))
+const coalesced = (s) => (s.servicenow?.transforms ?? []).some((m) => m.active && m.source === 'u_brightmart_alert_import' && m.fields.some((f) => f.target === 'correlation_id' && f.coalesce))
 const deduped = (s) => a(s)?.status === 'Running' && (modeOf(a(s).props) === 'correlation_id' || (modeOf(a(s).props) === 'import-set' && coalesced(s)))
 const since = (s) => dt(a(s)?.updated ?? 0)
 const fresh = (s) => incidents(s).filter((r) => r.correlation_id === ALERT_KEY && r.sys_created_on >= since(s))
@@ -17,7 +17,7 @@ const oldDupes = (s) => incidents(s).filter((r) => r.short_description === SUMMA
 
 function instance(now) {
   const y = newServicenow(now)
-  addUser(y, { user_name: SVC, first_name: 'Harbor', last_name: 'Monitoring', roles: [REST_ROLE, 'sn_incident_write', 'import_set_loader'], pw: 'Mon-Harbor-2611', web_service_access_only: true }, now)
+  addUser(y, { user_name: SVC, first_name: 'Brightmart', last_name: 'Monitoring', roles: [REST_ROLE, 'sn_incident_write', 'import_set_loader'], pw: 'Mon-Brightmart-2611', web_service_access_only: true }, now)
   const g = (n) => groupId(y, n)
   for (const [i, [d, ci, grp]] of [
     ['POS terminal does not print receipts', 'STORE-0042-POS', 'Store Systems'],
@@ -35,14 +35,14 @@ const lab = {
   group: 'HR, ITSM and CRM',
   title: 'One disk alert, sixty incidents',
   minutes: 25,
-  scenario: `${BRIDGE} turns alerts of Harbor monitoring into ServiceNow incidents on ${INSTANCE_URL}. Since 08:30 the disk of WMS-DB-01 is nearly full, and monitoring sends the same alert every 30 seconds while the problem lasts. At 09:00 the service desk calls: the queue of Warehouse Systems is full of incidents with the same text, and the real tickets are buried. Make a repeated alert update one incident, and clean up the queue.`,
+  scenario: `${BRIDGE} turns alerts of Brightmart monitoring into ServiceNow incidents on ${INSTANCE_URL}. Since 08:30 the disk of WMS-DB-01 is nearly full, and monitoring sends the same alert every 30 seconds while the problem lasts. At 09:00 the service desk calls: the queue of Warehouse Systems is full of incidents with the same text, and the real tickets are buried. Make a repeated alert update one incident, and clean up the queue.`,
   start() {
     const s = newPlatform({
       clock: at(1, 8, 30),
       apps: [
         newApp(BRIDGE, {
           props: { 'snow.instance': INSTANCE_URL, 'snow.username': SVC, 'snow.assignmentGroup': 'Warehouse Systems', 'incident.dedupe': 'none' },
-          secrets: { 'snow.password': 'Mon-Harbor-2611' },
+          secrets: { 'snow.password': 'Mon-Brightmart-2611' },
           replicas: 2,
           store: {},
         }),
@@ -54,8 +54,8 @@ const lab = {
           t: at(1, 9),
           to: OPS,
           subject: 'Warehouse Systems queue flooded',
-          body: `Hello. Our queue in ServiceNow has about 60 new incidents with the text "${SUMMARY}", one every 30 seconds, and the count keeps going up. We cannot see the real tickets any more. Can you stop it and clean up? Harbor service desk`,
-          source: 'Harbor service desk',
+          body: `Hello. Our queue in ServiceNow has about 60 new incidents with the text "${SUMMARY}", one every 30 seconds, and the count keeps going up. We cannot see the real tickets any more. Can you stop it and clean up? Brightmart service desk`,
+          source: 'Brightmart service desk',
         },
       ],
     })
@@ -86,7 +86,7 @@ const lab = {
     ),
     {
       title: 'Make a repeated alert update the open incident',
-      how: `Runtime Manager, ${BRIDGE}, Settings, Properties. Set incident.dedupe to correlation_id and Apply Changes: the app then sends GET /api/now/table/incident?sysparm_query=correlation_id=<key>^stateIN1,2,3 and a PATCH with a work note when it finds one. The other way: set incident.dedupe to import-set and, in ServiceNow, Transform Maps, Harbor alert to incident, tick Coalesce on the correlation_id field map.`,
+      how: `Runtime Manager, ${BRIDGE}, Settings, Properties. Set incident.dedupe to correlation_id and Apply Changes: the app then sends GET /api/now/table/incident?sysparm_query=correlation_id=<key>^stateIN1,2,3 and a PATCH with a work note when it finds one. The other way: set incident.dedupe to import-set and, in ServiceNow, Transform Maps, Brightmart alert to incident, tick Coalesce on the correlation_id field map.`,
       done: deduped,
     },
     ask(

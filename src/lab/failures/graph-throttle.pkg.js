@@ -4,7 +4,7 @@
 import { info, muleError, needs, warn } from '../platform-log.js'
 import { clockText, errorText, GRAPH_SCOPE, GRAPH_URL, httpMessage, httpType, tokenFor } from '../platform-msgraph.js'
 
-export const CATALOG = 'harbor-sp-catalog-sync'
+export const CATALOG = 'brightmart-sp-catalog-sync'
 export const CATALOG_FLOW = 'catalog-sync-flow'
 const cfgOf = (p) => ({ tenant: p['azure.tenantId'], clientId: p['azure.clientId'], clientSecret: p['azure.clientSecret'] })
 const el = {

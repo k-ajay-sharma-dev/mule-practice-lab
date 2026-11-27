@@ -1,20 +1,20 @@
 // The guided lab snowflake-setup. See platform-labs.js for the shape of a lab.
 import { addMonAlert, at, callApi, deployApp, finishDeploys, mark, newPlatform, runNow } from '../platform.js'
 import { app, ask, called, OPS } from '../platform-kit.js'
-import { ADMIN_ROLES, ADMIN_USER, countOf, formatAt, harborOrders, newSnowflake, publicKeyOf, runWorksheet, script, stageAt } from '../platform-snowflake.js'
+import { ADMIN_ROLES, ADMIN_USER, countOf, formatAt, brightmartOrders, newSnowflake, publicKeyOf, runWorksheet, script, stageAt } from '../platform-snowflake.js'
 import { HEADER, STOCK_APP, STOCK_FLOW, STOCK_JAR } from './snowflake-setup.pkg.js'
 
 const WH = 'STOCK_WH'
 const ROLE = 'STOCK_LOADER'
 const USER = 'MULE_STOCK_SVC'
-const DB = 'HARBOR_DW'
+const DB = 'BRIGHTMART_DW'
 const SC = 'SUPPLY'
 const TABLE = `${DB}.${SC}.STOCK_LEVELS`
 const STAGE = `${DB}.${SC}.STOCK_STAGE`
 const FORMAT = `${DB}.${SC}.CSV_STOCK`
 const PRIVATE_KEY = 'lab-only-private-key-stock-loader'
 const PUBLIC_KEY = publicKeyOf(PRIVATE_KEY)
-const RECIPIENT = 'supply-data@harbor.example'
+const RECIPIENT = 'supply-data@brightmart.example'
 const BAD = `${HEADER}\nH-1250,DC-NORTH,40,2026-11-03 10:00:00\nH-1300,DC-NORTH,twelve,2026-11-03 10:00:00\nH-2000,DC-SOUTH,7,2026-11-03 10:00:00`
 
 const y = (s) => s.snowflake
@@ -55,7 +55,7 @@ const deployedOk = (s) => {
   const p = props(s)
   return (
     app(s, STOCK_APP)?.status === 'Running' &&
-    word(p['snowflake.account']).replace(/\.SNOWFLAKECOMPUTING\.COM$/, '') === 'HARBOR-DW' &&
+    word(p['snowflake.account']).replace(/\.SNOWFLAKECOMPUTING\.COM$/, '') === 'BRIGHTMART-DW' &&
     word(p['snowflake.user']) === USER &&
     word(p['snowflake.role']) === ROLE &&
     word(p['snowflake.warehouse']) === WH &&
@@ -69,7 +69,7 @@ const deployedOk = (s) => {
 const firstLoad = (s) => (y(s)?.copies ?? []).find((c) => c.table === TABLE && c.user === USER && c.loaded > 0)
 
 function account() {
-  const x = harborOrders(newSnowflake(at(0)), at(0))
+  const x = brightmartOrders(newSnowflake(at(0)), at(0))
   script(x, `CREATE SCHEMA ${DB}.${SC}; CREATE TABLE ${TABLE} (SKU VARCHAR(20), WAREHOUSE_CODE VARCHAR(10), QTY NUMBER(10,0), SNAPSHOT_AT TIMESTAMP_NTZ);`, at(0, 15))
   x.ws = { role: 'ACCOUNTADMIN', wh: 'COMPUTE_WH', db: DB, schema: SC, text: '' }
   return x
@@ -80,7 +80,7 @@ const lab = {
   group: 'Data and cloud',
   title: 'Set up the Snowflake load of the WMS stock snapshots',
   minutes: 40,
-  scenario: `Harbor supply chain wants the stock of its two distribution centres in Snowflake every 15 minutes, for the replenishment dashboards. The app ${STOCK_APP} is built: it PUTs a CSV snapshot to an internal stage and runs COPY INTO ${TABLE}. The data team created the table; nothing else exists for this load, and the jar is in Runtime Manager. Set up Snowflake with the smallest rights, deploy the app with its key kept secret, prove the data arrives with counts, show that a bad file is handled, and add an alert.`,
+  scenario: `Brightmart supply chain wants the stock of its two distribution centres in Snowflake every 15 minutes, for the replenishment dashboards. The app ${STOCK_APP} is built: it PUTs a CSV snapshot to an internal stage and runs COPY INTO ${TABLE}. The data team created the table; nothing else exists for this load, and the jar is in Runtime Manager. Set up Snowflake with the smallest rights, deploy the app with its key kept secret, prove the data arrives with counts, show that a bad file is handled, and add an alert.`,
   start() {
     return newPlatform({
       clock: at(1, 9),
@@ -91,8 +91,8 @@ const lab = {
           t: at(1, 8, 30),
           to: OPS,
           subject: 'Snowflake setup for the WMS stock loader',
-          body: `Hello. Please set up Snowflake account HARBOR-DW (harbor-dw.snowflakecomputing.com) for ${STOCK_APP}:\n1. Warehouse ${WH}, X-Small, auto suspend after 60 seconds, auto resume on.\n2. File format ${FORMAT}: CSV with 1 header line to skip.\n3. Internal stage ${STAGE} that uses that format.\n4. Role ${ROLE} with only what the loader needs on ${WH}, ${DB}, ${SC}, STOCK_LEVELS, the stage and the format. Not SYSADMIN, and not the LOADER role of the orders load.\n5. Service user ${USER}, key pair only, default role ${ROLE}, default warehouse ${WH}. Its public key: ${PUBLIC_KEY}\n6. The private key, from the vault ticket: ${PRIVATE_KEY} (lab value). It goes into the app as a protected property, nowhere else.\nAlerts on load errors go to ${RECIPIENT}. Harbor data platform team`,
-          source: 'Harbor data platform team',
+          body: `Hello. Please set up Snowflake account BRIGHTMART-DW (brightmart-dw.snowflakecomputing.com) for ${STOCK_APP}:\n1. Warehouse ${WH}, X-Small, auto suspend after 60 seconds, auto resume on.\n2. File format ${FORMAT}: CSV with 1 header line to skip.\n3. Internal stage ${STAGE} that uses that format.\n4. Role ${ROLE} with only what the loader needs on ${WH}, ${DB}, ${SC}, STOCK_LEVELS, the stage and the format. Not SYSADMIN, and not the LOADER role of the orders load.\n5. Service user ${USER}, key pair only, default role ${ROLE}, default warehouse ${WH}. Its public key: ${PUBLIC_KEY}\n6. The private key, from the vault ticket: ${PRIVATE_KEY} (lab value). It goes into the app as a protected property, nowhere else.\nAlerts on load errors go to ${RECIPIENT}. Brightmart data platform team`,
+          source: 'Brightmart data platform team',
         },
       ],
     })
@@ -133,7 +133,7 @@ const lab = {
     },
     {
       title: 'Deploy the app with the private key protected',
-      how: `Runtime Manager, Deploy application, name ${STOCK_APP}, file ${STOCK_JAR}. Properties: snowflake.account harbor-dw, snowflake.user ${USER}, snowflake.role ${ROLE}, snowflake.warehouse ${WH}, snowflake.database ${DB}, snowflake.schema ${SC}, snowflake.stage STOCK_STAGE. Add snowflake.privateKey with the private key from the mail and select Protect. Deploy and read the logs.`,
+      how: `Runtime Manager, Deploy application, name ${STOCK_APP}, file ${STOCK_JAR}. Properties: snowflake.account brightmart-dw, snowflake.user ${USER}, snowflake.role ${ROLE}, snowflake.warehouse ${WH}, snowflake.database ${DB}, snowflake.schema ${SC}, snowflake.stage STOCK_STAGE. Add snowflake.privateKey with the private key from the mail and select Protect. Deploy and read the logs.`,
       done: deployedOk,
     },
     {
@@ -176,7 +176,7 @@ const lab = {
       jar: STOCK_JAR,
       replicas: 1,
       vCores: 0.1,
-      props: { 'snowflake.account': 'harbor-dw', 'snowflake.user': USER, 'snowflake.role': ROLE, 'snowflake.warehouse': WH, 'snowflake.database': DB, 'snowflake.schema': SC, 'snowflake.stage': 'STOCK_STAGE' },
+      props: { 'snowflake.account': 'brightmart-dw', 'snowflake.user': USER, 'snowflake.role': ROLE, 'snowflake.warehouse': WH, 'snowflake.database': DB, 'snowflake.schema': SC, 'snowflake.stage': 'STOCK_STAGE' },
       secrets: { 'snowflake.privateKey': PRIVATE_KEY },
     }
     s = finishDeploys(deployApp(s, form).state)

@@ -3,11 +3,11 @@
 // the Databases console.
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const DB = 'harbor-ora'
-export const NAME = 'harbor-carrier-events-sapi'
+export const DB = 'brightmart-ora'
+export const NAME = 'brightmart-carrier-events-sapi'
 export const JAR = `${NAME}-1.0.0-mule-application.jar`
-export const EVENTS = 'HARBOR.SHIPMENT_EVENTS'
-export const SHIPMENTS = 'HARBOR.SHIPMENTS'
+export const EVENTS = 'BRIGHTMART.SHIPMENT_EVENTS'
+export const SHIPMENTS = 'BRIGHTMART.SHIPMENTS'
 const FLOW = 'post:\\tracking-events:application\\json:carrier-events-config'
 const keep = (list, item, n = 30) => [...(list ?? []), item].slice(-n)
 const json = (x) => JSON.stringify(x)

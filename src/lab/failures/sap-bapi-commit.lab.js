@@ -28,14 +28,14 @@ const lab = {
   group: 'Salesforce and SAP',
   title: 'The order number that does not exist',
   minutes: 20,
-  scenario: `B2B partners of Harbor send orders to ${BAPI_APP}. The app calls ${CREATE} and answers 201 with the sales order number from SAP. Partners now call with those numbers and the order desk finds nothing in VA03. On Monday a developer saw that the app never committed, and added a second Execute BAPI with BAPI_TRANSACTION_COMMIT after the create. The RETURN tables still say the order has been saved, and VA03 is still empty.`,
+  scenario: `B2B partners of Brightmart send orders to ${BAPI_APP}. The app calls ${CREATE} and answers 201 with the sales order number from SAP. Partners now call with those numbers and the order desk finds nothing in VA03. On Monday a developer saw that the app never committed, and added a second Execute BAPI with BAPI_TRANSACTION_COMMIT after the create. The RETURN tables still say the order has been saved, and VA03 is still empty.`,
   start() {
     const s = newPlatform({
       clock: at(1, 8, 30),
       apps: [
         newApp(BAPI_APP, {
           props: { 'sap.applicationServerHost': SAP_HOST, 'sap.systemNumber': '00', 'sap.client': '100', 'sap.username': RFC_USER, 'sap.transaction': 'separate', 'bapi.checkReturn': 'false' },
-          secrets: { 'sap.password': 'Rfc-Harbor-2611' },
+          secrets: { 'sap.password': 'Rfc-Brightmart-2611' },
           store: {},
         }),
       ],
@@ -48,8 +48,8 @@ const lab = {
           t: at(1, 9, 5),
           to: OPS,
           subject: 'Order numbers from the B2B API not in SAP',
-          body: 'Quay Deli sent us order confirmation 12003 from your API and asks for the delivery date. VA03 says the document is not in the database. Pier Cafe has the same problem. We see no B2B order in SAP since Friday. Harbor order desk',
-          source: 'Harbor order desk',
+          body: 'Quay Deli sent us order confirmation 12003 from your API and asks for the delivery date. VA03 says the document is not in the database. Pier Cafe has the same problem. We see no B2B order in SAP since Friday. Brightmart order desk',
+          source: 'Brightmart order desk',
         },
       ],
       sap: sapSystem(at(1, 8, 30)),

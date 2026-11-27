@@ -29,7 +29,7 @@ export const SIZES_MB = [1024, 2048, 3072, 4096, 5120]
 export const MAX_MESSAGE = 256 * 1024
 export const CLAIMS = ['Manage', 'Send', 'Listen']
 export const DLQ = '$DeadLetterQueue'
-export const NAMESPACE = 'harbor-bus'
+export const NAMESPACE = 'brightmart-bus'
 export const hostOf = (ns) => `${ns}.servicebus.windows.net`
 
 // ---------- errors ----------
@@ -121,8 +121,8 @@ export function newNamespace(name, now = 0, extra = {}) {
     name,
     tier: 'Standard',
     location: 'East US',
-    resourceGroup: 'harbor-integration-rg',
-    subscription: 'Harbor Lab',
+    resourceGroup: 'brightmart-integration-rg',
+    subscription: 'Brightmart Lab',
     created: now,
     seq: 0,
     policies: [newPolicy(name, 'RootManageSharedAccessKey', ['Manage', 'Send', 'Listen'])],
@@ -684,7 +684,7 @@ const edit = (state, ns, fn) => {
   fn(n, s.clock ?? 0, s)
   return s
 }
-const logOp = (n, now, op, text, ok = true) => keep(n.log, { t: now, op, text, ok, who: 'you@harbor.lab' }, 80)
+const logOp = (n, now, op, text, ok = true) => keep(n.log, { t: now, op, text, ok, who: 'you@brightmart.lab' }, 80)
 
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,258}[A-Za-z0-9_]$|^[A-Za-z0-9]$/
 const SUB_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,48}[A-Za-z0-9_]$|^[A-Za-z0-9]$/

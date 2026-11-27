@@ -4,7 +4,7 @@ import { app, ask, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { egressOf, enableStaticIps, inCidr, newNetwork, newSpace, newVpn, sendMail, spaceOf, staticIpsOf } from '../platform-network.js'
 import { FLOW, NAME, PARTNER } from './net-static-ip.pkg.js'
 
-const SPACE = 'harbor-ps'
+const SPACE = 'brightmart-ps'
 const CONTACT = 'integration@larkspur-freight.example'
 const PROPS = { 'partner.host': PARTNER, 'partner.path': '/v2/bookings' }
 
@@ -22,14 +22,14 @@ const lab = {
   title: 'The partner who knows only one address',
   minutes: 20,
   scenario:
-    'larkspur-booking-sync posts the freight bookings of Harbor to the booking API of Larkspur Freight every 5 minutes. Larkspur lets in only the addresses on its allowlist, and a month ago Harbor sent them the outbound IP the app had then. It is Tuesday 09:00. At 07:30 a colleague changed a property and pressed Apply Changes. Since then every call gets 403. The app runs in the shared space. The Inbox has the mails.',
+    'larkspur-booking-sync posts the freight bookings of Brightmart to the booking API of Larkspur Freight every 5 minutes. Larkspur lets in only the addresses on its allowlist, and a month ago Brightmart sent them the outbound IP the app had then. It is Tuesday 09:00. At 07:30 a colleague changed a property and pressed Apply Changes. Since then every call gets 403. The app runs in the shared space. The Inbox has the mails.',
   start() {
     const s0 = newPlatform({
       clock: at(1, 6),
       jars: [NAME],
       apps: [newApp(NAME, { props: { ...PROPS, 'bookings.batch': '50' }, store: {}, updated: at(0, 10) })],
       network: newNetwork({
-        spaces: [newSpace(SPACE, { vpns: [newVpn('harbor-dc-vpn', { routes: ['10.20.0.0/16', '10.40.0.0/16'] })], dns: [{ domain: 'corp.harbor.lab', servers: ['10.20.0.53'] }] })],
+        spaces: [newSpace(SPACE, { vpns: [newVpn('brightmart-dc-vpn', { routes: ['10.20.0.0/16', '10.40.0.0/16'] })], dns: [{ domain: 'corp.brightmart.lab', servers: ['10.20.0.53'] }] })],
       }),
     })
     // the address of the app a month ago is what Larkspur allowlisted
@@ -40,21 +40,21 @@ const lab = {
         t: at(0, 10),
         to: OPS,
         subject: 'Larkspur allowlist done',
-        body: `Hello Harbor team. As you asked, ${old} is on the allowlist of ${PARTNER}. Calls from any other address get 403. Changes to the allowlist go through ${CONTACT}. Larkspur Freight integration team`,
+        body: `Hello Brightmart team. As you asked, ${old} is on the allowlist of ${PARTNER}. Calls from any other address get 403. Changes to the allowlist go through ${CONTACT}. Larkspur Freight integration team`,
         source: 'Larkspur Freight',
       },
       {
         t: at(0, 16),
         to: OPS,
-        subject: 'Private space harbor-ps: static IPs',
+        subject: 'Private space brightmart-ps: static IPs',
         body: `Reminder from the network team: apps in the shared space call out from addresses that change. For partners that allowlist us, use the private space ${SPACE}. Its static IPs are not enabled yet; enable them on the Network tab and allowlist every address it shows. Network team`,
-        source: 'Harbor network team',
+        source: 'Brightmart network team',
       },
     )
     let s = until(s0, at(1, 7, 30))
     s = change(s, NAME, { props: { ...PROPS, 'bookings.batch': '100' } })
     s = until(s, at(1, 8, 40))
-    s.mail.push({ t: at(1, 8, 40), to: OPS, subject: 'Bookings missing since 07:30', body: `Hello Harbor team. We have no bookings from you since 07:30. Our gateway refuses your calls with 403 because they come from an address we do not know. Larkspur Freight integration team`, source: 'Larkspur Freight' })
+    s.mail.push({ t: at(1, 8, 40), to: OPS, subject: 'Bookings missing since 07:30', body: `Hello Brightmart team. We have no bookings from you since 07:30. Our gateway refuses your calls with 403 because they come from an address we do not know. Larkspur Freight integration team`, source: 'Larkspur Freight' })
     return until(s, at(1, 9))
   },
   steps: [
@@ -131,7 +131,7 @@ const lab = {
     s = advance(enableStaticIps(s, SPACE), 3 * MINUTE)
     s = deleteApp(s, NAME)
     s = finishDeploys(deployApp(s, { name: NAME, pkg: NAME, jar: `${NAME}-1.0.0-mule-application.jar`, target: SPACE, publicEndpoint: false, replicas: 1, vCores: 0.1, props: { ...PROPS }, secrets: {} }).state)
-    s = sendMail(s, CONTACT, `Static IPs of Harbor for ${PARTNER}`, `Please allowlist ${statics(s).join(' and ')}.`)
+    s = sendMail(s, CONTACT, `Static IPs of Brightmart for ${PARTNER}`, `Please allowlist ${statics(s).join(' and ')}.`)
     return advance(s, 16 * MINUTE)
   },
   answers: { 1: 1, 4: 1, 6: 1 },

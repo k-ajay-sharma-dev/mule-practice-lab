@@ -263,7 +263,7 @@ export function DataCenter({ state, update, go }) {
         <span className="pc-grow" />
         <Btn onClick={() => go({ product: 'Runtime Manager', page: 'Servers' })}>Runtime Manager, Servers</Btn>
       </div>
-      <p className="pc-dim">The Windows servers of Harbor in its own data center, as you see them over Remote Desktop. It is a lab tool and not part of Anypoint.</p>
+      <p className="pc-dim">The Windows servers of Brightmart in its own data center, as you see them over Remote Desktop. It is a lab tool and not part of Anypoint.</p>
       <div className="dc-hosts" role="tablist" aria-label="Servers">
         {servers.map((x) => (
           <button key={x.host} type="button" role="tab" aria-selected={x === server} className={x === server ? 'on' : ''} onClick={() => setHost(x.host)}>

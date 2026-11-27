@@ -37,7 +37,7 @@ const lab = {
           to: OPS,
           subject: 'Shipping labels are slow',
           body: 'Since about 08:00 each label takes around 7 seconds to arrive at the dock printers. Normal is under a second. The carrier says its side is fine. The trucks leave at 11:00, so please look at it this morning.',
-          source: 'Harbor Foods Warehouse',
+          source: 'Brightmart Warehouse',
         },
       ],
     })

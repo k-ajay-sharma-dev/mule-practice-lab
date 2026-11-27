@@ -14,9 +14,9 @@
 //                            policies and role assignments next to the names of the deployed apps.
 //
 // Targets name a place that holds files, the same way everywhere:
-//   'sftp.harbor.lab' (or 'sftp://sftp.harbor.lab')   a server; paths are '/in/a.csv', or relative to the working directory
-//   'blob:harborstore/customer-exports'               a blob container; paths are blob names such as 'daily/a.csv'
-//   'share:harborstore/stock-share'                   a file share; paths are 'in/a.csv'
+//   'sftp.brightmart.lab' (or 'sftp://sftp.brightmart.lab')   a server; paths are '/in/a.csv', or relative to the working directory
+//   'blob:brightmartstore/customer-exports'               a blob container; paths are blob names such as 'daily/a.csv'
+//   'share:brightmartstore/stock-share'                   a file share; paths are 'in/a.csv'
 //
 // In a package (handle, run, consume get ctx from the engine):
 //   const f = ctx.systems.files(target, auth)
@@ -117,7 +117,7 @@ export const isBinary = (p, f) => Boolean(f?.binary ?? isBinaryName(p))
 export const newServerSys = (host, extra = {}) => {
   const protocol = extra.protocol ?? 'SFTP'
   const net = protocol === 'SFTP' ? { hostKey: newHostKey(host) } : { passive: { from: 50000, to: 50100, open: true } }
-  return { host, protocol, port: PORTS[protocol], ip: '10.20.5.20', up: true, banner: protocol === 'SFTP' ? 'SSH-2.0-OpenSSH_9.6' : '220 Harbor FTP service ready', activeBlocked: true, ...net, users: {}, dirs: ['/'], files: {}, log: [], ...extra }
+  return { host, protocol, port: PORTS[protocol], ip: '10.20.5.20', up: true, banner: protocol === 'SFTP' ? 'SSH-2.0-OpenSSH_9.6' : '220 Brightmart FTP service ready', activeBlocked: true, ...net, users: {}, dirs: ['/'], files: {}, log: [], ...extra }
 }
 
 // ---------- host keys ----------
@@ -145,7 +145,7 @@ export const newContainer = (blobs = {}, extra = {}) => ({ access: 'Private', cr
 export const newShare = (files = {}, extra = {}) => ({ quota: 100, tier: 'Transaction optimized', dirs: [''], files, created: 0, ...extra })
 // secrets: { [name]: { versions: [{ id, value, created, enabled, expires?, notBefore?, contentType? }] } }, newest last
 export const newVault = (name, extra = {}) => ({ name, up: true, region: 'East US', model: 'Vault access policy', softDelete: 90, network: { mode: 'All networks', ips: [] }, secrets: {}, access: {}, roles: {}, log: [], ...extra })
-export const newLocal = (extra = {}) => ({ home: 'C:\\Users\\you\\harbor', files: {}, ...extra })
+export const newLocal = (extra = {}) => ({ home: 'C:\\Users\\you\\brightmart', files: {}, ...extra })
 
 // ---------- small helpers ----------
 
@@ -1038,35 +1038,35 @@ export const setVaultModel = (state, vault, model) =>
     logTo(v, now, who0, 'VaultPatch', '', true, `Permission model: ${model}`)
   })
 
-// ---------- the default systems of Harbor, for the open console ----------
+// ---------- the default systems of Brightmart, for the open console ----------
 
 export function defaultSystems(now = DY + 9 * HR) {
   const ago = (ms) => Math.max(0, now - ms)
   const csv = 'sku,warehouse,available\nH-100,DUB-1,24\nH-200,DUB-1,0\nH-300,ROT-2,112\n'
-  const sftp = newServerSys('sftp.harbor.lab', {
+  const sftp = newServerSys('sftp.brightmart.lab', {
     ip: '10.20.5.21',
     users: {
       mule_stock: { password: 'lab', home: '/' },
-      partner_harbor: { key: 'harbor-partner.pem', home: '/partners/harbor-north' },
+      partner_brightmart: { key: 'brightmart-partner.pem', home: '/partners/brightmart-north' },
       auditor: { password: 'Audit-2026', home: '/', readOnly: true },
     },
-    dirs: ['/', '/in', '/archive', '/error', '/out', '/partners', '/partners/harbor-north'],
+    dirs: ['/', '/in', '/archive', '/error', '/out', '/partners', '/partners/brightmart-north'],
     files: {
       '/in/stock-2026-11-03.csv': fileRec(csv, { t: ago(40 * MIN), owner: 'wms' }),
       '/in/stock-2026-11-03-b.csv': fileRec(csv.slice(0, 40), { t: ago(MIN), owner: 'wms', writing: true, rest: csv.slice(40), full: csv.length }),
       '/archive/stock-2026-11-02.csv': fileRec(csv, { t: ago(DY), owner: 'mule_stock' }),
-      '/partners/harbor-north/orders-1102.json': fileRec('[{"orderId":"A-77","qty":4}]', { t: ago(5 * HR), owner: 'partner_harbor' }),
+      '/partners/brightmart-north/orders-1102.json': fileRec('[{"orderId":"A-77","qty":4}]', { t: ago(5 * HR), owner: 'partner_brightmart' }),
     },
   })
-  const ftp = newServerSys('ftp.legacy.harbor.lab', {
+  const ftp = newServerSys('ftp.legacy.brightmart.lab', {
     protocol: 'FTP', ip: '10.20.5.40',
     users: { legacy_pos: { password: 'pos-2026', home: '/export' } },
     dirs: ['/', '/export', '/export/done'],
     files: { '/export/sales_20261102.txt': fileRec('STORE|DATE|TOTAL\n014|20261102|1840.50\n', { t: ago(7 * HR), owner: 'legacy_pos', mode: '-rw-rw-r--' }) },
   })
-  const store = newStorage('harborstore', {
+  const store = newStorage('brightmartstore', {
     containers: {
-      'customer-exports': newContainer({ 'daily/customers-2026-11-02.csv': fileRec('id,name\nC-7,Harbor Deli\n', { t: ago(7 * HR), tier: 'Hot', etag: '"0x8DD1A2B3C4D5E6F"' }) }),
+      'customer-exports': newContainer({ 'daily/customers-2026-11-02.csv': fileRec('id,name\nC-7,Maple Deli\n', { t: ago(7 * HR), tier: 'Hot', etag: '"0x8DD1A2B3C4D5E6F"' }) }),
       invoices: newContainer({
         '2026/10/inv-1001.pdf': fileRec('', { size: 48210, t: ago(30 * DY), tier: 'Cool', etag: '"0x8DD0F1E2D3C4B5A"' }),
         '2025/12/inv-0410.pdf': fileRec('', { size: 51022, t: ago(300 * DY), tier: 'Archive', etag: '"0x8DCF0A1B2C3D4E5"' }),
@@ -1077,11 +1077,11 @@ export function defaultSystems(now = DY + 9 * HR) {
     },
   })
   store.sas = [
-    { id: 'sas-a', name: 'customer-export app', token: `sv=2022-11-02&ss=b&srt=o&sp=rcwl&se=${now + 30 * DY}&spr=https&sig=${hex('harborstore-a', 43)}`, services: 'b', box: 'customer-exports', perms: 'rcwl', start: null, expires: now + 30 * DY, key: 'key1', signedWith: store.keys.key1, created: ago(DY) },
-    { id: 'sas-b', name: 'old partner link', token: `sv=2022-11-02&ss=b&srt=o&sp=rl&se=${ago(2 * DY)}&spr=https&sig=${hex('harborstore-b', 43)}`, services: 'b', box: 'invoices', perms: 'rl', start: null, expires: ago(2 * DY), key: 'key2', signedWith: store.keys.key2, created: ago(20 * DY) },
+    { id: 'sas-a', name: 'customer-export app', token: `sv=2022-11-02&ss=b&srt=o&sp=rcwl&se=${now + 30 * DY}&spr=https&sig=${hex('brightmartstore-a', 43)}`, services: 'b', box: 'customer-exports', perms: 'rcwl', start: null, expires: now + 30 * DY, key: 'key1', signedWith: store.keys.key1, created: ago(DY) },
+    { id: 'sas-b', name: 'old partner link', token: `sv=2022-11-02&ss=b&srt=o&sp=rl&se=${ago(2 * DY)}&spr=https&sig=${hex('brightmartstore-b', 43)}`, services: 'b', box: 'invoices', perms: 'rl', start: null, expires: ago(2 * DY), key: 'key2', signedWith: store.keys.key2, created: ago(20 * DY) },
   ]
-  const kv = newVault('harbor-kv', {
-    access: { 'stock-file-poll': ['get', 'list'], 'orders-nightly-load': ['get'], 'Harbor Platform Admins': ['get', 'list', 'set', 'delete', 'recover', 'backup', 'restore'] },
+  const kv = newVault('brightmart-kv', {
+    access: { 'stock-file-poll': ['get', 'list'], 'orders-nightly-load': ['get'], 'Brightmart Platform Admins': ['get', 'list', 'set', 'delete', 'recover', 'backup', 'restore'] },
   })
   const y = { n: 1 }
   addVersion(y, kv, 'sftp-password', 'old-lab', ago(40 * DY), { contentType: 'password' })
@@ -1094,7 +1094,7 @@ export function defaultSystems(now = DY + 9 * HR) {
     files: {
       'stock-2026-11-04.csv': fileRec(csv, { t: ago(20 * MIN) }),
       'orders-partner.json': fileRec('[{"orderId":"A-78","qty":2}]', { t: ago(3 * HR) }),
-      'harbor-partner.pem': fileRec('-----BEGIN LAB KEY FILE-----\n(practice key file, not a real key)\n-----END LAB KEY FILE-----\n', { t: ago(30 * DY) }),
+      'brightmart-partner.pem': fileRec('-----BEGIN LAB KEY FILE-----\n(practice key file, not a real key)\n-----END LAB KEY FILE-----\n', { t: ago(30 * DY) }),
       'stock-file-poll-1.0.0-mule-application.jar': fileRec('', { size: 184320, t: ago(2 * DY), binary: true }),
     },
     // the client connected to the SFTP server before, so it trusts its host key

@@ -12,7 +12,7 @@ const running = (s) => app(s, NAME)?.status === 'Running'
 const picks = (s) => app(s, NAME)?.store?.picks ?? {}
 const open = (s, id) => Boolean(picks(s)[id]) && !picks(s)[id].cancelled
 const org = (s) => orgOf(s, 'Production')
-const orders = (s) => (org(s)?.records?.Order ?? []).filter((r) => /^W-/.test(r.Harbor_Order_Id__c ?? ''))
+const orders = (s) => (org(s)?.records?.Order ?? []).filter((r) => /^W-/.test(r.Brightmart_Order_Id__c ?? ''))
 const createdIn = (r, from, to) => timeOf(r.CreatedDate) >= from && timeOf(r.CreatedDate) < to
 // the replay ID of the last event before the stop: replaying after it gives back the orders of the gap
 const beforeGap = (s) => {
@@ -30,7 +30,7 @@ const replaySet = (s) => {
 }
 const gapBack = (s) => {
   const gap = orders(s).filter((r) => createdIn(r, STOP, RESTART))
-  return gap.length > 0 && gap.every((r) => open(s, r.Harbor_Order_Id__c))
+  return gap.length > 0 && gap.every((r) => open(s, r.Brightmart_Order_Id__c))
 }
 const safeOk = (s) => running(s) && word(s, 'wms.verifyOrder') === 'true' && word(s, 'wms.idempotent') === 'true'
 
@@ -41,7 +41,7 @@ function salesforce() {
   })
   return newSalesforce({ orgs: { Production: prod, Sandbox: newOrg('Sandbox') } })
 }
-const conn = { 'salesforce.url': 'https://login.salesforce.com/services/Soap/u/61.0', 'salesforce.username': 'mule.integration@harbor.example' }
+const conn = { 'salesforce.url': 'https://login.salesforce.com/services/Soap/u/61.0', 'salesforce.username': 'mule.integration@brightmart.example' }
 const secrets = { 'salesforce.password': 'Hrb-Int-Prod-26', 'salesforce.securityToken': 'labTokenProd7x2' }
 
 const lab = {
@@ -49,7 +49,7 @@ const lab = {
   group: 'Salesforce and SAP',
   title: 'Ghost orders in the warehouse',
   minutes: 30,
-  scenario: `The Apex class HarborOrders saves each web order and publishes the platform event ${EVENT}. ${NAME} listens to ${CHANNEL} and sends a pick request to the warehouse for every event. It is Wednesday 09:00. The warehouse writes that it shipped orders that customer service cannot find in Salesforce, and that some orders from Tuesday afternoon never reached it. ${NAME} was redeployed on Tuesday from 14:00 to 15:00.`,
+  scenario: `The Apex class BrightmartOrders saves each web order and publishes the platform event ${EVENT}. ${NAME} listens to ${CHANNEL} and sends a pick request to the warehouse for every event. It is Wednesday 09:00. The warehouse writes that it shipped orders that customer service cannot find in Salesforce, and that some orders from Tuesday afternoon never reached it. ${NAME} was redeployed on Tuesday from 14:00 to 15:00.`,
   start() {
     let s = newPlatform({
       clock: at(0, 7),
@@ -67,9 +67,9 @@ const lab = {
     s = until(s, RESTART)
     s = finishDeploys(startApp(s, NAME))
     s = until(s, at(2, 8, 40))
-    const ghosts = Object.keys(picks(s)).filter((id) => !orders(s).some((r) => r.Harbor_Order_Id__c === id))
-    const missed = orders(s).filter((r) => !picks(s)[r.Harbor_Order_Id__c]).map((r) => r.Harbor_Order_Id__c)
-    s.mail.push({ t: s.clock, to: OPS, subject: 'Orders we cannot match', body: `We picked and shipped ${ghosts.length} orders that customer service cannot find in Salesforce: ${ghosts.join(', ')}. The customers say their payment was declined. We also got no pick request for ${missed.join(', ')}, and Salesforce shows them as placed on Tuesday afternoon. Harbor warehouse team`, source: 'Harbor warehouse team' })
+    const ghosts = Object.keys(picks(s)).filter((id) => !orders(s).some((r) => r.Brightmart_Order_Id__c === id))
+    const missed = orders(s).filter((r) => !picks(s)[r.Brightmart_Order_Id__c]).map((r) => r.Brightmart_Order_Id__c)
+    s.mail.push({ t: s.clock, to: OPS, subject: 'Orders we cannot match', body: `We picked and shipped ${ghosts.length} orders that customer service cannot find in Salesforce: ${ghosts.join(', ')}. The customers say their payment was declined. We also got no pick request for ${missed.join(', ')}, and Salesforce shows them as placed on Tuesday afternoon. Brightmart warehouse team`, source: 'Brightmart warehouse team' })
     return until(s, at(2, 9))
   },
   steps: [
@@ -106,9 +106,9 @@ const lab = {
     ask(
       'A replay brings back old events',
       'The replay also delivers events the warehouse already has, and the events of declined orders that were published before the fix. What must the listener do?',
-      ['Nothing, a replay skips processed events', 'Treat delivery as at least once: skip an order that already has a pick, and check that the Order exists in Salesforce, by its External ID Harbor_Order_Id__c, before a pick. Cancel the open picks whose Order does not exist', 'Delete the channel and start over', 'Use replay ID -1 for every start'],
+      ['Nothing, a replay skips processed events', 'Treat delivery as at least once: skip an order that already has a pick, and check that the Order exists in Salesforce, by its External ID Brightmart_Order_Id__c, before a pick. Cancel the open picks whose Order does not exist', 'Delete the channel and start over', 'Use replay ID -1 for every start'],
       1,
-      'The event bus gives no exactly once delivery. Make the subscriber idempotent on a business key, here the Order Id. A check against the system of record also protects against events that describe work that never committed. Harbor_Order_Id__c is an External ID, so the lookup is indexed.',
+      'The event bus gives no exactly once delivery. Make the subscriber idempotent on a business key, here the Order Id. A check against the system of record also protects against events that describe work that never committed. Brightmart_Order_Id__c is an External ID, so the lookup is indexed.',
     ),
     {
       title: 'Make the dispatch safe to replay',
@@ -124,7 +124,7 @@ const lab = {
         const st = a.store ?? {}
         const last = a.schedules.find((x) => x.flow === FLOW)?.last
         const list = orders(s)
-        const ok = list.every((r) => open(s, r.Harbor_Order_Id__c)) && Object.keys(picks(s)).every((id) => !open(s, id) || list.some((r) => r.Harbor_Order_Id__c === id))
+        const ok = list.every((r) => open(s, r.Brightmart_Order_Id__c)) && Object.keys(picks(s)).every((id) => !open(s, id) || list.some((r) => r.Brightmart_Order_Id__c === id))
         return ok && s.clock >= a.updated + 10 * MINUTE && st.boot === `${a.config}:${a.started ?? 0}` && Boolean(last?.ok) && !(st.dupPicks ?? []).some((x) => x.t >= a.updated)
       },
     },

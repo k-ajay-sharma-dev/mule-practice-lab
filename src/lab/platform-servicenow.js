@@ -1,11 +1,11 @@
 // ServiceNow: incidents, the Table API, integration users and ACLs, rate limit rules. Pure and import free. Lives in state.servicenow.
-// One instance, harbor.service-now.lab, with the tables incident, sys_user, sys_user_group and cmdb_ci, the history in
+// One instance, brightmart.service-now.lab, with the tables incident, sys_user, sys_user_group and cmdb_ci, the history in
 // sys_audit, the REST transactions and the system log. Apps reach it through ctx.servicenow.table(cfg, method, table,
 // params, body), the way a Mule app calls the Table API with the HTTP Request operation. Screens call the pure actions
 // at the end of this file. The open console holds a { created } placeholder that is filled on first use.
-export const INSTANCE = 'harbor.service-now.lab'
+export const INSTANCE = 'brightmart.service-now.lab'
 export const INSTANCE_URL = `https://${INSTANCE}`
-export const ADMIN_USER = 'harbor.admin'
+export const ADMIN_USER = 'brightmart.admin'
 export const REST_ROLE = 'snc_platform_rest_api_access'
 const MINUTE = 60000
 const HOUR = 60 * MINUTE
@@ -109,18 +109,18 @@ const same = (a, b) => word(a).toLowerCase() === word(b).toLowerCase()
 const stampRec = (y, rec, now, by) => Object.assign(rec, { sys_id: rec.sys_id ?? newId(y), sys_created_on: dt(now), sys_created_by: by, sys_updated_on: dt(now), sys_updated_by: by, sys_mod_count: 0 })
 export function newServicenow(now = 0, extra = {}) {
   const y = { created: now, instance: INSTANCE, n: { id: 0, inc: 10000, iset: 10000 }, tables: { incident: [], sys_user: [], sys_user_group: [], cmdb_ci: [] }, acls: [], rateRules: [], oauth: [], transforms: [], audit: [], tx: [], syslog: [], rate: {}, churn: false }
-  for (const name of GROUP_NAMES) y.tables.sys_user_group.push(stampRec(y, { name, description: `${name} of Harbor`, email: `${name.toLowerCase().replace(/ /g, '-')}@harbor.example` }, now, 'system'))
-  const user = (user_name, first_name, last_name, roles, pw) => y.tables.sys_user.push(stampRec(y, { user_name, first_name, last_name, name: `${first_name} ${last_name}`, email: `${user_name}@harbor.example`, active: true, web_service_access_only: false, internal_integration_user: false, locked_out: false, roles, pw }, now, 'system'))
-  user(ADMIN_USER, 'Harbor', 'Admin', ['admin'], 'Admin-Harbor-2611')
-  user('beth.okafor', 'Beth', 'Okafor', ['itil'], 'Beth-Harbor-2611')
-  user('sam.reyes', 'Sam', 'Reyes', ['itil'], 'Sam-Harbor-2611')
+  for (const name of GROUP_NAMES) y.tables.sys_user_group.push(stampRec(y, { name, description: `${name} of Brightmart`, email: `${name.toLowerCase().replace(/ /g, '-')}@brightmart.example` }, now, 'system'))
+  const user = (user_name, first_name, last_name, roles, pw) => y.tables.sys_user.push(stampRec(y, { user_name, first_name, last_name, name: `${first_name} ${last_name}`, email: `${user_name}@brightmart.example`, active: true, web_service_access_only: false, internal_integration_user: false, locked_out: false, roles, pw }, now, 'system'))
+  user(ADMIN_USER, 'Brightmart', 'Admin', ['admin'], 'Admin-Brightmart-2611')
+  user('beth.okafor', 'Beth', 'Okafor', ['itil'], 'Beth-Brightmart-2611')
+  user('sam.reyes', 'Sam', 'Reyes', ['itil'], 'Sam-Brightmart-2611')
   const g = (name) => groupId(y, name)
   for (const [name, cls, group, location] of [
-    ['WMS-DB-01', 'cmdb_ci_db_mssql_instance', 'Database', 'Harbor DC Dublin'],
-    ['WMS-APP-01', 'cmdb_ci_app_server', 'Warehouse Systems', 'Harbor DC Dublin'],
+    ['WMS-DB-01', 'cmdb_ci_db_mssql_instance', 'Database', 'Brightmart DC Dublin'],
+    ['WMS-APP-01', 'cmdb_ci_app_server', 'Warehouse Systems', 'Brightmart DC Dublin'],
     ['STORE-0042-POS', 'cmdb_ci_computer', 'Store Systems', 'Store 0042 Galway'],
-    ['EDGE-RTR-07', 'cmdb_ci_ip_router', 'Network', 'Harbor DC Dublin'],
-    ['HARBOR-MULE-SBX', 'cmdb_ci_app_server', 'Integration Support', 'CloudHub 2.0'],
+    ['EDGE-RTR-07', 'cmdb_ci_ip_router', 'Network', 'Brightmart DC Dublin'],
+    ['BRIGHTMART-MULE-SBX', 'cmdb_ci_app_server', 'Integration Support', 'CloudHub 2.0'],
   ])
     y.tables.cmdb_ci.push(stampRec(y, { name, sys_class_name: cls, support_group: g(group), operational_status: '1', location }, now, 'system'))
   const acl = (name, operation, roles, description) => y.acls.push({ sys_id: newId(y), type: 'record', name, operation, roles, active: true, description })
@@ -134,7 +134,7 @@ export function newServicenow(now = 0, extra = {}) {
   acl('sys_user', 'read', ['itil', 'user_admin'], 'Fulfillers see users')
   acl('sys_user', 'write', ['user_admin'], 'User admins change users')
   acl('sys_user_group', 'read', ['itil', 'user_admin', 'sn_incident_write'], 'Groups are read by fulfillers and incident writers')
-  y.transforms.push({ sys_id: newId(y), name: 'Harbor alert to incident', source: 'u_harbor_alert_import', target: 'incident', active: true, fields: [{ source: 'u_alert_key', target: 'correlation_id', coalesce: false }, { source: 'u_summary', target: 'short_description', coalesce: false }, { source: 'u_ci', target: 'cmdb_ci', coalesce: false }, { source: 'u_group', target: 'assignment_group', coalesce: false }, { source: 'u_impact', target: 'impact', coalesce: false }] })
+  y.transforms.push({ sys_id: newId(y), name: 'Brightmart alert to incident', source: 'u_brightmart_alert_import', target: 'incident', active: true, fields: [{ source: 'u_alert_key', target: 'correlation_id', coalesce: false }, { source: 'u_summary', target: 'short_description', coalesce: false }, { source: 'u_ci', target: 'cmdb_ci', coalesce: false }, { source: 'u_group', target: 'assignment_group', coalesce: false }, { source: 'u_impact', target: 'impact', coalesce: false }] })
   return Object.assign(y, extra)
 }
 export const isFilled = (y) => Boolean(y?.instance)
@@ -181,7 +181,7 @@ export function addIncident(y, values, now, by = ADMIN_USER) {
   return rec
 }
 export const addUser = (y, { user_name, first_name = '', last_name = '', roles = [], pw = '', web_service_access_only = false, internal_integration_user = false, email }, now, by = ADMIN_USER) => {
-  const rec = stampRec(y, { user_name, first_name, last_name, name: `${first_name} ${last_name}`.trim() || user_name, email: email ?? `${user_name}@harbor.example`, active: true, web_service_access_only, internal_integration_user, locked_out: false, roles: [...roles], pw }, now, by)
+  const rec = stampRec(y, { user_name, first_name, last_name, name: `${first_name} ${last_name}`.trim() || user_name, email: email ?? `${user_name}@brightmart.example`, active: true, web_service_access_only, internal_integration_user, locked_out: false, roles: [...roles], pw }, now, by)
   y.tables.sys_user.push(rec)
   return rec
 }

@@ -56,7 +56,7 @@ export const API_PACKAGE = {
     if (route.error) return { status: route.status, ms: 12, error: route.error, flow: `${app.project}-main`, body: JSON.stringify({ message: route.status === 404 ? 'Resource not found' : 'Method not allowed' }) }
     const wrong = badBody(route.op, req.body)
     if (wrong) return { status: 400, ms: 15, error: 'APIKIT:BAD_REQUEST', flow: route.flow, body: JSON.stringify({ message: 'Bad request' }) }
-    if (props['db.host'] !== 'orders-db.harbor.lab') {
+    if (props['db.host'] !== 'orders-db.brightmart.lab') {
       const error = { message: `Cannot get connection for URL jdbc:sqlserver://${props['db.host']}:1433: The TCP/IP connection to the host has failed.`, type: 'DB:CONNECTIVITY', flow: route.flow, file: app.project, at: 1, name: 'Select orders', dsl: '<db:select doc:name="Select orders" config-ref="Database_Config">' }
       return { status: 500, ms: 10020, error: error.type, flow: route.flow, log: [muleError(error)], body: JSON.stringify({ message: 'Internal server error' }) }
     }
@@ -78,7 +78,7 @@ export const PACKAGES = {
     run: {
       'nightly-load-flow': ({ props }) => {
         const at = { flow: 'nightly-load-flow', file: 'nightly-load', at: 1, name: 'Select orders', dsl: '<db:select doc:name="Select orders" config-ref="SqlServer_Config">' }
-        if (props['db.host'] !== 'sql01.harbor.lab' || props['db.port'] !== '1433')
+        if (props['db.host'] !== 'sql01.brightmart.lab' || props['db.port'] !== '1433')
           return fail({ ...at, type: 'DB:CONNECTIVITY', message: `The TCP/IP connection to the host ${props['db.host']}, port ${props['db.port']} has failed. Error: "Connection refused. Verify the connection properties. Make sure that an instance of SQL Server is running on the host and accepting TCP/IP connections at the port."` }, 10400)
         if (props['db.password'] !== 'Nightly-2026') return fail({ ...at, type: 'DB:CONNECTIVITY', message: `Login failed for user '${props['db.user']}'.` }, 900)
         return { ok: true, ms: 42000, log: [info('Starting nightly-load-flow'), info('Read 1250 orders from SQL Server'), info('Loaded 1250 orders into the warehouse. Job finished.')] }
@@ -160,7 +160,7 @@ export const PACKAGES = {
     schedules: [fixed('replay-dlq-flow', 1, 'days', { enabled: false })],
     consumes: 'queue.name',
     consume: ({ props }, message) =>
-      props['erp.baseUrl'] === 'https://erp.harbor.lab/v2'
+      props['erp.baseUrl'] === 'https://erp.brightmart.lab/v2'
         ? { ok: true, log: [info(`Order ${message.body.match(/O-\d+/)?.[0]} created in the ERP`)] }
         : { ok: false, errorType: 'HTTP:NOT_FOUND', error: { flow: 'order-events-flow', file: 'order-events', at: 2, name: 'Create ERP order', dsl: '<http:request method="POST" doc:name="Create ERP order" config-ref="ERP_Config" path="/orders">', type: 'HTTP:NOT_FOUND', message: `HTTP POST on resource '${props['erp.baseUrl']}/orders' failed: not found (404). Version v1 was retired, use v2.` } },
     run: {
@@ -202,7 +202,7 @@ export const PACKAGES = {
     boot: needs('partner.url'),
     handle({ props }, req) {
       if (!/^\/api\/shipments(\/\w+)?$/.test(`/api${req.path}`.split('?')[0])) return { status: 404, ms: 10, error: 'APIKIT:NOT_FOUND', flow: 'shipments-main', body: '{"message":"Resource not found"}' }
-      if (props['partner.url'] !== 'https://partner.harbor.lab/shipments') {
+      if (props['partner.url'] !== 'https://partner.brightmart.lab/shipments') {
         const error = { flow: 'get:\\shipments', file: 'shipments-eapi', at: 1, name: 'Call partner', dsl: '<http:request method="GET" doc:name="Call partner" config-ref="Partner_Config">', type: 'HTTP:CONNECTIVITY', message: `HTTP GET on resource '${props['partner.url']}' failed: Connection refused.` }
         return { status: 500, ms: 3100, error: error.type, flow: error.flow, log: [muleError(error)], body: '{"message":"Internal server error"}' }
       }

@@ -22,7 +22,7 @@ const MAIL_BAYLINE = {
   t: at(1, 8, 20),
   to: OPS,
   subject: 'Bayline Logistics: our calls to your order API fail',
-  body: 'Hello Harbor Foods, since our go live this morning every call to b2b-orders-papi ends during the TLS handshake. We send our client certificate CN=bayline-orders. It is issued by Bayline Issuing CA G2, which is issued by Bayline Root CA. The chain is attached. Bayline integration team',
+  body: 'Hello Brightmart, since our go live this morning every call to b2b-orders-papi ends during the TLS handshake. We send our client certificate CN=bayline-orders. It is issued by Bayline Issuing CA G2, which is issued by Bayline Root CA. The chain is attached. Bayline integration team',
   source: 'Bayline Logistics',
 }
 const MAIL_TEAM = {
@@ -31,9 +31,9 @@ const MAIL_TEAM = {
   subject: 'b2b-orders-papi and b2b-orders-sapi: stores for mutual TLS',
   body: [
     'The current release of both applications already holds these files:',
-    'partners-2026.jks: harbor-partner-ca and bayline-root-ca. Practice password Partners-Lab-26.',
-    'orders-papi-client.jks: the key orders-papi-client, issued by Harbor Internal CA, and the old key orders-papi-client-2025, issued by a CA we retired. Practice password Papi-Client-26.',
-    'internal-ca.jks: harbor-internal-ca. Practice password Internal-Lab-26.',
+    'partners-2026.jks: brightmart-partner-ca and bayline-root-ca. Practice password Partners-Lab-26.',
+    'orders-papi-client.jks: the key orders-papi-client, issued by Brightmart Internal CA, and the old key orders-papi-client-2025, issued by a CA we retired. Practice password Papi-Client-26.',
+    'internal-ca.jks: brightmart-internal-ca. Practice password Internal-Lab-26.',
     'Reminder from the platform security standard: from this week every call from a Process API to a System API is mutual TLS. b2b-orders-sapi still accepts any client.',
     'Integration team',
   ].join('\n\n'),
@@ -46,7 +46,7 @@ const lab = {
   title: 'Mutual TLS for a partner and between APIs',
   minutes: 16,
   scenario: [
-    `It is 09:00. Partners of Harbor Foods call ${PAPI} with a client certificate, and ${PAPI} gets the order from ${SAPI}.`,
+    `It is 09:00. Partners of Brightmart call ${PAPI} with a client certificate, and ${PAPI} gets the order from ${SAPI}.`,
     'Coastal Grocers works. Bayline Logistics went live this morning and every one of its calls ends during the TLS handshake.',
     `The platform standard also says the hop from ${PAPI} to ${SAPI} must be mutual TLS, and today it is one way.`,
     'The lab has no TLS model, so the applications play the handshake from their properties: the key store, the trust store, their passwords and the key alias. Each client application in Send as stands for a partner with its certificate.',
@@ -80,7 +80,7 @@ const lab = {
       'The WARN line for Bayline Logistics says PKIX path building failed. What does it mean on a listener?',
       ['Bayline sent no certificate', 'Bayline sent a certificate, and no certificate in the trust store partners-2025.jks is in its chain', 'The server certificate of b2b-orders-papi expired', 'The partner has no client ID'],
       1,
-      'The listener asks for a client certificate and checks it against its trust store. The chain of CN=bayline-orders ends in Bayline Root CA, and partners-2025.jks holds only harbor-partner-ca. Coastal Grocers works because Harbor Partner CA issued its certificate.',
+      'The listener asks for a client certificate and checks it against its trust store. The chain of CN=bayline-orders ends in Bayline Root CA, and partners-2025.jks holds only brightmart-partner-ca. Coastal Grocers works because Brightmart Partner CA issued its certificate.',
     ),
     { title: 'Read the mails', how: 'Open the Inbox from the menu. The partner sends its chain and the integration team names the stores that are packed in the release.', done: (s) => Boolean(s.seen.inbox) },
     ask(

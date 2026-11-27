@@ -4,11 +4,11 @@ import { app, ask, sawLogs, until } from '../platform-kit.js'
 import { addShare, createSas, fileRec, makeDir, newShare, newStorage, putFile, sasState, systemsOf } from '../platform-systems.js'
 import { NAME, PICKS, SCAN_HEADER } from './setup-azure-files.pkg.js'
 
-const ACCOUNT = 'harborwarehouse'
+const ACCOUNT = 'brightmartwarehouse'
 const SHARE = 'scanner-files'
 const QUOTA = 50
 const DIRS = ['picks', 'scans', 'errors']
-const ALERT_TO = 'warehouse-it@harbor.example'
+const ALERT_TO = 'warehouse-it@brightmart.example'
 const GOOD = 'scan-dub1-0001.csv'
 const BAD = 'scan-dub1-0002.csv'
 const GOOD_CSV = `${SCAN_HEADER}\nA-01-03,H-100,4\nA-02-11,H-200,1\nC-07-02,H-300,12\n`
@@ -41,7 +41,7 @@ const alerted = (s) => s.monAlerts.some((x) => x.enabled && x.name_ === NAME && 
 
 const MAIL = {
   t: at(1, 8, 25),
-  to: 'ops@harbor.example',
+  to: 'ops@brightmart.example',
   subject: 'File share for the new DUB-1 scanners',
   body: [
     'Hello integration team,',
@@ -63,7 +63,7 @@ const lab = {
   scenario: `It is 09:00 on Tuesday. Warehouse IT rolls out new handheld scanners in DUB-1 that read and write files on an Azure file share. The app ${NAME} is built and its jar is ready. The storage account ${ACCOUNT} exists, but the share, its directories and the SAS do not. Done means the app writes a pick list, reads a scan file, keeps a bad scan file in errors, and failures raise an alert. The Inbox has the request.`,
   start() {
     const store = newStorage(ACCOUNT, { shares: { 'label-printers': newShare({ 'out/labels-0901.zpl': fileRec('^XA^FDH-100^FS^XZ', { t: at(1, 7) }) }, { dirs: ['', 'out'], quota: 10 }) } })
-    const local = { home: 'C:\\Users\\you\\harbor', files: { [GOOD]: fileRec(GOOD_CSV, { t: at(1, 8) }), [BAD]: fileRec(BAD_CSV, { t: at(1, 8) }) } }
+    const local = { home: 'C:\\Users\\you\\brightmart', files: { [GOOD]: fileRec(GOOD_CSV, { t: at(1, 8) }), [BAD]: fileRec(BAD_CSV, { t: at(1, 8) }) } }
     const s = newPlatform({ clock: at(1, 8), jars: [NAME], systems: systemsOf({ storage: [store], local }), mail: [MAIL] })
     return until(s, at(1, 9))
   },

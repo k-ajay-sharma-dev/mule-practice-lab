@@ -1,6 +1,6 @@
 // Azure Service Bus in the style of the Azure portal: the namespace, queues, topics and subscriptions, the entity
 // pages with their counts and Service Bus Explorer, and shared access policies. On the lab engine of
-// platform-servicebus.js. A lab tool with fictional resources of Harbor. The shell and grid are copied from
+// platform-servicebus.js. A lab tool with fictional resources of Brightmart. The shell and grid are copied from
 // AzurePortal.jsx (which does not export them) and use its sy-az styles.
 import { useEffect, useState } from 'react'
 import { dateText, mark, timeText } from '../../lab/platform.js'
@@ -30,7 +30,7 @@ function Shell({ crumbs, children }) {
         <b>Microsoft Azure</b>
         <span className="sy-az-lab">Lab copy</span>
         <input className="sy-az-search" placeholder="Search resources, services, and docs (G+/)" aria-label="Search" />
-        <span className="sy-az-user">you@harbor.lab</span>
+        <span className="sy-az-user">you@brightmart.lab</span>
       </div>
       <nav className="sy-az-crumbs" aria-label="Breadcrumb">
         {crumbs.map(([label, onClick], i) => (

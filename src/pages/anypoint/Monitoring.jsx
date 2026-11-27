@@ -244,7 +244,7 @@ function Alerts({ state, update }) {
 
 function AlertForm({ state, onClose, onSave }) {
   const [step, setStep] = useState(1)
-  const [a, setA] = useState({ title: '', resource: 'Application', name_: '', codes: [500], metric: 'Message Error Count', severity: 'High', operator: 'Above', threshold: 0, minutes: 5, subject: '', message: '', recipients: 'ops@harbor.example' })
+  const [a, setA] = useState({ title: '', resource: 'Application', name_: '', codes: [500], metric: 'Message Error Count', severity: 'High', operator: 'Above', threshold: 0, minutes: 5, subject: '', message: '', recipients: 'ops@brightmart.example' })
   const set = (patch) => setA({ ...a, ...patch })
   const names = a.resource === 'API' ? state.apis.filter((x) => x.env === state.env).map((x) => [x.id, `${x.name} ${x.apiVersion}`]) : state.apps.filter((x) => x.env === state.env).map((x) => [x.name, x.name])
   const errors = { 1: [!a.title.trim() && 'Give the alert a name.', !a.name_ && 'Choose a resource.'], 2: [!(a.minutes >= 1) && 'The number of minutes is 1 or more.'], 3: [!a.recipients.trim() && 'Add a recipient.'] }[step].filter(Boolean)

@@ -4,8 +4,8 @@ import { app, ask, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { addSecret, DAY, emptyMsgraph, guidOf, newRegistration, ORG_URL, regOf, removeSecret, rowsOf, setNotify, TENANT_ID } from '../platform-msgraph.js'
 import { EXPORT } from './graph-secret-expired.pkg.js'
 
-const APP_ID = guidOf('reg:harbor-d365-order-export')
-const ALERT_TO = 'crm-integration@harbor.example'
+const APP_ID = guidOf('reg:brightmart-d365-order-export')
+const ALERT_TO = 'crm-integration@brightmart.example'
 const ARRIVE = at(1, 9)
 const reg = (s) => regOf(s.msgraph, APP_ID)
 const running = (s) => app(s, EXPORT)?.status === 'Running'
@@ -24,9 +24,9 @@ function graph(now) {
   const t0 = at(1, 2) - 180 * DAY
   // the secret was made for 6 months and expired at 02:00 this night
   newRegistration(m, { name: EXPORT, appId: APP_ID, t: t0, secrets: [{ desc: 'mule-prod', start: t0, end: at(1, 2) }] })
-  m.dv.tables.salesorder.keys.push({ name: 'harbor_weborderid_key', cols: ['harbor_weborderid'], status: 'Active', t: t0 })
-  m.dv.roles['Harbor Order Writer'] = { system: false, privs: { salesorder: ['Create', 'Read', 'Write'] } }
-  m.dv.users.push({ id: guidOf(`user:${APP_ID}`), appId: APP_ID, name: EXPORT, roles: ['Harbor Order Writer'], t: t0 })
+  m.dv.tables.salesorder.keys.push({ name: 'brightmart_weborderid_key', cols: ['brightmart_weborderid'], status: 'Active', t: t0 })
+  m.dv.roles['Brightmart Order Writer'] = { system: false, privs: { salesorder: ['Create', 'Read', 'Write'] } }
+  m.dv.users.push({ id: guidOf(`user:${APP_ID}`), appId: APP_ID, name: EXPORT, roles: ['Brightmart Order Writer'], t: t0 })
   return m
 }
 
@@ -35,7 +35,7 @@ const lab = {
   group: 'HR, ITSM and CRM',
   title: 'The Entra client secret expired at night',
   minutes: 20,
-  scenario: `${EXPORT} sends Harbor's web orders to Dynamics 365 every 5 minutes. It signs in to Microsoft Entra ID with a client secret of its app registration. Since 02:00 every run fails and no web order reached Dynamics; the sales team works from the order lists of yesterday. Nobody got a warning. Get the orders flowing again, without downtime next time, and make sure the next expiry is seen weeks ahead.`,
+  scenario: `${EXPORT} sends Brightmart's web orders to Dynamics 365 every 5 minutes. It signs in to Microsoft Entra ID with a client secret of its app registration. Since 02:00 every run fails and no web order reached Dynamics; the sales team works from the order lists of yesterday. Nobody got a warning. Get the orders flowing again, without downtime next time, and make sure the next expiry is seen weeks ahead.`,
   start() {
     const s = newPlatform({
       clock: at(1, 7),
@@ -53,8 +53,8 @@ const lab = {
           t: at(1, 8, 55),
           to: OPS,
           subject: 'No web orders in Dynamics since the night',
-          body: `Hello. Dynamics shows no web order after 01:58. The shop took about 80 orders since then. Please fix it soon, and this time set a warning on the app registration that reaches ${ALERT_TO} at least 30 days before a secret expires. Harbor CRM team`,
-          source: 'Harbor CRM team',
+          body: `Hello. Dynamics shows no web order after 01:58. The shop took about 80 orders since then. Please fix it soon, and this time set a warning on the app registration that reaches ${ALERT_TO} at least 30 days before a secret expires. Brightmart CRM team`,
+          source: 'Brightmart CRM team',
         },
       ],
     })

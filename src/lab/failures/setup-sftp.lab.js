@@ -10,7 +10,7 @@ const HOME = '/partners/brightline'
 const IN = `${HOME}/in`
 const ARCHIVE = `${HOME}/archive`
 const ERROR = `${HOME}/error`
-const ALERT_TO = 'supply-integration@harbor.example'
+const ALERT_TO = 'supply-integration@brightmart.example'
 const GOOD = 'stock-brightline-20261103.csv'
 const BAD = 'stock-brightline-bad.csv'
 const GOOD_CSV = `${HEADER}\nBL-1001,DUB-1,240\nBL-1002,DUB-1,0\nBL-1003,ROT-2,75\nBL-1004,ROT-2,310\n`
@@ -51,7 +51,7 @@ const alerted = (s) => s.monAlerts.some((x) => x.enabled && x.name_ === NAME && 
 
 const MAIL = {
   t: at(1, 8, 40),
-  to: 'ops@harbor.example',
+  to: 'ops@brightmart.example',
   subject: 'Brightline Supply goes live: stock files over SFTP',
   body: [
     'Hello integration team,',
@@ -72,15 +72,15 @@ function systems() {
     ip: '10.20.5.21',
     users: {
       [PARTNER]: { key: 'brightline-upload.pem', home: HOME, readDirs: [IN], writeDirs: [IN] },
-      partner_harbor: { key: 'harbor-partner.pem', home: '/partners/harbor-north' },
+      partner_brightmart: { key: 'brightmart-partner.pem', home: '/partners/brightmart-north' },
     },
-    dirs: ['/', '/partners', HOME, IN, ARCHIVE, ERROR, '/partners/harbor-north', '/partners/harbor-north/in'],
+    dirs: ['/', '/partners', HOME, IN, ARCHIVE, ERROR, '/partners/brightmart-north', '/partners/brightmart-north/in'],
     files: {
       [`${IN}/${GOOD}`]: fileRec(GOOD_CSV, { t: at(1, 8, 30), owner: PARTNER }),
-      '/partners/harbor-north/in/orders-1103.json': fileRec('[{"orderId":"A-79","qty":1}]', { t: at(1, 7), owner: 'partner_harbor' }),
+      '/partners/brightmart-north/in/orders-1103.json': fileRec('[{"orderId":"A-79","qty":1}]', { t: at(1, 7), owner: 'partner_brightmart' }),
     },
   })
-  return systemsOf({ servers: [x], local: { home: 'C:\\Users\\you\\harbor', files: { [BAD]: fileRec(BAD_CSV, { t: at(1, 8, 45) }) } } })
+  return systemsOf({ servers: [x], local: { home: 'C:\\Users\\you\\brightmart', files: { [BAD]: fileRec(BAD_CSV, { t: at(1, 8, 45) }) } } })
 }
 
 const lab = {
@@ -115,7 +115,7 @@ const lab = {
         'The same user as Brightline, so both see the same files',
       ],
       1,
-      `The listener reads a file and moves it, and a move is a write on both folders. Read only would fail at the move with SFTP:ACCESS_DENIED. The home folder keeps the user away from the folders of other partners, and a user of its own means a leaked key of Brightline cannot act as Harbor, and the other way round.`,
+      `The listener reads a file and moves it, and a move is a write on both folders. Read only would fail at the move with SFTP:ACCESS_DENIED. The home folder keeps the user away from the folders of other partners, and a user of its own means a leaked key of Brightline cannot act as Brightmart, and the other way round.`,
     ),
     {
       title: 'Set the folder rights',

@@ -3,7 +3,7 @@
 // the SAP screen.
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const BAPI_APP = 'harbor-b2b-salesorder-bapi'
+export const BAPI_APP = 'brightmart-b2b-salesorder-bapi'
 export const CREATE = 'BAPI_SALESORDER_CREATEFROMDAT2'
 const FLOW = 'post:\\sales-orders'
 const keep = (list, item, n = 40) => [...(list ?? []), item].slice(-n)

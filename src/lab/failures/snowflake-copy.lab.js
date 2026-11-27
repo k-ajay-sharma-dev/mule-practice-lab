@@ -4,8 +4,8 @@ import { app, ask, OPS, sawLogs, until, withProp } from '../platform-kit.js'
 import { ADMIN_USER, addFile, defaultSnowflakeSystem, ETL_PROPS, ETL_SECRETS, rowsOf, runWorksheet, script, unloadedFiles } from '../platform-snowflake.js'
 import { POS_COPY, POS_FLOW, posCsv } from './snowflake-copy.pkg.js'
 
-const TABLE = 'HARBOR_DW.RAW.POS_SALES'
-const STAGE = 'HARBOR_DW.RAW.POS_STAGE'
+const TABLE = 'BRIGHTMART_DW.RAW.POS_SALES'
+const STAGE = 'BRIGHTMART_DW.RAW.POS_STAGE'
 const FILES = [
   ['store_101_20261102.csv', 101, 8, 0],
   ['store_102_20261102.csv', 102, 8, 6],
@@ -22,11 +22,11 @@ function account(now) {
   const x = defaultSnowflakeSystem(now)
   script(
     x,
-    `CREATE TABLE HARBOR_DW.RAW.POS_SALES (RECEIPT_ID VARCHAR(20), STORE VARCHAR(10), SOLD_AT TIMESTAMP_NTZ, SKU VARCHAR(20), QTY NUMBER(6,0), AMOUNT NUMBER(10,2));
-    CREATE FILE FORMAT HARBOR_DW.RAW.CSV_POS TYPE = CSV SKIP_HEADER = 1;
-    CREATE STAGE HARBOR_DW.RAW.POS_STAGE URL = 's3://harbor-pos-exports/sales/' STORAGE_INTEGRATION = HARBOR_S3_INT FILE_FORMAT = (FORMAT_NAME = 'HARBOR_DW.RAW.CSV_POS');
-    GRANT SELECT, INSERT ON TABLE HARBOR_DW.RAW.POS_SALES TO ROLE LOADER; GRANT USAGE ON STAGE HARBOR_DW.RAW.POS_STAGE TO ROLE LOADER;
-    GRANT USAGE ON FILE FORMAT HARBOR_DW.RAW.CSV_POS TO ROLE LOADER;`,
+    `CREATE TABLE BRIGHTMART_DW.RAW.POS_SALES (RECEIPT_ID VARCHAR(20), STORE VARCHAR(10), SOLD_AT TIMESTAMP_NTZ, SKU VARCHAR(20), QTY NUMBER(6,0), AMOUNT NUMBER(10,2));
+    CREATE FILE FORMAT BRIGHTMART_DW.RAW.CSV_POS TYPE = CSV SKIP_HEADER = 1;
+    CREATE STAGE BRIGHTMART_DW.RAW.POS_STAGE URL = 's3://brightmart-pos-exports/sales/' STORAGE_INTEGRATION = BRIGHTMART_S3_INT FILE_FORMAT = (FORMAT_NAME = 'BRIGHTMART_DW.RAW.CSV_POS');
+    GRANT SELECT, INSERT ON TABLE BRIGHTMART_DW.RAW.POS_SALES TO ROLE LOADER; GRANT USAGE ON STAGE BRIGHTMART_DW.RAW.POS_STAGE TO ROLE LOADER;
+    GRANT USAGE ON FILE FORMAT BRIGHTMART_DW.RAW.CSV_POS TO ROLE LOADER;`,
     now,
   )
   // the stores write their files to S3 at the end of the day (lab-made: the files of the external stage live in the lab)
@@ -39,7 +39,7 @@ const lab = {
   group: 'Data and cloud',
   title: 'One bad till line keeps a whole night out of Snowflake',
   minutes: 25,
-  scenario: `The Harbor stores write their till lines of the day to S3, and at 02:00 ${POS_COPY} runs COPY INTO POS_SALES from the external stage @POS_STAGE. This morning POS_SALES has nothing for Monday, and the store dashboards are empty. It is Tuesday 09:00. Find why, load the night without losing a row, and get the one broken line in with the value the store gives you.`,
+  scenario: `The Brightmart stores write their till lines of the day to S3, and at 02:00 ${POS_COPY} runs COPY INTO POS_SALES from the external stage @POS_STAGE. This morning POS_SALES has nothing for Monday, and the store dashboards are empty. It is Tuesday 09:00. Find why, load the night without losing a row, and get the one broken line in with the value the store gives you.`,
   start() {
     let s = newPlatform({ clock: at(1, 1, 50), apps: [newApp(POS_COPY, { props: { ...ETL_PROPS }, secrets: { ...ETL_SECRETS }, store: {} })], snowflake: account(at(0)) })
     s = until(s, at(1, 8, 50))
@@ -47,8 +47,8 @@ const lab = {
       t: at(1, 8, 50),
       to: OPS,
       subject: 'No store sales for Monday in Snowflake',
-      body: 'Hello. POS_SALES has no rows for Monday 2 November, so the store dashboards are empty. We spoke to the stores. Store 102 says the till crashed at 14:05 and one line was written with the amount N/A: receipt R-102-0006, one H-2000, the amount was 12.50. They cannot write the file again today. Please load the night and keep every line. Harbor finance',
-      source: 'Harbor finance',
+      body: 'Hello. POS_SALES has no rows for Monday 2 November, so the store dashboards are empty. We spoke to the stores. Store 102 says the till crashed at 14:05 and one line was written with the amount N/A: receipt R-102-0006, one H-2000, the amount was 12.50. They cannot write the file again today. Please load the night and keep every line. Brightmart finance',
+      source: 'Brightmart finance',
     })
     return until(s, at(1, 9))
   },
@@ -57,7 +57,7 @@ const lab = {
     sawLogs(POS_COPY),
     {
       title: 'Check the files without loading them',
-      how: "Snowflake, Worksheets. With the context HARBOR_DW.RAW run: COPY INTO POS_SALES FROM @POS_STAGE VALIDATION_MODE = RETURN_ERRORS; It parses every file, loads nothing, and returns each bad row with its file, line, column and the whole rejected record.",
+      how: "Snowflake, Worksheets. With the context BRIGHTMART_DW.RAW run: COPY INTO POS_SALES FROM @POS_STAGE VALIDATION_MODE = RETURN_ERRORS; It parses every file, loads nothing, and returns each bad row with its file, line, column and the whole rejected record.",
       done: (s) => adminRan(s, /POS_SALES[\s\S]*VALIDATION_MODE/i),
     },
     ask(

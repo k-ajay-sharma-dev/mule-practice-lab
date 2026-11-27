@@ -8,7 +8,7 @@ import { LED_PACKAGES } from '../platform-led.js'
 // The fields release 1.3.0 of customers-sapi added. All values are fake.
 export const EXTRA_FIELDS = { phone: '+1 555 0100 077', dateOfBirth: '1900-01-01', loyaltyCard: 'HL-0000-0000-0007', creditLimit: 25000 }
 // What the Process API joins for O-1001 when nothing is filtered
-export const SAMPLE_ANSWER = { orderId: 'O-1001', status: 'PACKED', customer: { id: 'C-7', name: 'Harbor Deli', email: 'orders@harbordeli.example', ...EXTRA_FIELDS }, stock: 24 }
+export const SAMPLE_ANSWER = { orderId: 'O-1001', status: 'PACKED', customer: { id: 'C-7', name: 'Maple Deli', email: 'orders@mapledeli.example', ...EXTRA_FIELDS }, stock: 24 }
 
 export const listOf = (value) => String(value ?? '').split(',').map((x) => x.trim()).filter(Boolean)
 

@@ -1,4 +1,4 @@
-// Guided labs on the API-led project of Harbor Foods: design, build, secure, watch, repair, change and promote the layers.
+// Guided labs on the API-led project of Brightmart: design, build, secure, watch, repair, change and promote the layers.
 import {
   addApi, addMonAlert, addTier, advance, apiStatus, appNamed, applyPolicy, at, callApi, createProject, deployApp, eventsOf, finishDeploys, mark, MINUTE, mockCall, pairing, promoteApi, publish, ramlErrors,
   requestAccess, saveProject, setBackend, setContract, startApp, viewMessages,
@@ -39,7 +39,7 @@ const design = {
   group: GROUP,
   title: '1. Read and fix the layers',
   minutes: 12,
-  scenario: 'Harbor Foods built its order project with API-led connectivity: two Experience APIs, one Process API and three System APIs. Read the map of the project. Two applications are not where they belong on it.',
+  scenario: 'Brightmart built its order project with API-led connectivity: two Experience APIs, one Process API and three System APIs. Read the map of the project. Two applications are not where they belong on it.',
   start: () => start(patchApp(patchApp(ledProject(), 'inventory', { props: { [LAYER_PROPERTY]: 'Experience' } }), 'process', { props: { [LAYER_PROPERTY]: '' } })),
   steps: [
     sawMap,
@@ -87,7 +87,7 @@ const buildSystem = {
       title: 'Deploy the application',
       how: `Runtime Manager, Deploy application, name customers-sapi, target Private Space ${PRIVATE_SPACE}, file customers-sapi-1.0.0. Properties, Text view: paste this with your API ID. Then in the Table view add the protected property anypoint.platform.client_secret with the value from API Manager, Environment information.`,
       code: TEMPLATE('customers'),
-      done: (s) => running(s, customers) && propsValue(app(s, customers.app), 'db.host') === 'sql01.harbor.lab',
+      done: (s) => running(s, customers) && propsValue(app(s, customers.app), 'db.host') === 'sql01.brightmart.lab',
     },
     { title: 'Keep it private', how: 'Ingress tab: the public endpoint is off. On a running application use Settings, Ingress, Apply Changes.', done: (s) => isPrivate(s, customers) },
     { title: 'The API is Active', how: 'API Manager shows Active. If not, read the ERROR line in the logs of customers-sapi.', done: (s) => Boolean(sysApi(s)) && apiStatus(s, sysApi(s)) === 'Active' },
@@ -419,7 +419,7 @@ const replace = {
   steps: [
     { title: 'See who depends on Oracle', how: 'Open Visualizer and choose orders-sapi.', done: (s) => Boolean(s.seen[`vis:${orders.app}`]) },
     ask('Plan the change', 'Which applications do you deploy again?', ['All six', 'orders-sapi and order-fulfilment-papi', 'Only orders-sapi'], 2, 'The RAML of the Orders System API does not change, so nothing above it changes.'),
-    { title: 'Deploy release 2.0.0', how: 'Runtime Manager, orders-sapi, Settings. Application File orders-sapi-2.0.0. Set db.host to pg01.harbor.lab, then Apply Changes.', done: (s) => app(s, orders.app).pkg === 'orders-sapi-v2' && propsValue(app(s, orders.app), 'db.host') === 'pg01.harbor.lab' && running(s, orders) },
+    { title: 'Deploy release 2.0.0', how: 'Runtime Manager, orders-sapi, Settings. Application File orders-sapi-2.0.0. Set db.host to pg01.brightmart.lab, then Apply Changes.', done: (s) => app(s, orders.app).pkg === 'orders-sapi-v2' && propsValue(app(s, orders.app), 'db.host') === 'pg01.brightmart.lab' && running(s, orders) },
     { title: 'Call it from the top', how: 'GET /my-orders/O-1001 as Mobile App, 200.', done: (s) => app(s, orders.app).pkg === 'orders-sapi-v2' && called(s, mobile.app, 200) },
     { title: 'Nothing else was touched', how: 'The other applications keep their configuration number. If you changed one, restart the lab.', done: (s) => app(s, orders.app).config > 1 && [mobile, partner, proc, customers, inventory].every((d) => app(s, d.app).config === 1) },
     { title: 'Switch Oracle off', how: 'Open Backends in the menu under Lab tools, Oracle, Stop.', done: (s) => s.backends?.oracle?.up === false },
@@ -430,7 +430,7 @@ const replace = {
   docs: `${CH2}ch2-update-apps`,
   solve(s) {
     let n = mark(s, `vis:${orders.app}`)
-    n = change(n, orders.app, { pkg: 'orders-sapi-v2', jar: 'orders-sapi-2.0.0-mule-application.jar', props: { ...app(n, orders.app).props, 'db.host': 'pg01.harbor.lab' } })
+    n = change(n, orders.app, { pkg: 'orders-sapi-v2', jar: 'orders-sapi-2.0.0-mule-application.jar', props: { ...app(n, orders.app).props, 'db.host': 'pg01.brightmart.lab' } })
     n = getMobile(n).state
     n = setBackend(n, 'oracle', { up: false })
     return advance(getMobile(n).state, 5 * MINUTE)

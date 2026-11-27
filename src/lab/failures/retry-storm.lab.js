@@ -31,7 +31,7 @@ const lab = {
   start() {
     const s = newPlatform({
       clock: at(1, 8),
-      apps: [newApp(NAME, { props: { 'warehouse.db.host': 'wms-ora01.harbor.lab', 'queue.name': QUEUE, 'dlq.name': DLQ, 'retry.max': '50', 'retry.waitMs': '0' } })],
+      apps: [newApp(NAME, { props: { 'warehouse.db.host': 'wms-ora01.brightmart.lab', 'queue.name': QUEUE, 'dlq.name': DLQ, 'retry.max': '50', 'retry.waitMs': '0' } })],
       queues: [
         { name: QUEUE, type: 'Standard queue', dlq: DLQ, attempts: 3, messages: [] },
         { name: DLQ, type: 'Standard queue', dlq: '', attempts: 10, messages: [] },

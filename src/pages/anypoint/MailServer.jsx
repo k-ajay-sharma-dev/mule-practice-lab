@@ -28,7 +28,7 @@ export default function MailServer({ state, update }) {
   const [account, setAccount] = useState(accounts[0] ?? '')
   const acc = y?.accounts?.[account]
 
-  // a save from before the mail server was built holds a placeholder: seed the server of Harbor
+  // a save from before the mail server was built holds a placeholder: seed the server of Brightmart
   useEffect(() => {
     if (y && !y.host) update((s) => ({ ...s, mailServer: defaultMailServer(s.clock) }))
   }, [y, update])
@@ -52,7 +52,7 @@ export default function MailServer({ state, update }) {
     <main className="pc-main ms-app">
       <header className="ms-head">
         <div className="ms-brand">
-          <b>Harbor Webmail</b>
+          <b>Brightmart Webmail</b>
           <span>{y.host}</span>
           <span className={`ms-up ${y.up ? 'on' : 'off'}`}>{y.up ? 'Postfix and Dovecot running' : 'Server stopped'}</span>
         </div>
@@ -249,7 +249,7 @@ function MailView({ state, update, account, acc }) {
 const stripTags = (html) => String(html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 // the raw message, as a mail client shows it. Lab made: the base64 lines are a short sample.
 function sourceOf(m) {
-  const boundary = `----=_Part_${m.uid}_harbor`
+  const boundary = `----=_Part_${m.uid}_brightmart`
   const head = [`Message-ID: ${m.messageId}`, `Date: ${stamp(m.date)} +0000`, `From: ${m.from}`, `To: ${m.to.join(', ')}`, ...(m.cc.length ? [`Cc: ${m.cc.join(', ')}`] : []), `Subject: ${m.subject}`, 'MIME-Version: 1.0']
   if (!m.attachments.length) return [...head, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: quoted-printable', '', m.text].join('\n')
   const parts = m.attachments.map((a) =>
@@ -376,7 +376,7 @@ function NewAccount({ y, update }) {
     <form className="ms-newaccount" onSubmit={(e) => (e.preventDefault(), create())} aria-label="New account">
       <h3>New account</h3>
       <Field label="Address" hint={`A local domain: ${y.domains.join(', ')}`}>
-        <Input value={f.address} onChange={(address) => setF({ ...f, address })} placeholder="name@harbor.example" autoComplete="off" />
+        <Input value={f.address} onChange={(address) => setF({ ...f, address })} placeholder="name@brightmart.example" autoComplete="off" />
       </Field>
       <Field label="Display name">
         <Input value={f.name} onChange={(name) => setF({ ...f, name })} />

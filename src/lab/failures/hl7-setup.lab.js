@@ -92,7 +92,7 @@ const lab = {
     },
     {
       title: 'Send a test registration',
-      how: `On ${IFACE} pick A04 register test patient and press Send test message. Move the clock a minute. The Message log shows the A04 from Epic with ACK AA and the same control ID on the LIS leg, and tab Bayview LIS lists ZZTEST, HARBOR with MRN ${TEST_MRN}.`,
+      how: `On ${IFACE} pick A04 register test patient and press Send test message. Move the clock a minute. The Message log shows the A04 from Epic with ACK AA and the same control ID on the LIS leg, and tab Bayview LIS lists ZZTEST, BRIGHTMART with MRN ${TEST_MRN}.`,
       done: (s) => testOk(s) && Boolean(s.seen['hl7:lis']),
     },
     {

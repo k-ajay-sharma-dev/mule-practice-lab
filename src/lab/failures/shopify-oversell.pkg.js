@@ -1,14 +1,14 @@
 // The sample application of the shopify-oversell lab. Imports only platform-log.js and the import free Shopify engine,
 // so the engine can load it without a cycle.
 //
-// harbor-shp-stock-sync keeps the stock of the Harbor Warehouse that the marketplace channel sells from. It takes the
+// brightmart-shp-stock-sync keeps the stock of the Brightmart Warehouse that the marketplace channel sells from. It takes the
 // inventory_levels/update webhooks of the web store and writes the available quantity of each inventory item.
 // stock.staleCheck is none (the bug: the last webhook to arrive wins) or updated_at (an update older than the one
 // stored is dropped). POST /stock/reconcile reads every level with the Admin GraphQL API.
 import { info, muleError, needs, warn } from '../platform-log.js'
 import { fromIso, headerOf, verifyWebhook, WAREHOUSE } from '../platform-shopify.js'
 
-export const STOCK = 'harbor-shp-stock-sync'
+export const STOCK = 'brightmart-shp-stock-sync'
 export const STOCK_FLOW = 'shopify-webhook-flow'
 export const STOCK_PATH = '/webhooks/inventory'
 const word = (v) => String(v ?? '').trim()

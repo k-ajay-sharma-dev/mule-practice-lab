@@ -844,7 +844,7 @@ export const sendTest = (state, id, kind = 'A04') =>
     const i = ifaceOf(h, id)
     if (!i) return { ok: false, text: `Interface ${id} does not exist.` }
     const ctl = String(h.ctl++)
-    const base = { ctl, t: now, ids: [{ id: TEST_MRN }], name: ['ZZTEST', 'HARBOR'], dob: '19900101', sex: 'U', cls: 'O', loc: ['OPCLIN', '', '', FACILITY], visit: `VT${ctl.slice(-4)}`, admit: dtm(now) }
+    const base = { ctl, t: now, ids: [{ id: TEST_MRN }], name: ['ZZTEST', 'BRIGHTMART'], dob: '19900101', sex: 'U', cls: 'O', loc: ['OPCLIN', '', '', FACILITY], visit: `VT${ctl.slice(-4)}`, admit: dtm(now) }
     const raw =
       kind === 'R01'
         ? oruMessage({ ...base, placer: `ORDT${ctl.slice(-4)}`, filler: `LABT${ctl.slice(-4)}`, tests: [{ code: '2345-7', text: 'Glucose', value: '101', units: 'mg/dL', range: '70-99', flag: 'H' }] })

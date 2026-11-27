@@ -2,7 +2,7 @@
 // purchase orders into orders. Imports only platform-log.js, so the engine can load it without a cycle.
 import { info, muleError, needs, warn } from '../platform-log.js'
 
-export const NAME = 'harbor-edi-order-intake'
+export const NAME = 'brightmart-edi-order-intake'
 export const FLOW = 'edi-order-intake-flow'
 export const PM_FLOW = 'nw-850-in'
 const HOUR = 3600000

@@ -3,7 +3,7 @@
 import { info, muleError, needs, warn } from '../platform-log.js'
 import { awsCfg } from '../platform-aws.js'
 
-export const ARCHIVER = 'harbor-invoice-s3-archiver'
+export const ARCHIVER = 'brightmart-invoice-s3-archiver'
 export const ARCHIVE_FLOW = 'archive-invoices-flow'
 // billing closes two invoices every 5 minutes
 const PER_RUN = 2

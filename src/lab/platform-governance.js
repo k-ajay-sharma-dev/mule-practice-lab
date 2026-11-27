@@ -171,7 +171,7 @@ export function modelOf(raml, parse) {
 // ---------- state ----------
 
 const BASELINE = (now) => ({
-  id: 'gp-1', name: 'Harbor API design baseline', description: 'Design rules for every API of Harbor. Reports only.', criteria: { by: 'all', value: '', lifecycles: ['development', 'stable'] },
+  id: 'gp-1', name: 'Brightmart API design baseline', description: 'Design rules for every API of Brightmart. Reports only.', criteria: { by: 'all', value: '', lifecycles: ['development', 'stable'] },
   rulesets: ['Anypoint Best Practices', 'Required Examples', 'API Documentation Best Practices'], notify: false, recipients: '', block: false, created: now,
 })
 export const defaultGovernance = (now) => ({ created: now, nextId: 2, profiles: [BASELINE(now)] })

@@ -13,9 +13,9 @@ const SECURITY = [OWASP, HTTPS]
 const SCHEME = `securitySchemes:
   oauth_2_0:
     type: OAuth 2.0
-    description: Client credentials issued by the Harbor identity provider
+    description: Client credentials issued by the Brightmart identity provider
     settings:
-      accessTokenUri: https://auth.harbor.lab/oauth2/token
+      accessTokenUri: https://auth.brightmart.lab/oauth2/token
       authorizationGrants: [ client_credentials ]
 securedBy: [ oauth_2_0 ]
 `
@@ -24,7 +24,7 @@ const AUTH = `      401:
       403:
         description: The client may not use this resource
 `
-// one System or Process API of Harbor. Each fails in one way only, so the learner reads one cause per API.
+// one System or Process API of Brightmart. Each fails in one way only, so the learner reads one cause per API.
 const spec = ({ title, about, base, scheme = true, auth = true, resources }) =>
   `#%RAML 1.0
 title: ${title}
@@ -49,18 +49,18 @@ ${auth ? AUTH : ''}      500:
     .join('')}`
 
 const API = {
-  inventory: { assetId: 'inventory-sys-api', name: 'Inventory System API', version: '1.2.0', tags: ['System', 'Inventory'], team: 'Supply Chain team', raml: spec({ title: 'Inventory System API', about: 'Stock on hand in the distribution centers, from the ERP.', base: 'http://inventory-sys.harbor.lab/api/{version}', resources: [['/stock/{sku}', 'Stock of one item', 'get', 'Read the stock of one item', '{ "sku": "H-100", "onHand": 340 }']] }) },
-  suppliers: { assetId: 'suppliers-sys-api', name: 'Suppliers System API', version: '1.0.0', tags: ['System', 'Purchasing'], team: 'Purchasing team', raml: spec({ title: 'Suppliers System API', about: 'Suppliers and their contacts, from the ERP.', base: 'https://suppliers-sys.harbor.lab/api/{version}', scheme: false, resources: [['/suppliers/{supplierId}', 'One supplier', 'get', 'Read one supplier', '{ "supplierId": "SUP-12", "name": "Saltmarsh Supplies" }']] }) },
-  warehouse: { assetId: 'warehouse-sys-api', name: 'Warehouse System API', version: '2.1.0', tags: ['System', 'Logistics'], team: 'Supply Chain team', raml: spec({ title: 'Warehouse System API', about: 'Picking and packing in the warehouse management system.', base: 'https://warehouse-sys.harbor.lab/api/{version}', auth: false, resources: [['/picks/{orderId}', 'The pick list of an order', 'get', 'Read the pick list of an order', '{ "orderId": "O-2001", "lines": 3 }'], ['/packages/{orderId}', 'The packages of an order', 'get', 'Read the packages of an order', '{ "orderId": "O-2001", "packages": 1 }']] }) },
-  payments: { assetId: 'payments-sys-api', name: 'Payments System API', version: '1.4.0', tags: ['System', 'Payments'], team: 'Payments team', raml: spec({ title: 'Payments System API', about: 'Payments with Tidewater Pay, the payment provider.', base: 'https://payments-sys.harbor.lab/api/{version}', resources: [['/payments/{paymentId}', 'One payment', 'get', 'Read one payment', '{ "paymentId": "PAY-9001", "status": "CAPTURED" }']] }) },
-  orders: { assetId: 'orders-prc-api', name: 'Orders Process API', version: '3.0.0', tags: ['Process', 'Orders'], team: 'Order Management team', raml: spec({ title: 'Orders Process API', about: 'Takes an order through payment, stock and shipping.', base: 'http://orders-prc.harbor.lab/api/{version}', resources: [['/orders/{orderId}', 'One order', 'get', 'Read one order with its state', '{ "orderId": "O-2001", "state": "PACKED" }']] }) },
+  inventory: { assetId: 'inventory-sys-api', name: 'Inventory System API', version: '1.2.0', tags: ['System', 'Inventory'], team: 'Supply Chain team', raml: spec({ title: 'Inventory System API', about: 'Stock on hand in the distribution centers, from the ERP.', base: 'http://inventory-sys.brightmart.lab/api/{version}', resources: [['/stock/{sku}', 'Stock of one item', 'get', 'Read the stock of one item', '{ "sku": "H-100", "onHand": 340 }']] }) },
+  suppliers: { assetId: 'suppliers-sys-api', name: 'Suppliers System API', version: '1.0.0', tags: ['System', 'Purchasing'], team: 'Purchasing team', raml: spec({ title: 'Suppliers System API', about: 'Suppliers and their contacts, from the ERP.', base: 'https://suppliers-sys.brightmart.lab/api/{version}', scheme: false, resources: [['/suppliers/{supplierId}', 'One supplier', 'get', 'Read one supplier', '{ "supplierId": "SUP-12", "name": "Saltmarsh Supplies" }']] }) },
+  warehouse: { assetId: 'warehouse-sys-api', name: 'Warehouse System API', version: '2.1.0', tags: ['System', 'Logistics'], team: 'Supply Chain team', raml: spec({ title: 'Warehouse System API', about: 'Picking and packing in the warehouse management system.', base: 'https://warehouse-sys.brightmart.lab/api/{version}', auth: false, resources: [['/picks/{orderId}', 'The pick list of an order', 'get', 'Read the pick list of an order', '{ "orderId": "O-2001", "lines": 3 }'], ['/packages/{orderId}', 'The packages of an order', 'get', 'Read the packages of an order', '{ "orderId": "O-2001", "packages": 1 }']] }) },
+  payments: { assetId: 'payments-sys-api', name: 'Payments System API', version: '1.4.0', tags: ['System', 'Payments'], team: 'Payments team', raml: spec({ title: 'Payments System API', about: 'Payments with Tidewater Pay, the payment provider.', base: 'https://payments-sys.brightmart.lab/api/{version}', resources: [['/payments/{paymentId}', 'One payment', 'get', 'Read one payment', '{ "paymentId": "PAY-9001", "status": "CAPTURED" }']] }) },
+  orders: { assetId: 'orders-prc-api', name: 'Orders Process API', version: '3.0.0', tags: ['Process', 'Orders'], team: 'Order Management team', raml: spec({ title: 'Orders Process API', about: 'Takes an order through payment, stock and shipping.', base: 'http://orders-prc.brightmart.lab/api/{version}', resources: [['/orders/{orderId}', 'One order', 'get', 'Read one order with its state', '{ "orderId": "O-2001", "state": "PACKED" }']] }) },
 }
 const FAILING = [API.inventory, API.suppliers, API.warehouse]
 
 // the fixes a learner can make: https in the baseUri, a security scheme, or the 401 and 403 responses
 const FIXED = {
   'inventory-sys-api': API.inventory.raml.replace('http://inventory-sys', 'https://inventory-sys'),
-  'suppliers-sys-api': spec({ title: 'Suppliers System API', about: 'Suppliers and their contacts, from the ERP.', base: 'https://suppliers-sys.harbor.lab/api/{version}', resources: [['/suppliers/{supplierId}', 'One supplier', 'get', 'Read one supplier', '{ "supplierId": "SUP-12", "name": "Saltmarsh Supplies" }']] }),
+  'suppliers-sys-api': spec({ title: 'Suppliers System API', about: 'Suppliers and their contacts, from the ERP.', base: 'https://suppliers-sys.brightmart.lab/api/{version}', resources: [['/suppliers/{supplierId}', 'One supplier', 'get', 'Read one supplier', '{ "supplierId": "SUP-12", "name": "Saltmarsh Supplies" }']] }),
   'warehouse-sys-api': API.warehouse.raml.replaceAll('      500:\n', `${AUTH}      500:\n`),
 }
 
@@ -83,7 +83,7 @@ const lab = {
   title: 'Security rulesets for every System API',
   minutes: 20,
   scenario:
-    'The architecture team of Harbor wants every System API to follow the security rules before phase 2 opens them to more consumers. Nobody knows how far the specifications in Exchange are from that. Create a governance profile for the System layer with the OWASP and HTTPS rulesets, find the APIs that break it, and fix one of them the way a team would: in Design Center, with a new version.',
+    'The architecture team of Brightmart wants every System API to follow the security rules before phase 2 opens them to more consumers. Nobody knows how far the specifications in Exchange are from that. Create a governance profile for the System layer with the OWASP and HTTPS rulesets, find the APIs that break it, and fix one of them the way a team would: in Design Center, with a new version.',
   start() {
     const t = at(-10, 10)
     return newPlatform({
@@ -91,14 +91,14 @@ const lab = {
       assets: Object.values(API).map((a) => ({ assetId: a.assetId, name: a.name, version: a.version, apiVersion: 'v1', lifecycle: 'stable', raml: a.raml, t, team: a.team, tags: a.tags })),
       projects: Object.values(API).map((a) => ({ id: `p-${a.assetId}`, name: a.name, assetId: a.assetId, updated: t, published: a.version })),
       governance: emptyGovernance(at(1, 9)),
-      mail: [{ t: at(1, 8, 30), to: OPS, subject: 'Security rules for System APIs', body: 'From phase 2 every System API must pass the OWASP API Security Top 10 2019 Checklist and HTTPS Enforcement rulesets. Please set up a profile in API Governance, tell the owners what fails and fix one API as the example for the teams. Send the notifications to architecture@harbor.example.', source: 'Harbor architecture team' }],
+      mail: [{ t: at(1, 8, 30), to: OPS, subject: 'Security rules for System APIs', body: 'From phase 2 every System API must pass the OWASP API Security Top 10 2019 Checklist and HTTPS Enforcement rulesets. Please set up a profile in API Governance, tell the owners what fails and fix one API as the example for the teams. Send the notifications to architecture@brightmart.example.', source: 'Brightmart architecture team' }],
     })
   },
   steps: [
     { title: 'Open API Governance', how: 'Open the menu at the top left and choose API Governance. The Overview counts the APIs by conformance. With no profile every API is Not validated.', done: (s) => Boolean(s.seen['gov:overview']) },
     {
       title: 'Create the profile for the System layer',
-      how: `Profiles, Create profile. Profile name System API security. Under Rulesets tick ${OWASP} and ${HTTPS}. Under Filter criteria set Filter by to Category: API layer and Value to System, and keep the lifecycle states Development and Stable. Tick Send notifications with architecture@harbor.example as the recipient. Create profile.`,
+      how: `Profiles, Create profile. Profile name System API security. Under Rulesets tick ${OWASP} and ${HTTPS}. Under Filter criteria set Filter by to Category: API layer and Value to System, and keep the lifecycle states Development and Stable. Tick Send notifications with architecture@brightmart.example as the recipient. Create profile.`,
       done: (s) => profilesOf(s).some(systemProfile),
     },
     {
@@ -165,7 +165,7 @@ const lab = {
   docs: 'https://docs.mulesoft.com/api-governance/',
   solve(start) {
     let s = mark(start, 'gov:overview')
-    s = createProfile(s, { name: 'System API security', criteria: { by: 'category', value: 'System', lifecycles: ['development', 'stable'] }, rulesets: SECURITY, notify: true, recipients: 'architecture@harbor.example' }, parseRaml).state
+    s = createProfile(s, { name: 'System API security', criteria: { by: 'category', value: 'System', lifecycles: ['development', 'stable'] }, rulesets: SECURITY, notify: true, recipients: 'architecture@brightmart.example' }, parseRaml).state
     for (const a of FAILING) s = mark(s, `gov:api:${a.assetId}`)
     s = saveProject(s, 'p-warehouse-sys-api', FIXED['warehouse-sys-api'])
     s = publish(s, 'p-warehouse-sys-api', { assetId: 'warehouse-sys-api', name: 'Warehouse System API', version: '2.2.0', apiVersion: 'v1', lifecycle: 'stable' }).state

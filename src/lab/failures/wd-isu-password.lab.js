@@ -4,9 +4,9 @@ import { app, ask, change, OPS, sawLogs, until } from '../platform-kit.js'
 import { DOMAINS, editIsu, GROUP_TYPE, newWorkday, setPasswordRules, TENANT, WD_HOST } from '../platform-workday.js'
 import { BADGE, BADGE_FLOW } from './wd-isu-password.pkg.js'
 
-const ISU = 'ISU_HARBOR_BADGE'
+const ISU = 'ISU_BRIGHTMART_BADGE'
 const REPORT = 'INT_Badge_Changes'
-const ALERT_TO = 'facilities-it@harbor.example'
+const ALERT_TO = 'facilities-it@brightmart.example'
 const NEW_PASSWORD = 'Badge-Lab-Pass-1103'
 const START = at(1, 9, 20)
 const a = (s) => app(s, BADGE)
@@ -23,7 +23,7 @@ function workday(now) {
   const y = newWorkday(now)
   // the password of the badge ISU was set 90 days before 06:00 today; the tenant expires passwords after 90 days
   y.isus[ISU] = { password: 'Badge-Lab-Pass-0805', set: at(1, 6) - 90 * DAY, requireNew: false, noUi: true, timeout: 0 }
-  y.groups.ISSG_Harbor_Badge = { type: GROUP_TYPE, members: [ISU], domains: { [DOMAINS.PUBLIC]: ['Get'], [DOMAINS.STAFFING]: ['Get'] } }
+  y.groups.ISSG_Brightmart_Badge = { type: GROUP_TYPE, members: [ISU], domains: { [DOMAINS.PUBLIC]: ['Get'], [DOMAINS.STAFFING]: ['Get'] } }
   y.reports[REPORT] = {
     name: REPORT,
     owner: 'lhart',
@@ -34,7 +34,7 @@ function workday(now) {
       { name: 'Updated_To', field: 'Last_Functionally_Updated', op: 'to' },
     ],
     ws: true,
-    share: ['ISSG_Harbor_Badge'],
+    share: ['ISSG_Brightmart_Badge'],
   }
   y.workers['21006'].upd = at(1, 7, 30)
   return y
@@ -63,8 +63,8 @@ const lab = {
           t: at(1, 9, 10),
           to: OPS,
           subject: 'Badge desk cannot look up anyone',
-          body: `Hello. Since about 6 this morning the badge desk gets "Workday is not available" for every lookup, and the new badges of today were not printed. Please send failures of the badge sync to ${ALERT_TO} in the future. Harbor facilities`,
-          source: 'Harbor facilities',
+          body: `Hello. Since about 6 this morning the badge desk gets "Workday is not available" for every lookup, and the new badges of today were not printed. Please send failures of the badge sync to ${ALERT_TO} in the future. Brightmart facilities`,
+          source: 'Brightmart facilities',
         },
       ],
     })
@@ -96,7 +96,7 @@ const lab = {
     },
     {
       title: 'Exempt the ISU from expiry',
-      how: `Workday, Password rules. Under System Users exempt from password expiration tick ${ISU}, the way ISU_HARBOR_HCM already is, and Save.`,
+      how: `Workday, Password rules. Under System Users exempt from password expiration tick ${ISU}, the way ISU_BRIGHTMART_HCM already is, and Save.`,
       done: exempt,
     },
     {

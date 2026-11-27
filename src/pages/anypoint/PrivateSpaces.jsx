@@ -161,8 +161,8 @@ function MailTool({ state, ips, update }) {
   const contacts = contactsOf(state)
   const [open, setOpen] = useState(false)
   const [to, setTo] = useState(contacts[0]?.contact ?? '')
-  const [subject, setSubject] = useState('Outbound IP addresses of Harbor')
-  const [body, setBody] = useState(`Hello. Please allowlist the outbound addresses of Harbor: ${ips.join(', ')}. Harbor operations team`)
+  const [subject, setSubject] = useState('Outbound IP addresses of Brightmart')
+  const [body, setBody] = useState(`Hello. Please allowlist the outbound addresses of Brightmart: ${ips.join(', ')}. Brightmart operations team`)
   const sent = state.network.outbox ?? []
   return (
     <div className="ps-tool">

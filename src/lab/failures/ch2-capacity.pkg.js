@@ -2,7 +2,7 @@
 import { warn } from '../platform-log.js'
 import { loadOf } from '../platform-capacity.js'
 
-export const DEALS_API = 'harbor-deals-eapi'
+export const DEALS_API = 'brightmart-deals-eapi'
 const MINUTE = 60000
 // lab-made: one call of the lab traffic stands for 60 real requests, so a minute at peak stays a small list of events
 export const SAMPLE = 60
@@ -12,7 +12,7 @@ export const loadAt = (app, calls) => loadOf({ replicas: app.replicas, vCores: a
 
 export const PACKAGES = {
   [DEALS_API]: {
-    note: 'The deals Experience API of the Harbor web shop: GET /deals returns the offers of the day for the home page, with prices from the pricing System API. About 31 ms of CPU per request on one vCore, 8 KB of JSON.',
+    note: 'The deals Experience API of the Brightmart web shop: GET /deals returns the offers of the day for the home page, with prices from the pricing System API. About 31 ms of CPU per request on one vCore, 8 KB of JSON.',
     profile: PROFILE,
     // what the replicas use at this many lab calls a minute, read by the CPU and Memory charts of Runtime Manager
     load: (app, calls) => loadAt(app, calls),
