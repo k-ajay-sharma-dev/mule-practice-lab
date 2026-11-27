@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { assetGroups, callApi, dayText, endpointOf, importSpec, mark, packageJar, setBackend, setStudio, studioFlows } from '../../lab/platform.js'
 import { BACKENDS } from '../../lab/platform-led.js'
+import { ENTERPRISE_BACKENDS } from '../../lab/platform-enterprise-packages.js'
 import { packageOf } from '../../lab/platform-packages.js'
 import { TOKENS } from '../../lab/policies.js'
 import { Btn, Check, Field, Input, Modal, Note, Select, Table } from './parts.jsx'
@@ -202,13 +203,17 @@ export function ApiClient({ state, update }) {
 const SPEEDS = [['', 'Normal'], ['3000', 'Slow, 3 seconds'], ['8000', 'Very slow, 8 seconds']]
 
 export function Backends({ state, update }) {
+  // the systems of the enterprise estate show only where an app uses them (the open console) or a lab changed them,
+  // so a guided lab does not list fifteen systems used by nothing
+  const usedAnywhere = (id) => state.apps.some((a) => packageOf(a.pkg).backend === id) || Boolean(state.backends?.[id])
+  const shown = Object.entries(BACKENDS).filter(([id]) => !(id in ENTERPRISE_BACKENDS) || usedAnywhere(id))
   return (
     <main className="pc-main">
       <h2>Backends</h2>
       <p className="pc-dim">The systems behind the System APIs. Stop one or slow it down, move the clock, and see in Visualizer and Monitoring what happens in the layers above. It is a lab tool and not part of the platform.</p>
       <Table
         heads={['System', 'Used by', 'State', 'Speed', '']}
-        rows={Object.entries(BACKENDS).map(([id, b]) => {
+        rows={shown.map(([id, b]) => {
           const now = { up: true, ms: b.ms, ...state.backends?.[id] }
           const users = state.apps.filter((a) => a.env === state.env && packageOf(a.pkg).backend === id).map((a) => a.name)
           return (

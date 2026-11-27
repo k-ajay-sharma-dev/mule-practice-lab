@@ -11,6 +11,13 @@ import { DataCenter } from './Servers.jsx'
 import KafkaUI from './KafkaUI.jsx'
 import SftpClient from './SftpClient.jsx'
 import { BlobStorage, FileShares, KeyVault } from './AzurePortal.jsx'
+import DbConsole from './DbConsole.jsx'
+import MailServer from './MailServer.jsx'
+import ServiceBus from './ServiceBus.jsx'
+import JmsBroker from './JmsBroker.jsx'
+import PrivateSpaces from './PrivateSpaces.jsx'
+import FlowEditor from './FlowEditor.jsx'
+import BatchMonitor from './BatchMonitor.jsx'
 import Visualizer from './Visualizer.jsx'
 import { Btn } from './parts.jsx'
 import ApiManagerScreen from '../lab/ApiManagerScreen.jsx'
@@ -55,15 +62,22 @@ const PRODUCTS = {
   'Azure Blob Storage': BlobStorage,
   'Azure Files': FileShares,
   'Azure Key Vault': KeyVault,
+  'Databases': DbConsole,
+  'Mail server': MailServer,
+  'Azure Service Bus': ServiceBus,
+  ActiveMQ: JmsBroker,
+  'Private spaces': PrivateSpaces,
+  'Flow editor': FlowEditor,
+  'Batch jobs': BatchMonitor,
   'Policy test bench': drill(ApiManagerScreen, 'Apply policies in order, then send requests and see which policy decides.'),
   'Deployment drill': drill(RuntimeManagerScreen, 'Deploy with properties, scale, read the logs and roll back.'),
   'Exchange versioning': drill(ExchangeScreen, 'Publish versions, change their lifecycle and see which numbers stay reserved.'),
 }
 const MENU = [
   ['APIs', [['Design Center', 'Design, mock and publish API specifications.'], ['Exchange', 'Discover and share assets.'], ['API Manager', 'Manage, secure and watch API instances.']]],
-  ['Runtimes', [['Runtime Manager', 'Deploy and manage applications.'], ['MQ', 'Anypoint MQ: queues, exchanges and client apps.'], ['Monitoring', 'Dashboards, alerts and logs.'], ['Visualizer', 'The map of your applications.']]],
-  ['Systems', [['Kafka', 'Apache Kafka: brokers, topics, consumer groups and schemas.'], ['SFTP and FTP', 'A file transfer client on the SFTP and FTP servers.'], ['Azure Blob Storage', 'Containers, blobs, SAS tokens and access keys.'], ['Azure Files', 'File shares of the storage account.'], ['Azure Key Vault', 'Secrets, versions and access policies.']]],
-  ['Lab tools', [['Anypoint Studio', 'The steps that link an app to an API.'], ['API client', 'Send requests.'], ['Backends', 'Stop or slow a system.'], ['Data center', 'Your Windows servers: files, PowerShell and the link to Anypoint.'], ['Inbox', 'Mail that alerts send.']]],
+  ['Runtimes', [['Runtime Manager', 'Deploy and manage applications.'], ['ActiveMQ', 'Apache ActiveMQ Classic and Artemis brokers for JMS: queues, topics, durable subscribers.'], ['MQ', 'Anypoint MQ: queues, exchanges and client apps.'], ['Batch jobs', 'Batch job instances, steps and failed records.'], ['Private spaces', 'CloudHub 2.0 networking: static IPs, VPN, DNS and firewall.'], ['Monitoring', 'Dashboards, alerts and logs.'], ['Visualizer', 'The map of your applications.']]],
+  ['Systems', [['Kafka', 'Apache Kafka: brokers, topics, consumer groups and schemas.'], ['SFTP and FTP', 'A file transfer client on the SFTP and FTP servers.'], ['Azure Blob Storage', 'Containers, blobs, SAS tokens and access keys.'], ['Azure Files', 'File shares of the storage account.'], ['Azure Key Vault', 'Secrets, versions and access policies.'], ['Azure Service Bus', 'Queues, topics, subscriptions and sessions.'], ['Databases', 'SQL Server and Oracle: query, sessions, locks, plans.'], ['Mail server', 'SMTP and IMAP mailboxes.']]],
+  ['Lab tools', [['Anypoint Studio', 'The steps that link an app to an API.'], ['Flow editor', 'The Mule configuration XML of an app.'], ['API client', 'Send requests.'], ['Backends', 'Stop or slow a system.'], ['Data center', 'Your Windows servers: files, PowerShell and the link to Anypoint.'], ['Inbox', 'Mail that alerts send.']]],
   ['Practice drills', [['Policy test bench', 'Policy order, quotas and the headers a request gets.'], ['Deployment drill', 'Properties, replicas, logs and rollback.'], ['Exchange versioning', 'Versions, lifecycle and reserved numbers.']]],
 ]
 const COLOR = {
@@ -74,6 +88,13 @@ const COLOR = {
   'Azure Blob Storage': '#0078d4',
   'Azure Files': '#0062ad',
   'Azure Key Vault': '#5c2d91',
+  'Azure Service Bus': '#0072c6',
+  ActiveMQ: '#8a3b12',
+  Databases: '#a4262c',
+  'Mail server': '#3a6b35',
+  'Private spaces': '#1f4e79',
+  'Flow editor': '#3d4f6b',
+  'Batch jobs': '#6b4fa3',
   'Exchange versioning': '#0176d3', 'Design Center': '#0b5cab', Exchange: '#0176d3', 'API Manager': '#0b827c', 'Runtime Manager': '#2e5bba', MQ: '#7f56d9', Monitoring: '#1b6fd0', Visualizer: '#0f6e84', Backends: '#8a4b08', 'Data center': '#00539b', 'Anypoint Studio': '#525f7f', 'API client': '#b86e00', Inbox: '#525f7f' }
 const Badge = ({ name }) => (
   <span className="pc-badge" style={{ background: COLOR[name] ?? '#0176d3' }} aria-hidden="true">

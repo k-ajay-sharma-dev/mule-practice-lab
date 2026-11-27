@@ -9,6 +9,13 @@ import { attemptsOf, deliverable, expire } from './platform-mq.js'
 import { packageOf, routeOf } from './platform-packages.js'
 import { systemsCtx } from './platform-systems.js'
 import { kafkaCtx, kafkaTick } from './platform-kafka.js'
+import { dbCtx, dbTick } from './platform-db.js'
+import { mailboxCtx, mailServerTick } from './platform-mailserver.js'
+import { serviceBusCtx, serviceBusTick } from './platform-servicebus.js'
+import { jmsCtx, jmsTick } from './platform-jms.js'
+import { networkCtx, networkTick } from './platform-network.js'
+import { deployProblems, parseMule, problemText } from './platform-xml.js'
+import { addInstance, batchInstanceOf, stopInstance } from './platform-batch.js'
 
 export const MINUTE = 60000
 export const HOUR = 60 * MINUTE
@@ -114,7 +121,26 @@ export const internalOf = (app) => (app.targetType ? `${dcOf(app)}/api` : `https
 export const propsOf = (app) => ({ ...app.props, ...app.secrets })
 // `store` is what the application keeps between runs, such as a watermark. A package says with volatileStore() when
 // that store lives in memory, so a restart or redeploy empties it.
-const ctxOf = (s, app, extra = {}) => ({ app, props: propsOf(app), now: s.clock, store: app.store ?? {}, systems: systemsCtx(s, app), kafka: kafkaCtx(s, app, extra.node), ...extra })
+// every database call of an app is drawn in Visualizer as a link from the app to that database
+const DB_CALLS = ['select', 'insert', 'update', 'delete', 'bulkInsert', 'executeDdl', 'transaction']
+function linkedDb(s, app) {
+  const db = dbCtx(s, app)
+  const out = { ...db }
+  for (const k of DB_CALLS) {
+    if (typeof db[k] !== 'function') continue
+    out[k] = (name, ...rest) => {
+      const r = db[k](name, ...rest)
+      linked(s, app.name, `${name} database`, app.env, r?.ok ? 200 : r?.hung ? 504 : 500, r?.ms ?? 0)
+      return r
+    }
+  }
+  return out
+}
+
+const ctxOf = (s, app, extra = {}) => {
+  const network = networkCtx(s, app)
+  return { app, props: propsOf(app), now: s.clock, store: app.store ?? {}, systems: systemsCtx(s, s.network ? { ...app, outboundIp: network.egress } : app), kafka: kafkaCtx(s, app, extra.node), db: linkedDb(s, app), mailbox: mailboxCtx(s, app), serviceBus: serviceBusCtx(s, app), jms: jmsCtx(s, app), network, xml: app.xml ? parseMule(app.xml) : null, ...extra }
+}
 
 function schedulesOf(pkg, now) {
   return (packageOf(pkg)?.schedules ?? []).map((x) => ({ ...x, at: now + (x.type === 'fixed' ? everyMs(x) : 0), busyUntil: 0, last: null }))
@@ -186,7 +212,10 @@ function runJob(s, app, schedule, manual = false, node) {
   schedule.busyUntil = now + result.ms
   schedule.last = { t: now, ok: result.ok, manual, error: result.errorType ?? null }
   event(s, { k: 'job', app: app.name, env: app.env, fl: schedule.flow, s: result.ok ? 'ok' : 'failed', ms: result.ms, e: result.errorType, n: result.errors ?? (result.ok ? 0 : 1), hp: result.heap })
-  if (result.batch) app.batch = { ...result.batch, t: now }
+  if (result.batch) {
+    app.batch = { ...result.batch, t: now }
+    recordBatch(s, app, batchInstanceOf(result.batch, { app, flow: schedule.flow, now, ms: result.ms, ok: result.ok, taken: app.batches ?? [] }))
+  }
   if (result.store) app.store = { ...app.store, ...result.store }
   if (result.send) for (const body of result.send.bodies) put(s, result.send.queue, body)
   if (result.move) {
@@ -200,6 +229,36 @@ function runJob(s, app, schedule, manual = false, node) {
   }
 }
 const line = (level, text, logger = 'com.mulesoft.cloudhub.runtime') => logLine(level, text, logger)
+
+// ---------- batch job instances ----------
+
+// Batch events live in their own list, so they do not count as messages in the Monitoring metrics
+const MAX_BATCH_EVENTS = 200
+const batchEvent = (s, e) => {
+  s.batchEvents ??= []
+  s.batchEvents.push({ t: s.clock, ...e })
+  if (s.batchEvents.length > MAX_BATCH_EVENTS) s.batchEvents.splice(0, s.batchEvents.length - MAX_BATCH_EVENTS)
+}
+function recordBatch(s, app, inst) {
+  app.batches = addInstance(app.batches, inst)
+  // `end` and `s` are where the instance will finish unless someone stops it
+  batchEvent(s, { k: 'batch', app: app.name, env: app.env, job: inst.job, id: inst.id, end: inst.end, s: inst.status, n: inst.failed })
+}
+// The kept instances of an application, newest first
+export const batchHistory = (s, name, env = s.env) => appNamed(s, name, env)?.batches ?? []
+// Stop of an executing instance from the batch view. `app` is the application or its name.
+export const stopBatch = (state, app, instanceId) =>
+  edit(state, (s) => {
+    const a = appNamed(s, typeof app === 'string' ? app : app?.name, typeof app === 'string' ? s.env : (app?.env ?? s.env))
+    const i = a?.batches?.findIndex((x) => x.id === instanceId) ?? -1
+    const stopped = i >= 0 ? stopInstance(a.batches[i], s.clock) : null
+    if (!stopped) return
+    a.batches[i] = stopped
+    const x = a.schedules.find((y) => y.flow === stopped.flow)
+    if (x && x.busyUntil > s.clock) x.busyUntil = s.clock
+    log(s, a, [info(`Stopping execution of instance '${stopped.id}' of job '${stopped.job}'. Records processed: ${stopped.processed}. Successful records: ${stopped.successful}. Failed records: ${stopped.failed}. ${stopped.total - stopped.processed} records were not processed.`, 'com.mulesoft.mule.runtime.module.batch.engine.DefaultBatchEngine')])
+    batchEvent(s, { k: 'batch-stop', app: a.name, env: a.env, job: stopped.job, id: stopped.id, s: 'STOPPED', n: stopped.failed })
+  })
 
 function put(s, queue, body) {
   const q = s.queues.find((x) => x.name === queue)
@@ -226,7 +285,11 @@ function consumeQueues(s) {
           linked(s, app.name, queue, app.env, 200, 5)
         },
       })
+    const back = []
     for (const m of now) {
+      // a message past its attempts on a queue with no dead letter queue: Anypoint MQ keeps redelivering it until its
+      // TTL ends. The lab gives it one delivery per back off and logs that delivery once (see below).
+      const again = (m.deliveries ?? 0) >= attempts
       let done = false
       while (!done) {
         m.deliveries = (m.deliveries ?? 0) + 1
@@ -238,15 +301,24 @@ function consumeQueues(s) {
           done = true
         } else {
           // the same error ten times would fill the log, so the lab writes the first and the last attempt
-          if (m.deliveries === 1 || m.deliveries >= attempts) log(s, app, [warn(`Message ${m.id}, delivery attempt ${m.deliveries}`), muleError(result.error)])
+          if (again) log(s, app, [warn(`Message ${m.id}, redelivery ${m.deliveries}. The queue ${q.name} has no dead letter queue, so the message comes back until its TTL ends. ${result.errorType ?? result.error?.type ?? 'Error'}: ${result.error?.message ?? 'the flow failed'}`)])
+          else if (m.deliveries === 1 || m.deliveries >= attempts) log(s, app, [warn(`Message ${m.id}, delivery attempt ${m.deliveries}`), muleError(result.error)])
           if (m.deliveries >= attempts) {
             const dlq = s.queues.find((x) => x.name === q.dlq)
             if (dlq) dlq.messages.push({ ...m, from: q.name, t: s.clock })
+            else {
+              // lab made back off: the acknowledgement timeout of the queue, doubled for each redelivery, at most an hour
+              const k = Math.max(0, m.deliveries - attempts)
+              m.lockedUntil = s.clock + Math.min((q.lockTtl ?? 2 * MINUTE) * 2 ** Math.min(k, 5), HOUR)
+              back.push(m)
+            }
             done = true
           }
         }
       }
     }
+    // back at the head of the queue, so a FIFO group keeps its order behind the message
+    if (back.length) q.messages = [...back, ...q.messages]
   }
 }
 
@@ -583,12 +655,48 @@ export function rollbackApp(state, name, config) {
     secrets: h.secrets ?? app.secrets,
     ...(h.autodiscovery && { autodiscovery: h.autodiscovery }),
     ...(h.raml && { raml: h.raml }),
+    ...(h.xml && { xml: h.xml }),
     replicas: app.replicas,
     target: app.target,
     ...(app.targetType && { targetType: app.targetType }),
     rollbackOf: h.config,
     editing: true,
   })
+}
+
+// Flow editor: deploy a new Mule configuration (app.xml). The runtime checks it while the new replica starts; a config
+// that fails is a failed rolling update, so the replicas of the running config keep serving. See lab/platform-xml.js.
+export function deployXml(state, name, xmlText) {
+  const app = appNamed(state, name)
+  if (!app) return { state, errors: [`There is no application ${name} in ${state.env}.`] }
+  if (app.status === 'Starting') return { state, errors: ['A deployment is in progress. Wait until it finishes.'] }
+  const problems = deployProblems(xmlText, propsOf(app))
+  if (!problems.length) {
+    const r = deployApp(state, { name, pkg: app.pkg, replicas: app.replicas, vCores: app.vCores, model: app.model, version: app.version, xml: xmlText, editing: true })
+    if (r.errors.length) return r
+    return { state: edit(finishDeploys(r.state), (s) => void (appNamed(s, name).history.at(-1).xml = xmlText)), errors: [] }
+  }
+  const gone = problems.map(problemText).join('\n')
+  const next = edit(state, (s) => {
+    const a = appNamed(s, name)
+    const failed = nextConfig(a)
+    const running = a.status === 'Running'
+    if (!a.history?.length) a.history = [{ ...historyEntry(a, a.updated), ...(running && { result: 'Applied' }) }]
+    a.history = [...a.history, { ...historyEntry(a, s.clock), config: failed, xml: xmlText, result: 'Failed' }].slice(-20)
+    if (running) log(s, a, [info(`Rolling update: the replicas of config ${a.config} keep serving until config ${failed} is ready.`)])
+    log(s, a, [info(`Starting replica ${replicaName({ ...a, config: failed })}`, 'com.mulesoft.cloudhub.runtime'), info(`Initializing app '${a.name}'`, 'org.mule.runtime.deployment'), line('ERROR', `Failed to deploy artifact [${a.name}]\norg.mule.runtime.deployment.model.api.DeploymentInitException: ConfigurationException: ${gone}`, 'org.mule.runtime.module.deployment')])
+    a.xmlFailed = { config: failed, t: s.clock, problems }
+    if (running) {
+      log(s, a, [line('WARN', `Update failed. Config ${failed} did not start. The replicas of config ${a.config} keep running.`)])
+      a.updateFailed = { config: failed, error: problemText(problems[0]), t: s.clock }
+      deployAlerts(s, a, 'Deployment failure', `Update to config ${failed} failed. ${problemText(problems[0])} Config ${a.config} keeps running.`)
+    } else {
+      Object.assign(a, { config: failed, status: 'Failed', error: problemText(problems[0]), updated: s.clock })
+      deployAlerts(s, a, 'Deployment failure', a.error)
+    }
+    s.clock += 1000
+  })
+  return { state: next, errors: problems.map(problemText) }
 }
 
 // ---------- Object Store ----------
@@ -652,6 +760,11 @@ export function advance(state, ms) {
       expire(s)
       consumeQueues(s)
       if (s.kafka) kafkaTick(s)
+      if (s.databases) dbTick(s)
+      if (s.mailServer) mailServerTick(s)
+      if (s.serviceBus) serviceBusTick(s)
+      if (s.jms) jmsTick(s)
+      if (s.network) networkTick(s)
       checkAlerts(s)
     }
     s.clock = Math.max(end, s.clock)

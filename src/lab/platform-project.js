@@ -5,6 +5,12 @@ import { asset, CLIENTS, creds, OPS, policy, until } from './platform-kit.js'
 import { LAYER_PROPERTY } from './platform-led.js'
 import { defaultSystems } from './platform-systems.js'
 import { harborKafka } from './platform-kafka.js'
+import { defaultDatabases } from './platform-db.js'
+import { defaultMailServer } from './platform-mailserver.js'
+import { defaultServiceBus } from './platform-servicebus.js'
+import { defaultJms } from './platform-jms.js'
+import { defaultNetwork } from './platform-network.js'
+import { addEnterprise, welcomeMail } from './platform-enterprise.js'
 
 export const PRIVATE_SPACE = 'harbor-ps'
 export const internal = (name, env = 'Sandbox') => `https://${name}-lab1a2.internal-${env === 'Sandbox' ? 'sbx' : 'prd'}.usa-e2.cloudhub.example/api`
@@ -177,11 +183,17 @@ export function openConsole() {
   // the SFTP and FTP servers, the storage account and the key vault that the apps of Harbor talk to
   s.systems = defaultSystems(at(1, 9))
   s.kafka = harborKafka(at(1, 9))
+  s.databases = defaultDatabases(at(1, 9))
+  s.mailServer = defaultMailServer(at(1, 9))
+  s.serviceBus = defaultServiceBus(at(1, 9))
+  s.jms = defaultJms(at(1, 9))
+  s.network = defaultNetwork(at(1, 9))
   s.jars.push({ pkg: 'orders-sapi-v2', autodiscovery: jarOf('orders').autodiscovery, jar: 'orders-sapi-2.0.0-mule-application.jar' }, 'orders-nightly-load', 'customer-export', 'stock-file-poll', 'search-eapi')
   const alert = { resource: 'Application', severity: 'High', operator: 'Above', recipients: OPS, minutes: 1 }
   s = addMonAlert(s, { ...alert, title: 'Errors in the process layer', name_: LED.process.app, metric: 'Message Error Count', threshold: 0 })
   s = addMonAlert(s, { ...alert, title: 'Mobile API is slow', name_: LED.mobile.app, metric: 'Average Response Time', threshold: 2000, minutes: 2 })
   s = addMonAlert(s, { ...alert, title: 'Customer export failed', name_: 'customer-export', metric: 'Message Error Count', threshold: 0 })
   for (const key of ['mobile', 'partner']) s.apis.find((a) => a.id === LED[key].id).alerts.push({ id: `led-al-${key}`, enabled: true, state: 'OK', name: 'Policy violations', severity: 'Warning', type: 'Policy Violation', policy: 'Any', atLeast: 3, periods: 1, period: 5, recipients: OPS })
-  return until(s, at(1, 9))
+  // the enterprise estate of Harbor next to the project, and the welcome mail of the integration lead
+  return welcomeMail(until(addEnterprise(s), at(1, 9)))
 }

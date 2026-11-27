@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GUIDED_LABS, labById, runCheck } from '../../lab/labs.js'
 import { GROUPS, PLATFORM_LABS } from '../../lab/platform-labs.js'
 import { PIPELINE_LABS } from '../../lab/pipeline-labs.js'
@@ -12,6 +12,10 @@ import { markLabSolved, mergeSolvedLabs, readSolvedLabs, writeSolvedLabs } from 
 import { useSyncStatus } from '../../sync/status.js'
 import { drillBonus, readDrills } from '../../store/lab-points.js'
 import { noteSolve } from '../../store/solves.js'
+import { beginHideHowOverride, endHideHowOverride, readMysteryGroups, writeMysteryGroups } from './lab-prefs.js'
+import { defaultMysteryGroups, maskLab, pickMystery, recordMystery } from './mystery.js'
+import PostIncident from './Writeup.jsx'
+import WeakTopics from './WeakTopics.jsx'
 
 const PlatformLab = lazy(() => import('../anypoint/PlatformLab.jsx').then((m) => ({ default: m.PlatformLab })))
 
@@ -83,6 +87,45 @@ function DrillPanel({ drills, onStart, onOpen }) {
   )
 }
 
+function MysteryPanel({ groups, onGroups, onStart }) {
+  const count = PLATFORM_LABS.filter((l) => groups.includes(l.group)).length
+  const toggle = (name, on) => onGroups(on ? GROUPS.filter((g) => g === name || groups.includes(g)) : groups.filter((g) => g !== name))
+  return (
+    <section className="lab-drill lab-mystery" aria-label="Mystery incident">
+      <div className="lab-panel-head">
+        <h2>Mystery incident</h2>
+        <button type="button" className="btn btn-primary btn-sm" disabled={count === 0} onClick={onStart}>
+          Mystery incident
+        </button>
+      </div>
+      <p className="muted small">
+        A random lab from the groups you choose opens with its title, its group and the step titles that give the cause away hidden. You see only the symptoms: the scenario, the mail and the logs. Steps still tick off as you work. The lab shows at the end. Labs you have not solved come first.
+      </p>
+      <details className="lab-mystery-groups small">
+        <summary>
+          Groups: {groups.length} of {GROUPS.length} chosen, {count} labs
+        </summary>
+        <fieldset>
+          <legend className="muted">Pick from these groups</legend>
+          {GROUPS.map((name) => (
+            <label key={name}>
+              <input type="checkbox" checked={groups.includes(name)} onChange={(e) => toggle(name, e.target.checked)} /> {name}
+            </label>
+          ))}
+        </fieldset>
+        <div className="lab-actions">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onGroups(defaultMysteryGroups(GROUPS))}>
+            Production failures only
+          </button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onGroups(GROUPS)}>
+            All groups
+          </button>
+        </div>
+      </details>
+    </section>
+  )
+}
+
 const isConfig = (c) =>
   Array.isArray(c?.apps) && Array.isArray(c?.tiers) && Array.isArray(c?.policies) && [...c.policies, ...(c.automated ?? [])].every((p) => policyByType.has(p?.type))
 const isRuntimeState = (s) => Number.isFinite(s?.clock) && Array.isArray(s?.apps)
@@ -150,6 +193,7 @@ export default function GuidedLabsScreen() {
   const [drill, setDrill] = useState(null) // { labId, startedAt }
   const [drills, setDrills] = useState(readDrills)
   function startDrill() {
+    setMystery(null)
     const pool = PLATFORM_LABS.filter((l) => DRILL_GROUPS.includes(l.group) && l.id !== labId)
     const fresh = pool.filter((l) => !readSolvedLabs()[l.id])
     const from = fresh.length ? fresh : pool
@@ -160,8 +204,48 @@ export default function GuidedLabsScreen() {
   }
   const openLab = (id) => {
     setDrill(null)
+    setMystery(null)
     setLabId(id)
   }
+
+  // a mystery incident: a random console lab from the chosen groups, shown masked until it is solved or revealed
+  const [mystery, setMystery] = useState(null) // { labId, runId, end: null | 'solved' | 'revealed' }
+  const [mysteryGroups, setMysteryGroups] = useState(() => readMysteryGroups(defaultMysteryGroups(GROUPS)).filter((g) => GROUPS.includes(g)))
+  const chooseGroups = (groups) => {
+    setMysteryGroups(groups)
+    writeMysteryGroups(groups)
+  }
+  function startMystery() {
+    const picked = pickMystery(PLATFORM_LABS, mysteryGroups, readSolvedLabs(), labId)
+    if (!picked) return
+    setDrill(null)
+    setMystery({ labId: picked.id, runId: Date.now(), end: null })
+    setLabId(picked.id)
+  }
+  const solving = mystery?.labId === labId ? mystery : null
+  const revealed = useRef(false)
+  revealed.current = Boolean(solving?.end)
+  const masked = useMemo(() => (solving && lab ? maskLab(lab, () => revealed.current, solving.runId) : null), [lab, solving?.runId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // the how text stays hidden while the mystery is open; the saved setting comes back after
+  useEffect(() => {
+    if (!solving || solving.end) return undefined
+    beginHideHowOverride(true)
+    return endHideHowOverride
+  }, [solving?.runId, solving?.end]) // eslint-disable-line react-hooks/exhaustive-deps
+  // the record is written outside the state updater, which React may run twice
+  const mysteryNow = useRef(null)
+  mysteryNow.current = mystery
+  const endMystery = useCallback((end) => {
+    const m = mysteryNow.current
+    if (!m || m.end) return
+    recordMystery(m.labId, end)
+    mysteryNow.current = { ...m, end }
+    setMystery(mysteryNow.current)
+  }, [])
+  const onMysterySolved = useCallback(() => {
+    markSolved()
+    endMystery('solved')
+  }, [markSolved, endMystery])
   useEffect(() => {
     if (!labId) setDrills(readDrills())
   }, [labId])
@@ -178,6 +262,8 @@ export default function GuidedLabsScreen() {
           {solvedCount} of {ALL.length} solved. The first {GROUPS.length} groups run in the Anypoint console and the CI/CD labs run on a GitHub Actions page, with steps that tick off as you work.
         </p>
         <DrillPanel drills={drills} onStart={startDrill} onOpen={openLab} />
+        <MysteryPanel groups={mysteryGroups} onGroups={chooseGroups} onStart={startMystery} />
+        <WeakTopics sections={SECTIONS} solved={progress.solved} onOpen={openLab} />
         {SECTIONS.map(([name, labs]) => (
           <section key={name} aria-label={name}>
             <div className="lab-panel-head">
@@ -188,7 +274,7 @@ export default function GuidedLabsScreen() {
             </div>
             <div className="lab-cards">
               {labs.map((l) => (
-                <button key={l.id} type="button" className="lab-card" onClick={() => openLab(l.id)}>
+                <button type="button" key={l.id} type="button" className="lab-card" onClick={() => openLab(l.id)}>
                   <b>{l.title}</b>
                   <span className="muted small">{l.scenario}</span>
                   <span className="lab-card-foot small">
@@ -211,7 +297,18 @@ export default function GuidedLabsScreen() {
           ← All labs
         </button>
         <span className="lab-grow" />
-        {drilling ? (
+        {solving ? (
+          <>
+            {!solving.end && (
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => endMystery('revealed')}>
+                Show which lab it was
+              </button>
+            )}
+            <button type="button" className="btn btn-sm btn-ghost" onClick={startMystery}>
+              Another mystery
+            </button>
+          </>
+        ) : drilling ? (
           <button type="button" className="btn btn-sm btn-ghost" onClick={startDrill}>
             Another drill
           </button>
@@ -226,15 +323,28 @@ export default function GuidedLabsScreen() {
           </>
         )}
       </div>
+      {solving && (
+        <div className={`lab-mystery-bar small${solving.end ? ' ended' : ''}`} role="status">
+          {solving.end ? (
+            <>
+              <b>{solving.end === 'solved' ? 'Solved. ' : ''}It was: {lab.title}</b> <span className="muted">({lab.group})</span>
+            </>
+          ) : (
+            <>
+              <b>Mystery incident.</b> The lab and its cause are hidden. Work from the scenario, the mail and the logs. The how text is hidden too. Open it on a step if you need it.
+            </>
+          )}
+        </div>
+      )}
       {pipelineIds.has(labId) ? (
         <PipelineScreen key={labId} guided={lab} solved={Boolean(progress.solved[labId])} onSolved={markSolved} />
       ) : platformIds.has(labId) ? (
         <Suspense fallback={<p className="muted">Loading the console…</p>}>
           <PlatformLab
-            key={drilling ? `drill-${drilling.startedAt}` : labId}
-            lab={lab}
-            solved={Boolean(progress.solved[labId])}
-            onSolved={markSolved}
+            key={solving ? `mystery-${solving.runId}` : drilling ? `drill-${drilling.startedAt}` : labId}
+            lab={masked ?? lab}
+            solved={solving ? solving.end === 'solved' || (solving.end === 'revealed' && Boolean(progress.solved[labId])) : Boolean(progress.solved[labId])}
+            onSolved={solving ? onMysterySolved : markSolved}
             drill={drilling}
             onNewDrill={startDrill}
           />
@@ -250,6 +360,7 @@ export default function GuidedLabsScreen() {
           onRestart={restart}
         />
       )}
+      {progress.solved[labId] && (!solving || solving.end) && <PostIncident key={labId} lab={lab} />}
     </div>
   )
 }
@@ -293,7 +404,7 @@ function LabWorkspace({ lab, config, solved, onChange, onSolved, onRestart }) {
     <section className="lab-panel" aria-label={lab.title}>
       <div className="lab-panel-head">
         <h2>{lab.title}</h2>
-        <button className="btn btn-sm btn-ghost" onClick={restart}>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={restart}>
           Restart this lab
         </button>
       </div>
@@ -321,7 +432,7 @@ function LabWorkspace({ lab, config, solved, onChange, onSolved, onRestart }) {
               ['tiers', `SLA Tiers (${config.tiers.length})`],
               ['nodes', `Nodes (${topologyOf(config).nodes})`],
             ].map(([key, label]) => (
-              <button key={key} role="tab" aria-selected={tab === key} className={`lab-tab${tab === key ? ' active' : ''}`} onClick={() => setTab(key)}>
+              <button type="button" key={key} role="tab" aria-selected={tab === key} className={`lab-tab${tab === key ? ' active' : ''}`} onClick={() => setTab(key)}>
                 {label}
               </button>
             ))}
@@ -341,16 +452,16 @@ function LabWorkspace({ lab, config, solved, onChange, onSolved, onRestart }) {
       )}
 
       <div className="lab-actions">
-        <button className="btn btn-primary" onClick={check}>
+        <button type="button" className="btn btn-primary" onClick={check}>
           Check my work
         </button>
         {hints < lab.hints.length && (
-          <button className="btn btn-ghost" onClick={() => setHints(hints + 1)}>
+          <button type="button" className="btn btn-ghost" onClick={() => setHints(hints + 1)}>
             Show a hint
           </button>
         )}
         {hints === lab.hints.length && !showSolution && (
-          <button className="btn btn-ghost" onClick={() => setShowSolution(true)}>
+          <button type="button" className="btn btn-ghost" onClick={() => setShowSolution(true)}>
             Show the solution
           </button>
         )}

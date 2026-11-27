@@ -13,7 +13,8 @@ export default function Exchange({ state, update, place, go }) {
 function Home({ groups, state, go, place }) {
   const [term, setTerm] = useState('')
   const page = place.page ?? 'Harbor Lab'
-  const shown = groups.filter((g) => g[0].name.toLowerCase().includes(term.toLowerCase()))
+  // the search reads the name, the asset ID, the owner team and the tags, so "orders", "Process" or "Payments team" all find something
+  const shown = groups.filter((g) => [g[0].name, g[0].assetId, g[0].team, ...(g[0].tags ?? [])].join(' ').toLowerCase().includes(term.toLowerCase()))
   return (
     <>
       <SideNav items={[['Harbor Lab', 'Harbor Lab'], ['Shared', 'Shared with me', true], null, ['My applications', 'My applications'], ['Public', 'Public portal', true]]} value={page} onPick={(p) => go({ page: p })} />
@@ -35,7 +36,7 @@ function Home({ groups, state, go, place }) {
                 <button key={g[0].assetId} type="button" onClick={() => go({ asset: g[0].assetId })}>
                   <span className="pc-asset-icon">REST</span>
                   <b>{g[0].name}</b>
-                  <small>REST API</small>
+                  <small>REST API{g[0].tags?.length ? `, ${g[0].tags.join(', ')}` : ''}</small>
                   <small>
                     {g[0].version}, {g[0].lifecycle}
                   </small>
@@ -91,12 +92,18 @@ function Asset({ group, state, update, go }) {
         {page === 'Home' && (
           <>
             <p>{String(parseRaml(asset.raml).model?.root.description ?? 'No description yet.')}</p>
+            {asset.team && (
+              <p className="pc-dim">
+                Owner: {asset.team}. Tags: {(asset.tags ?? []).join(', ')}.
+              </p>
+            )}
             <Note>Other teams find the API here. They read the specification, try it and request access to an instance.</Note>
           </>
         )}
         {page === 'Summary' && <pre className="pc-pre">{asset.raml}</pre>}
         {page === 'Endpoints' && <Table heads={['Resource', 'Methods']} rows={resources.map((r) => <tr key={r.path}><td className="pc-mono">{r.path}</td><td>{Object.keys(r.methods).map((m) => <span key={m} className={`pc-method pc-m-${m}`}>{m.toUpperCase()}</span>)}</td></tr>)} />}
-        {page === 'API instances' && <Table heads={['Environment', 'Instance', 'Status']} empty="No API instances. Create one in API Manager." rows={instances.map((a) => <tr key={a.id}><td>{a.env}</td><td><Link onClick={() => go({ product: 'API Manager', api: a.id, env: a.env })}>{a.label || a.id}</Link></td><td><Dot status={apiStatus(state, a)} /></td></tr>)} />}
+        {/* every version of the asset, with the client applications that hold a contract: who still uses v1 */}
+        {page === 'API instances' && <Table heads={['Environment', 'Instance', 'Version', 'Status', 'Client applications']} empty="No API instances. Create one in API Manager." rows={state.apis.filter((a) => a.assetId === asset.assetId).map((a) => <tr key={a.id}><td>{a.env}</td><td><Link onClick={() => go({ product: 'API Manager', api: a.id, env: a.env })}>{a.label || a.id}</Link></td><td>{a.version}, {a.apiVersion}</td><td><Dot status={apiStatus(state, a)} /></td><td>{(a.contracts ?? []).map((c) => (c.status === 'approved' ? c.client : `${c.client} (${c.status})`)).join(', ') || 'None'}</td></tr>)} />}
       </main>
       {asking && <Access instances={instances} state={state} update={update} onClose={() => setAsking(false)} />}
       {managing && <Versions group={group} state={state} update={update} onClose={() => setManaging(false)} />}

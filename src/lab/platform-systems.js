@@ -26,6 +26,23 @@
 //        changes fails with kind 'being-written'. Without it a file that is still written is read as it is (partial: true).
 //   f.write(path, content, { overwrite, mode: 'OVERWRITE'|'APPEND'|'CREATE_NEW' }?) -> { ok, size }
 //   f.move(from, to, { overwrite, createParent }?) (a target that ends with / must be a folder) -> { ok, path }  f.remove(path) -> { ok }  f.stat(path) -> { ok, file }  f.mkdir(path) -> { ok }
+//   More auth fields for a server:
+//     passive: true (default) or false, for FTP and FTPS. Active mode makes the server open the data connection back
+//       to the client: from a CloudHub app that fails when the server has activeBlocked (the default), with
+//       kind 'data-timeout' and FTP:CONNECTIVITY. Passive needs server.passive.open (the firewall of the server lets
+//       the passive port range in). list, read and write use a data connection; stat, move, remove and mkdir do not.
+//     transferMode: 'BINARY' (default) | 'ASCII' | 'AUTO' (AUTO is FileZilla: ASCII for known text extensions), FTP only.
+//       ASCII converts line endings to the receiver's: the lab server is Unix, apps run on Linux, the client computer
+//       is Windows. An ASCII copy of a binary file (zip, pdf, xlsx...) comes out damaged: read() then returns
+//       corrupt: true and parseError, the error a reader of that file gives (a package fails with it).
+//     knownHosts: the known_hosts of the client for SFTP ('host ssh-ed25519 AAAA...' lines, an array of them, or
+//       { host: publicKey }). Given, the host key of the server must be in it: kind 'host-key-unknown' (reject HostKey)
+//       or 'host-key-changed' (HostKey has been changed), SFTP:CONNECTIVITY. Not given, the key is not checked, like
+//       the SFTP connector without knownHostsFile.
+//   read() also returns binary (true for a binary file). A user with locked: true cannot log in (the same error as a
+//   wrong password, the server log says why). Folder rights of a user: readDirs and writeDirs (lists of folders, each
+//   with what is under it). Missing means no limit; readOnly still denies every write. write, move, remove and mkdir
+//   need writeDirs; list, read and stat need readDirs (a folder on the way to one is listed with only that way shown).
 //   ctx.systems.secret(vault, name, version?, { principal }?) -> { ok, value, version, contentType, expired, notYet }
 //   ctx.systems.vault(vault, { principal }?) -> { get(name, version?), list(), set(name, value, { contentType, expires }?) }
 //   The principal defaults to the app name, which is how the lab names the app's managed identity or service principal.
@@ -33,6 +50,7 @@
 // Every failed call returns { ok: false, kind, error, type?, status?, code? }:
 //   kind: 'unknown-system' | 'connection-refused' | 'auth-failed' | 'no-auth' | 'sas-expired' | 'permission-denied'
 //         | 'network-blocked' | 'not-found' | 'already-exists' | 'is-directory' | 'being-written' | 'archived' | 'disabled'
+//         | 'data-timeout' | 'host-key-unknown' | 'host-key-changed'
 //   type: the Mule error type for SFTP and FTP (SFTP:CONNECTIVITY, SFTP:ACCESS_DENIED, SFTP:ILLEGAL_PATH (a path that
 //         is not there, or a folder), SFTP:FILE_DOESNT_EXIST (a write whose folder is missing), SFTP:FILE_ALREADY_EXISTS;
 //         FTP: and FTPS: the same), or null
@@ -41,6 +59,13 @@
 //
 // UI actions: pure, (state, ...) => new state. See the section "UI actions" below.
 // Seen keys a screen marks: `sftp:${host}`, `blob:${account}`, `share:${account}`, `vault:${name}`.
+//
+// Server fields beyond users and files: activeBlocked (default true: the server cannot open a data connection back to
+// a CloudHub app; the client computer and the company's own servers are not blocked, lab made), passive
+// { from, to, open } for FTP and FTPS, hostKey { type, pub } for SFTP (fingerprint(pub) gives the SHA256 text,
+// knownHostsLine(host, server) the known_hosts line). The client computer keeps trusted keys in
+// systems.local.knownHosts { host: pub }. Server admin actions: addServerUser, setServerUser, lockServerUser,
+// setUserPassword, setUserKey, newUserKey, setServerSettings, regenerateHostKey, trustHostKey.
 
 // a firewall rule is one address or a CIDR range such as 203.0.113.0/24
 const inRange = (ip, rule) => {
@@ -73,13 +98,40 @@ export const systemsOf = ({ servers = [], storage = [], vaults = [], ...extra } 
 
 // A file. `writing` is true while an upload is still going on: `content` and `size` are what is there so far and
 // `rest` and `full` are what the finished file will have (finishWrite completes it).
+// extra.binary marks a binary file (zip, pdf, xlsx...); without it the name decides (isBinaryName). A binary file
+// usually has content '' and a size. corrupt: true marks a copy damaged by an ASCII transfer.
 export const fileRec = (content = '', extra = {}) => ({ size: extra.size ?? content.length, t: 0, content, owner: 'root', mode: '-rw-r--r--', ...extra })
+export const BINARY_EXT = ['zip', 'gz', 'tgz', '7z', 'jar', 'pdf', 'xlsx', 'xls', 'docx', 'doc', 'pptx', 'png', 'jpg', 'jpeg', 'gif', 'tif', 'bin', 'exe', 'parquet', 'avro']
+// the text extensions of FileZilla's Auto transfer type that matter in the lab (FileZilla's list is longer; it has no csv)
+export const ASCII_EXT = ['txt', 'xml', 'htm', 'html', 'sql', 'sh', 'bat', 'conf', 'properties', 'js', 'css', 'java', 'py']
+const extOf = (p) => (String(p).includes('.') ? String(p).split('.').pop().toLowerCase() : '')
+export const isBinaryName = (p) => BINARY_EXT.includes(extOf(p))
+export const isBinary = (p, f) => Boolean(f?.binary ?? isBinaryName(p))
 
-// users: { [name]: { password?, key?, home, readOnly? } }. `key` is the name of the identity file that matches the
-// public key the server has for this user (lab made: real servers compare keys, the lab compares names).
+// users: { [name]: { password?, key?, home, readOnly?, locked?, readDirs?, writeDirs? } }. `key` is the name of the
+// identity file that matches the public key the server has for this user (lab made: real servers compare keys, the
+// lab compares names).
 export const newServerSys = (host, extra = {}) => {
   const protocol = extra.protocol ?? 'SFTP'
-  return { host, protocol, port: PORTS[protocol], ip: '10.20.5.20', up: true, banner: protocol === 'SFTP' ? 'SSH-2.0-OpenSSH_9.6' : '220 Harbor FTP service ready', users: {}, dirs: ['/'], files: {}, log: [], ...extra }
+  const net = protocol === 'SFTP' ? { hostKey: newHostKey(host) } : { passive: { from: 50000, to: 50100, open: true } }
+  return { host, protocol, port: PORTS[protocol], ip: '10.20.5.20', up: true, banner: protocol === 'SFTP' ? 'SSH-2.0-OpenSSH_9.6' : '220 Harbor FTP service ready', activeBlocked: true, ...net, users: {}, dirs: ['/'], files: {}, log: [], ...extra }
+}
+
+// ---------- host keys ----------
+
+// Lab made keys: a real ed25519 public key is 68 base64 characters that start with AAAAC3NzaC1lZDI1NTE5AAAAI, and the
+// fingerprint is the SHA256 of the key in base64. The lab makes both from a seed, so they look the same.
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+const b64ish = (h) => h.match(/../g).map((x) => B64[parseInt(x, 16) % 64]).join('')
+export const newHostKey = (seed) => ({ type: 'ssh-ed25519', pub: `AAAAC3NzaC1lZDI1NTE5AAAAI${b64ish(hex(`hostkey/${seed}`, 86))}` })
+export const fingerprint = (pub) => `SHA256:${b64ish(hex(`fp/${pub}`, 86))}`
+export const knownHostsLine = (host, x) => (x?.hostKey ? `${host} ${x.hostKey.type} ${x.hostKey.pub}` : '')
+// known_hosts as lines, a list of lines, or { host: pub }: the public keys it has for a host (and [host]:port)
+export function knownKeys(known, host, port = 22) {
+  if (known && typeof known === 'object' && !Array.isArray(known)) return known[host] ? [known[host]] : []
+  const lines = (Array.isArray(known) ? known : String(known ?? '').split(/\r?\n/)).map((l) => String(l).trim()).filter((l) => l && !l.startsWith('#'))
+  const names = [host, `[${host}]:${port}`]
+  return lines.map((l) => l.split(/\s+/)).filter((w) => w.length >= 3 && w[0].split(',').some((h) => names.includes(h))).map((w) => w[2])
 }
 export const newStorage = (account, extra = {}) => ({
   account, up: true, region: 'East US', kind: 'StorageV2 (general purpose v2)', replication: 'Locally redundant storage (LRS)',
@@ -193,15 +245,57 @@ export function loginError(state, host, auth = {}) {
   // a client of another protocol reaches the port, but the greeting of the server is not one it understands
   if (auth.protocol && auth.protocol !== x.protocol)
     return fail('connection-refused', `Could not establish ${proto} connection with host: '${host}' at port: '${port}': the server answered '${x.banner ?? x.protocol}', which is not a ${proto} server. This port runs ${x.protocol}.`, { type: `${proto}:CONNECTIVITY` })
+  // SSH checks the key of the server before any login (JSch texts, as the SFTP connector logs them)
+  if (x.protocol === 'SFTP' && auth.knownHosts !== undefined && auth.knownHosts !== null && x.hostKey) {
+    const keys = knownKeys(auth.knownHosts, host, port)
+    const at = port === 22 ? host : `[${host}]:${port}`
+    if (!keys.length) return fail('host-key-unknown', `Could not establish SFTP connection with host: '${host}' at port: '${port}': reject HostKey: ${at}`, { type: 'SFTP:CONNECTIVITY' })
+    if (!keys.includes(x.hostKey.pub)) return fail('host-key-changed', `Could not establish SFTP connection with host: '${host}' at port: '${port}': HostKey has been changed: ${at}`, { type: 'SFTP:CONNECTIVITY' })
+  }
   const u = x.users[auth.user]
   const passOk = u && u.password !== undefined && auth.password !== undefined && auth.password === u.password
   const keyOk = u && x.protocol === 'SFTP' && u.key && auth.key && auth.key === u.key
-  if (!passOk && !keyOk)
-    return fail('auth-failed', x.protocol === 'SFTP' ? `Error during login to ${auth.user ?? ''}@${host}: Auth fail` : `Could not login with user '${auth.user ?? ''}' at host '${host}': 530 Login incorrect.`, { type: errType(x, 'CONNECTIVITY') })
+  // a locked account gets the same answer as a wrong password: the server does not tell the client why
+  if ((!passOk && !keyOk) || u?.locked)
+    return fail('auth-failed', x.protocol === 'SFTP' ? `Error during login to ${auth.user ?? ''}@${host}: Auth fail` : `Could not login with user '${auth.user ?? ''}' at host '${host}': 530 Login incorrect.`, { type: errType(x, 'CONNECTIVITY'), ...(u?.locked && { locked: true }) })
   return null
 }
 
-function serverClient(s, x, auth, who) {
+// ---------- FTP data connections and transfer types ----------
+
+const inDir = (p, d) => {
+  const n = norm(d)
+  return n === '/' || p === n || p.startsWith(`${n}/`)
+}
+// where the data connection of a passive transfer goes: the 227 answer names it (h1,h2,h3,h4,p1,p2)
+const pasvPort = (x, p) => {
+  const r = x.passive ?? { from: 50000, to: 50100 }
+  return r.from + (parseInt(hex(`${x.host}${p}`, 4), 16) % Math.max(1, r.to - r.from + 1))
+}
+export const pasvReply = (x, port) => `227 Entering Passive Mode (${x.ip.replace(/\./g, ',')},${Math.floor(port / 256)},${port % 256})`
+// Lab made numbers for a binary file in ASCII mode: about one byte in 256 is a line feed or a CR LF pair, and each
+// one changes. To Windows every LF gets a CR, to Unix every CR LF loses its CR.
+function asciiCopy(path, f, to) {
+  if (isBinary(path, f)) {
+    const delta = Math.max(1, Math.floor((f.size ?? 0) / 256))
+    return { content: f.content ?? '', size: to === 'windows' ? f.size + delta : Math.max(0, f.size - delta), binary: true, corrupt: true, sizeBefore: f.sizeBefore ?? f.size }
+  }
+  const text = String(f.content ?? '')
+  const out = to === 'windows' ? text.replace(/\r?\n/g, '\r\n') : text.replace(/\r\n/g, '\n')
+  return { content: out, size: Math.max(0, (f.size ?? text.length) - text.length + out.length) }
+}
+// The error a reader of a damaged file gives (Java texts of java.util.zip, Apache POI and PDFBox)
+export function parseError(path, f) {
+  const ext = extOf(path)
+  const crc = (n) => `0x${hex(`${path}/${f?.size}/${n}`, 8)}`
+  if (['zip', 'jar', 'gz', 'tgz', '7z'].includes(ext)) return `java.util.zip.ZipException: invalid entry CRC (expected ${crc(1)} but got ${crc(2)})`
+  if (['xlsx', 'docx', 'pptx'].includes(ext)) return `org.apache.poi.openxml4j.exceptions.NotOfficeXmlFileException: No valid entries or contents found, this is not a valid OOXML (Office Open XML) file. Caused by java.util.zip.ZipException: invalid entry CRC (expected ${crc(1)} but got ${crc(2)})`
+  if (ext === 'pdf') return 'java.io.IOException: Missing root object specification in trailer.'
+  return `The file is damaged: ${f?.size} bytes, it was ${f?.sizeBefore ?? '?'} bytes before the ASCII transfer`
+}
+
+// origin: 'cloud' (a CloudHub app), 'onprem' (an app on the company's own servers) or 'desktop' (the SFTP client)
+function serverClient(s, x, auth, who, origin = 'cloud') {
   const t = () => s.clock ?? 0
   const u = () => x.users[auth.user]
   const wd = () => norm(auth.workingDir ?? u()?.home ?? '/')
@@ -210,10 +304,13 @@ function serverClient(s, x, auth, who) {
     const home = norm(u().home ?? '/')
     return home !== '/' && p !== home && !p.startsWith(`${home}/`)
   }
-  const cmd = (sftp, ftp) => (x.protocol === 'SFTP' ? sftp : ftp)
+  const ftp = x.protocol !== 'SFTP'
+  const cmd = (sftp, ftpCmd) => (ftp ? ftpCmd : sftp)
+  // the client's own line endings: the SFTP client runs on Windows, Mule runtimes on Linux
+  const os = origin === 'desktop' ? 'windows' : 'unix'
   const login = () => {
     const e = loginError(s, x.host, auth)
-    if (e) logTo(x, t(), who, 'login', '', false, `${e.kind === 'auth-failed' ? 'Failed login' : 'Refused'} for ${auth.user ?? '(no user)'}`)
+    if (e) logTo(x, t(), who, 'login', '', false, e.kind === 'auth-failed' ? `Failed login for ${auth.user ?? '(no user)'}${e.locked ? ' (account locked)' : ''}` : e.kind.startsWith('host-key') ? `${auth.user ?? 'client'} closed the connection: the host key is not the one it knows` : `Refused for ${auth.user ?? '(no user)'}`)
     return e
   }
   const denied = (op, p) => {
@@ -226,22 +323,52 @@ function serverClient(s, x, auth, who) {
     return fail('not-found', `Path '${p}' doesn't exist`, { type: errType(x, name) })
   }
   const isDir = (p) => p === '/' || x.dirs.includes(p) || Object.keys(x.files).some((f) => f.startsWith(`${p}/`))
+  // folder rights: missing lists mean no limit. A write needs the path to be inside a write folder.
+  const mayWrite = (p) => !u().readOnly && (!u().writeDirs || u().writeDirs.some((d) => p !== norm(d) && inDir(p, d)))
+  const mayRead = (p) => !u().readDirs || u().readDirs.some((d) => inDir(p, d))
+  const onTheWay = (p) => Boolean(u().readDirs) && [...u().readDirs, ...(u().writeDirs ?? [])].some((d) => inDir(norm(d), p))
+  // FTP keeps data on a second connection. Lab made: it is opened at once or it times out.
+  const data = (op, p, what) => {
+    if (!ftp) return null
+    if (auth.passive === false) {
+      if (origin !== 'cloud' || x.activeBlocked === false) return null
+      logTo(x, t(), who, op, p, false, `${auth.user} ${op} ${p}: 425 Failed to establish connection (active mode, could not connect back to the client)`)
+      return fail('data-timeout', `Exception was found trying to ${what} '${p}': 425 Failed to establish connection. java.net.SocketTimeoutException: Accept timed out`, { type: errType(x, 'CONNECTIVITY') })
+    }
+    if (x.passive?.open === false) {
+      const port = pasvPort(x, p)
+      logTo(x, t(), who, op, p, false, `${auth.user} PASV, ${pasvReply(x, port)}, the data connection on port ${port} never arrived`)
+      return fail('data-timeout', `Exception was found trying to ${what} '${p}': java.net.SocketTimeoutException: Connect timed out (data connection to ${x.ip}:${port} from the 227 answer of PASV)`, { type: errType(x, 'CONNECTIVITY') })
+    }
+    return null
+  }
+  // the transfer type of an FTP file call: AUTO picks ASCII for the text extensions of FileZilla
+  const ascii = (p) => {
+    if (!ftp) return false
+    const m = String(auth.transferMode ?? 'BINARY').toUpperCase()
+    return m === 'ASCII' || (m === 'AUTO' && ASCII_EXT.includes(extOf(p)))
+  }
   return {
     list(dir = '.', opts = {}) {
       const e = login()
       if (e) return e
       const p = at(dir)
-      if (jailed(p)) return denied(cmd('opendir', 'LIST'), p)
-      if (!isDir(p) && p !== '/') return missing(cmd('opendir', 'LIST'), p)
-      const files = entriesOf(x.files, x.dirs, p, norm).filter((f) => !(opts.sizeCheck && f.writing))
-      logTo(x, t(), who, cmd('opendir', 'LIST'), p, true, `${auth.user} ${cmd('opendir', 'LIST')} ${p}, ${files.length} entries`)
+      const op = cmd('opendir', 'LIST')
+      if (jailed(p)) return denied(op, p)
+      if (!isDir(p) && p !== '/') return missing(op, p)
+      const full = mayRead(p)
+      if (!full && !onTheWay(p)) return denied(op, p)
+      const d = data(op, p, 'list path')
+      if (d) return d
+      const files = entriesOf(x.files, x.dirs, p, norm).filter((f) => !(opts.sizeCheck && f.writing) && (full || (f.dir ? mayRead(f.path) || onTheWay(f.path) : mayRead(f.path))))
+      logTo(x, t(), who, op, p, true, `${auth.user} ${op} ${p}, ${files.length} entries`)
       return { ok: true, files }
     },
     stat(path) {
       const e = login()
       if (e) return e
       const p = at(path)
-      if (jailed(p)) return denied('stat', p)
+      if (jailed(p) || !(mayRead(p) || onTheWay(p))) return denied('stat', p)
       return x.files[p] ? { ok: true, file: { path: p, ...x.files[p] } } : isDir(p) ? { ok: true, file: { path: p, dir: true } } : missing('stat', p)
     },
     read(path, opts = {}) {
@@ -249,23 +376,29 @@ function serverClient(s, x, auth, who) {
       if (e) return e
       const p = at(path)
       const op = cmd('read', 'RETR')
-      if (jailed(p)) return denied(op, p)
+      if (jailed(p) || !mayRead(p)) return denied(op, p)
       const f = x.files[p]
       if (!f) return isDir(p) ? fail('is-directory', `Path '${p}' is a directory`, { type: errType(x, 'ILLEGAL_PATH') }) : missing(op, p)
       if (f.writing && opts.sizeCheck) {
         logTo(x, t(), who, op, p, false, `${auth.user} ${op} ${p}: size changed during the size check, skipped`)
         return fail('being-written', `File '${p}' is still being written: its size changed between two checks ${opts.sizeCheck} ms apart`)
       }
-      logTo(x, t(), who, op, p, true, `${auth.user} ${op} ${p}, ${f.size} bytes${f.writing ? ' (upload not finished)' : ''}`)
-      return { ok: true, content: f.content ?? '', size: f.size, t: f.t, partial: Boolean(f.writing) }
+      const d = data(op, p, 'read file')
+      if (d) return d
+      const got = ascii(p) ? asciiCopy(p, f, os) : { content: f.content ?? '', size: f.size, ...(f.corrupt && { corrupt: true, sizeBefore: f.sizeBefore }) }
+      const binary = isBinary(p, f)
+      const corrupt = Boolean(got.corrupt)
+      logTo(x, t(), who, op, p, true, `${auth.user} ${op} ${p}, ${f.size} bytes${ftp ? `, ${ascii(p) ? 'ASCII' : 'BINARY'} mode` : ''}${f.writing ? ' (upload not finished)' : ''}`)
+      return { ok: true, content: got.content, size: got.size, t: f.t, partial: Boolean(f.writing), binary, corrupt, ...(corrupt && { sizeBefore: got.sizeBefore, parseError: parseError(p, { size: got.size, sizeBefore: got.sizeBefore }) }) }
     },
+    // opts.size, opts.binary and opts.corrupt describe what is sent (the client passes them for a local file)
     write(path, content = '', opts = {}) {
       const e = login()
       if (e) return e
       const p = at(path)
       const op = cmd('write', 'STOR')
       const mode = opts.mode ?? (opts.overwrite ? 'OVERWRITE' : 'CREATE_NEW')
-      if (jailed(p) || u().readOnly) return denied(op, p)
+      if (jailed(p) || !mayWrite(p)) return denied(op, p)
       if (!isDir(parent(p) || '/') && !opts.createParent) return missing(op, parent(p) || '/', 'FILE_DOESNT_EXIST')
       if (!x.files[p] && isDir(p)) return fail('is-directory', `Path '${p}' is a directory`, { type: errType(x, 'ILLEGAL_PATH') })
       const old = x.files[p]
@@ -273,10 +406,15 @@ function serverClient(s, x, auth, who) {
         logTo(x, t(), who, op, p, false, `${auth.user} ${op} ${p}: file exists`)
         return fail('already-exists', `'${p}' already exists. Set the 'overwrite' parameter to 'true' to perform the operation anyway`, { type: errType(x, 'FILE_ALREADY_EXISTS') })
       }
+      const d = data(op, p, 'write file')
+      if (d) return d
       const text = mode === 'APPEND' && old ? `${old.content ?? ''}${content}` : String(content)
+      const binary = opts.binary ?? isBinaryName(p)
+      const sent = { content: text, size: opts.size ?? text.length, ...(binary && { binary: true }), ...(opts.corrupt && { corrupt: true, sizeBefore: opts.sizeBefore }) }
+      const got = ascii(p) ? { ...sent, ...asciiCopy(p, sent, 'unix') } : sent
       if (opts.createParent) addDirs(x.dirs, parent(p))
-      x.files[p] = fileRec(text, { t: t(), owner: auth.user, ...(opts.size !== undefined && { size: opts.size }) })
-      logTo(x, t(), who, op, p, true, `${auth.user} ${op} ${p}, ${x.files[p].size} bytes`)
+      x.files[p] = fileRec(got.content, { t: t(), owner: auth.user, size: got.size, ...(got.binary && { binary: true }), ...(got.corrupt && { corrupt: true, sizeBefore: got.sizeBefore }) })
+      logTo(x, t(), who, op, p, true, `${auth.user} ${op} ${p}, ${x.files[p].size} bytes${ftp ? `, ${ascii(p) ? 'ASCII' : 'BINARY'} mode` : ''}`)
       return { ok: true, size: x.files[p].size }
     },
     mkdir(path) {
@@ -284,7 +422,7 @@ function serverClient(s, x, auth, who) {
       if (e) return e
       const p = at(path)
       const op = cmd('mkdir', 'MKD')
-      if (jailed(p) || u().readOnly) return denied(op, p)
+      if (jailed(p) || !mayWrite(p)) return denied(op, p)
       if (isDir(p) || x.files[p]) return fail('already-exists', `'${p}' already exists`, { type: errType(x, 'FILE_ALREADY_EXISTS') })
       addDirs(x.dirs, p)
       logTo(x, t(), who, op, p, true, `${auth.user} ${op} ${p}`)
@@ -296,7 +434,7 @@ function serverClient(s, x, auth, who) {
       const a = at(from)
       let b = at(to)
       const op = cmd('rename', 'RNFR/RNTO')
-      if (jailed(a) || jailed(b) || u().readOnly) return denied(op, a)
+      if (jailed(a) || jailed(b) || !mayWrite(a)) return denied(op, a)
       if (!x.files[a]) return missing(op, a)
       // a folder as target keeps the name, like the move operation. A target that ends with / names a folder, so
       // it must exist (or be made with createParent): it is never taken as the new name of the file.
@@ -304,7 +442,7 @@ function serverClient(s, x, auth, who) {
       if (folder && !isDir(b) && opts.createParent && !x.files[b]) addDirs(x.dirs, b)
       if (folder && !isDir(b)) return missing(op, b)
       if (isDir(b)) b = norm(`${b}/${baseName(a)}`)
-      if (jailed(b)) return denied(op, b)
+      if (jailed(b) || !mayWrite(b)) return denied(op, b)
       if (!isDir(parent(b) || '/')) {
         if (!opts.createParent) return missing(op, parent(b) || '/')
         addDirs(x.dirs, parent(b))
@@ -321,7 +459,7 @@ function serverClient(s, x, auth, who) {
       if (e) return e
       const p = at(path)
       const op = cmd('remove', 'DELE')
-      if (jailed(p) || u().readOnly) return denied(op, p)
+      if (jailed(p) || !mayWrite(p)) return denied(op, p)
       if (!x.files[p]) return missing(op, p)
       delete x.files[p]
       logTo(x, t(), who, op, p, true, `${auth.user} ${op} ${p}`)
@@ -552,7 +690,9 @@ function addVersion(y, v, name, value, now, { expires, notBefore, contentType, e
 // The engine calls this for each run of an app with its draft state: calls change `s` in place.
 export function systemsCtx(s, app) {
   const who = app?.name ?? 'app'
-  const egress = app?.props?.['egress.ip'] ?? DEFAULT_EGRESS
+  const egress = app?.props?.['egress.ip'] ?? app?.outboundIp ?? DEFAULT_EGRESS // outboundIp: from the network engine, set by ctxOf in platform.js when state.network exists
+  // where the client runs: the SFTP client of the learner, an app on the company's own servers, or CloudHub
+  const origin = app?.desktop ? 'desktop' : app?.targetType ? 'onprem' : 'cloud'
   const empty = (target) => ({ list: () => none(target), stat: () => none(target), read: () => none(target), write: () => none(target), move: () => none(target), remove: () => none(target), mkdir: () => none(target) })
   const none = (target) => {
     const p = parseTarget(target)
@@ -564,7 +704,7 @@ export function systemsCtx(s, app) {
       if (!s.systems) return empty(target)
       if (p.kind === 'server') {
         const x = s.systems.servers?.[p.host]
-        return x ? serverClient(s, x, auth, who) : empty(target)
+        return x ? serverClient(s, x, auth, who, origin) : empty(target)
       }
       return s.systems.storage?.[p.account] ? storageClient(s, p, { ip: egress, ...auth }, who) : empty(target)
     },
@@ -598,6 +738,7 @@ export const putFile = (state, target, path, content = '', opts = {}) =>
       ...(writing && { writing: true, rest: text.slice(part.length), full: opts.size ?? text.length, size: opts.size ? Math.floor(given ? (opts.size * part.length) / Math.max(1, text.length) : opts.size / 3) : part.length }),
       ...(p.kind === 'blob' && { tier: opts.tier ?? 'Hot', etag: `"0x8DD${hex(`${k}${next(y)}`, 11).toUpperCase()}"` }),
       ...(!writing && opts.size !== undefined && { size: opts.size }),
+      ...((opts.binary ?? isBinaryName(k)) && { binary: true }),
     })
     logTo(b.x, now, opts.who ?? who0, 'upload', `${p.kind === 'server' ? '' : `${p.box}/`}${k}`, true, `Upload ${k}, ${b.files[k].size} bytes${b.files[k].writing ? ', still being written' : ''}`)
   })
@@ -655,12 +796,79 @@ export const setSystemUp = (state, kind, name, up) =>
     x.up = up
     logTo(x, now, who0, up ? 'start' : 'stop', '', true, up ? 'Service started' : 'Service stopped')
   })
-export const setServerUser = (state, host, user, patch) =>
-  edit(state, (s, y) => {
+// patch: { password, key, home, readOnly, locked, readDirs, writeDirs }; a field set to undefined is removed (for
+// readDirs and writeDirs that means no limit), null as patch removes the user. opts.who names the admin in the log.
+export const setServerUser = (state, host, user, patch, opts = {}) =>
+  edit(state, (s, y, now) => {
     const x = y.servers[host]
     if (!x) return
-    if (patch === null) delete x.users[user]
-    else x.users[user] = { home: '/', ...x.users[user], ...patch }
+    if (patch === null) {
+      delete x.users[user]
+      if (opts.who) logTo(x, now, opts.who, 'admin', user, true, `User ${user} removed`)
+      return
+    }
+    const old = x.users[user] ?? {}
+    const u = { home: '/', ...old }
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === undefined) delete u[k]
+      else u[k] = ['home'].includes(k) ? norm(v) : ['readDirs', 'writeDirs'].includes(k) ? [...new Set(v.map(norm))] : v
+    }
+    x.users[user] = u
+    const say = { password: () => 'new password', key: (v) => (v ? `key ${v}` : 'no key'), home: (v) => `home ${v}`, readOnly: (v) => (v ? 'read only' : 'not read only'), locked: (v) => (v ? 'locked' : 'unlocked'), readDirs: (v) => `read ${v ? v.join(', ') || 'nothing' : 'everywhere'}`, writeDirs: (v) => `write ${v ? v.join(', ') || 'nothing' : 'everywhere'}` }
+    const changed = Object.keys(patch).filter((k) => JSON.stringify(old[k]) !== JSON.stringify(u[k]))
+    if (opts.who && (opts.text || changed.length)) logTo(x, now, opts.who, 'admin', user, true, opts.text ?? `User ${user} changed: ${changed.map((k) => (say[k] ?? ((v) => `${k} ${v}`))(u[k])).join('; ')}`)
+  })
+const ADMIN = 'admin'
+// fields: { password?, key?, home = '/', readOnly?, readDirs?, writeDirs? }. The home folder is made when it is missing.
+export const addServerUser = (state, host, user, fields = {}) => {
+  const x = sys(state)?.servers?.[host]
+  if (!x || !String(user ?? '').trim() || x.users[user]) return state
+  const home = norm(fields.home ?? '/')
+  const made = edit(state, (s, y) => addDirs(y.servers[host].dirs, home))
+  return setServerUser(made, host, user, { ...fields, home }, { who: ADMIN, text: `User ${user} added, home ${home}` })
+}
+export const lockServerUser = (state, host, user, locked = true) => setServerUser(state, host, user, { locked: locked || undefined }, { who: ADMIN, text: `User ${user} ${locked ? 'locked' : 'unlocked'}` })
+export const setUserPassword = (state, host, user, password) => setServerUser(state, host, user, { password }, { who: ADMIN, text: `New password for ${user}` })
+// key: the name of an identity file on the client computer (lab made: the server keeps its public part)
+export const setUserKey = (state, host, user, key) => setServerUser(state, host, user, { key: key || undefined }, { who: ADMIN, text: key ? `New public key for ${user}, from ${key}` : `Public key of ${user} removed` })
+// A new key pair: the private part lands on the client computer, the public part on the server. { state, file }
+export function newUserKey(state, host, user) {
+  if (!sys(state)?.servers?.[host]?.users?.[user]) return { state, file: null }
+  const file = `${user}-${hex(`${host}/${user}/${state.systems.n ?? 1}`, 6)}.pem`
+  const withFile = edit(state, (s, y, now) => {
+    next(y)
+    y.local.files[file] = fileRec('-----BEGIN LAB KEY FILE-----\n(practice key file, not a real key)\n-----END LAB KEY FILE-----\n', { t: now })
+  })
+  return { state: setUserKey(withFile, host, user, file), file }
+}
+// patch: { activeBlocked, passive: { from, to, open }, port, ip, banner }
+export const setServerSettings = (state, host, patch) =>
+  edit(state, (s, y, now) => {
+    const x = y.servers[host]
+    if (!x) return
+    if (patch.passive) {
+      const r = { ...(x.passive ?? { from: 50000, to: 50100, open: true }), ...patch.passive }
+      r.from = Math.max(1024, Math.min(65535, Math.floor(Number(r.from) || 50000)))
+      r.to = Math.max(r.from, Math.min(65535, Math.floor(Number(r.to) || r.from)))
+      x.passive = r
+    }
+    for (const k of ['activeBlocked', 'port', 'ip', 'banner']) if (patch[k] !== undefined) x[k] = patch[k]
+    logTo(x, now, ADMIN, 'admin', '', true, `Settings: ${Object.entries(patch).map(([k, v]) => (k === 'passive' ? `passive ports ${x.passive.from} to ${x.passive.to}, ${x.passive.open ? 'open' : 'closed'} on the firewall` : `${k} ${v}`)).join('; ')}`)
+  })
+// A rebuilt server has a new host key: every client that pinned the old one refuses to connect
+export const regenerateHostKey = (state, host, opts = {}) =>
+  edit(state, (s, y, now) => {
+    const x = y.servers[host]
+    if (x?.protocol !== 'SFTP') return
+    x.hostKey = newHostKey(`${host}/${opts.seed ?? next(y)}`)
+    logTo(x, now, opts.who ?? ADMIN, 'admin', '', true, `New host key ${x.hostKey.type} ${fingerprint(x.hostKey.pub)}`)
+  })
+// The trusted host keys of the SFTP client (FileZilla keeps them in its trustedkeys list). pub null forgets the host.
+export const trustHostKey = (state, host, pub) =>
+  edit(state, (s, y) => {
+    y.local.knownHosts ??= {}
+    if (pub) y.local.knownHosts[host] = pub
+    else delete y.local.knownHosts[host]
   })
 // network: { mode: 'All networks'|'Selected networks'|'Disabled', ips: [] }
 export const setNetwork = (state, kind, name, network, opts = {}) =>
@@ -673,32 +881,34 @@ export const setNetwork = (state, kind, name, network, opts = {}) =>
 
 // The SFTP client: a connection log line, and transfers between the local computer and a server
 export const clientLog = (state, host, text, ok = true) => edit(state, (s, y, now) => y.servers[host] && logTo(y.servers[host], now, 'FileZilla', 'session', '', ok, text))
-export const putLocal = (state, name, content) => edit(state, (s, y, now) => void (y.local.files[name] = fileRec(String(content), { t: now })))
+export const putLocal = (state, name, content, opts = {}) => edit(state, (s, y, now) => void (y.local.files[name] = fileRec(String(content), { t: now, ...(opts.size !== undefined && { size: opts.size }), ...((opts.binary ?? isBinaryName(name)) && { binary: true }) })))
 export const removeLocal = (state, name) => edit(state, (s, y) => void delete y.local.files[name])
-// Upload a local file with the login of the client. The result keeps the error for the transfer queue.
+// Upload a local file with the login of the client. The result keeps the error for the transfer queue, and
+// `result` the answer of the read or write (size, corrupt, parseError).
+// auth may also carry passive and transferMode ('AUTO' | 'ASCII' | 'BINARY'), as the site manager of the client sets them.
 export function transfer(state, { direction, host, auth, local, remote }) {
   let error = null
+  let result = null
   const after = edit(state, (s, y, now) => {
-    const c = systemsCtx(s, { name: auth.user ?? 'client' }).files(host, auth)
+    const c = systemsCtx(s, { name: auth.user ?? 'client', desktop: true }).files(host, auth)
     if (direction === 'upload') {
       const f = y.local.files[local]
-      const r = f ? c.write(remote, f.content ?? '', { overwrite: true }) : { ok: false, error: `${local} is not on this computer` }
-      error = r.ok ? null : r.error
+      result = f ? c.write(remote, f.content ?? '', { overwrite: true, size: f.size, binary: isBinary(local, f), corrupt: f.corrupt, sizeBefore: f.sizeBefore }) : { ok: false, error: `${local} is not on this computer` }
     } else {
-      const r = c.read(remote)
-      if (r.ok) y.local.files[local] = fileRec(r.content, { t: now, size: r.size })
-      error = r.ok ? null : r.error
+      result = c.read(remote)
+      if (result.ok) y.local.files[local] = fileRec(result.content, { t: now, size: result.size, ...(result.binary && { binary: true }), ...(result.corrupt && { corrupt: true, sizeBefore: result.sizeBefore }) })
     }
-    push(y.transfers, { id: next0(y), t: now, direction, host, local, remote, ok: !error, error })
+    error = result.ok ? null : result.error
+    push(y.transfers, { id: next0(y), t: now, direction, host, local, remote, ok: !error, error, user: auth.user ?? null, ...(result.ok && { size: result.size }), ...(result.corrupt && { corrupt: true }) })
   })
-  return { state: after, error }
+  return { state: after, error, result }
 }
 const next0 = (y) => `tr${next(y)}`
 // Any file call with the login of the client (delete, rename, new folder...): { state, result }. The checks are the
 // same as for an app, so a read only user of the client cannot delete either.
 export function clientDo(state, target, auth, fn, who = 'FileZilla') {
   let result = null
-  const after = edit(state, (s) => void (result = fn(systemsCtx(s, { name: who }).files(target, auth))))
+  const after = edit(state, (s) => void (result = fn(systemsCtx(s, { name: who, desktop: true }).files(target, auth))))
   return { state: after, result }
 }
 
@@ -882,8 +1092,10 @@ export function defaultSystems(now = DY + 9 * HR) {
       'stock-2026-11-04.csv': fileRec(csv, { t: ago(20 * MIN) }),
       'orders-partner.json': fileRec('[{"orderId":"A-78","qty":2}]', { t: ago(3 * HR) }),
       'harbor-partner.pem': fileRec('-----BEGIN LAB KEY FILE-----\n(practice key file, not a real key)\n-----END LAB KEY FILE-----\n', { t: ago(30 * DY) }),
-      'stock-file-poll-1.0.0-mule-application.jar': fileRec('', { size: 184320, t: ago(2 * DY) }),
+      'stock-file-poll-1.0.0-mule-application.jar': fileRec('', { size: 184320, t: ago(2 * DY), binary: true }),
     },
+    // the client connected to the SFTP server before, so it trusts its host key
+    knownHosts: { [sftp.host]: sftp.hostKey.pub },
   })
   return systemsOf({ servers: [sftp, ftp], storage: [store], vaults: [kv], local, n: 10 })
 }

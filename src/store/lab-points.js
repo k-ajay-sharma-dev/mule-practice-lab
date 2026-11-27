@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { onLocalChange, writeLocal } from './local.js'
 import { LAB_SOLVED_KEY } from './labs.js'
+import { cleanWriteups, WRITEUP_BONUS, WRITEUP_PASS, WRITEUPS_KEY } from './lab-writeups.js'
 
 // Points from the Platform Lab, counted the same way as problem points: from what is already saved, so nothing is
 // awarded twice. A lab counts once, the first time it is in pl.lab.solved. That key syncs, so a lab solved on two
@@ -51,29 +52,36 @@ export function recordDrill(entry) {
   return drillBonus(best[entry.id] ?? 0) - drillBonus(before ?? 0)
 }
 
-// One snapshot for both keys, rebuilt only when either text changes
-let last = { solvedRaw: undefined, drillsRaw: undefined, value: { labs: 0, labPoints: 0, drillPoints: 0 } }
+// Post-incident write-ups (store/lab-writeups.js, this browser only): a write-up that covers at least 70% of the key
+// points of its lab gives 5 points, once per lab, however many times it is rewritten. They are added to labPoints, so
+// the total in store/points.js counts them; writeupPoints shows the share on its own.
+export const writeupPointsOf = (writeups) => Object.values(writeups).filter((w) => w.best >= WRITEUP_PASS).length * WRITEUP_BONUS
+
+const KEYS = [LAB_SOLVED_KEY, DRILLS_KEY, WRITEUPS_KEY]
+
+// One snapshot for the three keys, rebuilt only when one of the texts changes
+let last = { raw: [], value: { labs: 0, labPoints: 0, solvePoints: 0, drillPoints: 0, writeupPoints: 0 } }
 function getSnapshot() {
-  let solvedRaw = null
-  let drillsRaw = null
+  let raw = [null, null, null]
   try {
-    solvedRaw = localStorage.getItem(LAB_SOLVED_KEY)
-    drillsRaw = localStorage.getItem(DRILLS_KEY)
+    raw = KEYS.map((k) => localStorage.getItem(k))
   } catch {
     // storage blocked: no lab points
   }
-  if (solvedRaw === last.solvedRaw && drillsRaw === last.drillsRaw) return last.value
+  if (raw.every((r, i) => r === last.raw[i])) return last.value
+  const [solvedRaw, drillsRaw, writeupsRaw] = raw
   const solved = parse(solvedRaw)
   const ids = isObject(solved) ? Object.keys(solved).filter((id) => typeof solved[id] === 'string' && solved[id]) : []
-  const labPoints = ids.reduce((sum, id) => sum + labPointsFor(id), 0)
+  const solvePoints = ids.reduce((sum, id) => sum + labPointsFor(id), 0)
   const drillPoints = Object.values(cleanDrills(parse(drillsRaw)).best).reduce((sum, s) => sum + drillBonus(s), 0)
-  last = { solvedRaw, drillsRaw, value: { labs: ids.length, labPoints, drillPoints } }
+  const writeupPoints = writeupPointsOf(cleanWriteups(parse(writeupsRaw)))
+  last = { raw, value: { labs: ids.length, labPoints: solvePoints + writeupPoints, solvePoints, drillPoints, writeupPoints } }
   return last.value
 }
 
 function subscribe(listener) {
-  const off = onLocalChange((key) => (key === LAB_SOLVED_KEY || key === DRILLS_KEY) && listener())
-  const storage = (e) => (e.key === LAB_SOLVED_KEY || e.key === DRILLS_KEY || e.key === null) && listener()
+  const off = onLocalChange((key) => KEYS.includes(key) && listener())
+  const storage = (e) => (KEYS.includes(e.key) || e.key === null) && listener()
   window.addEventListener('storage', storage)
   return () => {
     off()
@@ -81,7 +89,7 @@ function subscribe(listener) {
   }
 }
 
-// { labs, labPoints, drillPoints }. A sync writes pl.lab.solved straight to storage; the progress reload that follows
+// { labs, labPoints (solves plus write-ups), solvePoints, drillPoints, writeupPoints }. A sync writes pl.lab.solved straight to storage; the progress reload that follows
 // renders the points again and the snapshot reads the new text then.
 export function useLabPoints() {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)

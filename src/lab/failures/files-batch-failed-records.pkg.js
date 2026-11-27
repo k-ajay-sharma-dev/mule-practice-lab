@@ -1,5 +1,7 @@
-// The sample applications of the files-batch-failed-records lab. Imports only platform-log.js and platform-led.js, so the engine can load it without a cycle.
+// The sample applications of the files-batch-failed-records lab. Imports only platform-log.js and the import free
+// platform-batch.js, so the engine can load it without a cycle.
 import { info, line, muleError, needs, warn } from '../platform-log.js'
+import { instanceIdOf } from '../platform-batch.js'
 
 const NAME = 'loyalty-members-load'
 const JOB = 'loyalty-members-load'
@@ -12,7 +14,6 @@ const AGGREGATOR = 200 // the Batch Aggregator of upsert-crm sends one bulk upse
 const FAILURES_SIZE = 500 // the Batch Aggregator of collect-failures
 const BASE = Date.UTC(2026, 10, 2) // day 0 of the lab clock
 const ENGINE = 'com.mulesoft.mule.runtime.module.batch.engine.DefaultBatchEngine'
-const INSTANCE = '7c2e'
 const number = (n) => n.toLocaleString('en-US')
 const int = (value, fallback) => (String(value ?? '').trim() !== '' && Number.isInteger(Number(value)) ? Number(value) : fallback)
 const pick = (value, list, fallback) => (list.includes(String(value ?? '').trim()) ? String(value).trim() : fallback)
@@ -42,6 +43,7 @@ export const PACKAGES = {
     run: {
       [FLOW]: ({ props, systems, now }) => {
         const set = settingsOf(props)
+        const INSTANCE = instanceIdOf(`${JOB}|${now}`)
         const log = [info(`Starting ${FLOW}. maxFailedRecords ${set.max}, blockSize ${set.blockSize}, batch.failuresStep ${set.failures}, batch.onComplete ${set.report}`)]
         const sftp = systems.files(props['sftp.host'], { user: props['sftp.user'], password: props['sftp.password'] })
         const read = sftp.read(FILE)
@@ -89,7 +91,16 @@ export const PACKAGES = {
         }
 
         const last = { ...set, stopped, processed, good, failed, errorFile, summary }
-        return { ok: !stopped, ms: stopped ? 40000 : 6 * 60000, errors: stopped ? 1 : 0, log, batch: { total: TOTAL, processed, ok: good, failed }, store: { last } }
+        const bad = ROWS.slice(0, failed).map(badMember)
+        const sample = (m) => `row ${m.row}: { memberId: "${m.member}", email: "${m.email}" }`
+        const steps = [
+          // the Validation module raises VALIDATION:INVALID_EMAIL for both kinds of bad address; the engine keeps the first record of each error type
+          { name: 'validate-and-map', accept: 'NO_FAILURES', processed, failed, errors: [{ type: 'VALIDATION:INVALID_EMAIL', message: `Member ${bad[0].member}: ${bad[0].error}`, count: failed, record: sample(bad[0]) }] },
+          { name: 'upsert-crm', accept: 'NO_FAILURES', processed: good, failed: 0, errors: [] },
+          ...(set.failures === 'error-file' ? [{ name: 'collect-failures', accept: 'ONLY_FAILURES', processed: failed, failed: 0, errors: [] }] : []),
+        ]
+        const batch = { job: JOB, instance: INSTANCE, status: stopped ? 'FAILED_PROCESS_RECORDS' : 'SUCCESSFUL', total: TOTAL, processed, ok: good, successful: good, failed, blockSize: set.blockSize, maxFailedRecords: set.max, loadMs: 9000, steps }
+        return { ok: !stopped, ms: stopped ? 40000 : 6 * 60000, errors: stopped ? 1 : 0, log, batch, store: { last } }
       },
     },
   },

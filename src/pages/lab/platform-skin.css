@@ -973,3 +973,178 @@
 .pl-explain-timer.over {
   color: var(--warning);
 }
+
+/* ---------- mystery incidents, post-incident write-ups, STAR outline, weak topics (GuidedLabsScreen) ---------- */
+.lab-mystery-groups summary {
+  cursor: pointer;
+}
+.lab-mystery-groups fieldset {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 4px 12px;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.lab-mystery-groups label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lab-mystery-bar {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--warning);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.lab-mystery-bar.ended {
+  border-left-color: var(--success);
+}
+/* grid items: without min-width 0 the wide table would stretch the page track on a phone */
+.lab-mystery,
+.lab-writeup,
+.lab-weak {
+  min-width: 0;
+}
+.lab-writeup,
+.lab-weak {
+  margin: 16px 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.lab-writeup-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin-top: 10px;
+}
+.lab-writeup-form .lab-actions,
+.lab-writeup-error {
+  grid-column: 1 / -1;
+}
+.lab-writeup-field {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+}
+.lab-writeup-field label {
+  font-weight: 600;
+}
+.lab-writeup-field textarea {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  font: inherit;
+}
+.lab-writeup-field textarea[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+.lab-writeup-error {
+  margin: 0;
+  color: var(--danger);
+}
+.lab-writeup-model,
+.lab-star {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+.lab-writeup-model dl,
+.lab-star-rows {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0 0;
+}
+.lab-writeup-model dt,
+.lab-star-rows dt {
+  font-weight: 600;
+}
+.lab-writeup-model dd,
+.lab-star-rows dd {
+  margin: 0;
+}
+.lab-star h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.lab-star-note {
+  margin: 6px 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+}
+.lab-weak-top {
+  margin: 6px 0 10px;
+  padding-left: 22px;
+}
+.lab-weak-top > li {
+  margin-bottom: 6px;
+}
+.lab-weak-top ul {
+  margin: 2px 0 0;
+  padding-left: 18px;
+}
+.lab-weak-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.lab-weak-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.lab-weak-table caption {
+  text-align: left;
+  padding-bottom: 4px;
+}
+.lab-weak-table th,
+.lab-weak-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+  color: var(--text);
+}
+.lab-weak-table thead th {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.lab-weak-table tbody th {
+  font-weight: 500;
+}
+.lab-weak-solved {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+/* a thin single series bar: the share of labs solved, always next to its number */
+.lab-weak-bar {
+  display: inline-block;
+  width: 72px;
+  height: 6px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.lab-weak-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+}
+@media (max-width: 640px) {
+  .lab-writeup-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lab-weak-bar {
+    width: 44px;
+  }
+}

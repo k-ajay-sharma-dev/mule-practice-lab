@@ -3,6 +3,15 @@ import { labDone, openConsole, PLATFORM_LABS, stepDone } from '../../lab/platfor
 import { defaultHybrid } from '../../lab/platform-project.js'
 import { defaultSystems } from '../../lab/platform-systems.js'
 import { harborKafka } from '../../lab/platform-kafka.js'
+import { defaultDatabases } from '../../lab/platform-db.js'
+import { defaultMailServer } from '../../lab/platform-mailserver.js'
+import { defaultServiceBus } from '../../lab/platform-servicebus.js'
+import { defaultJms } from '../../lab/platform-jms.js'
+import { defaultNetwork } from '../../lab/platform-network.js'
+import { addEnterprise, welcomeMail } from '../../lab/platform-enterprise.js'
+
+// parts of the console added later, filled in for older saves
+const LATER = { databases: defaultDatabases, mailServer: defaultMailServer, serviceBus: defaultServiceBus, jms: defaultJms, network: defaultNetwork }
 import AnypointConsole from './AnypointConsole.jsx'
 import { Btn, Copy } from './parts.jsx'
 import ExplainAloud, { talkingPoints } from '../lab/ExplainAloud.jsx'
@@ -54,7 +63,15 @@ export function OpenConsole() {
     const withHybrid = saved.hybrid ? saved : { ...saved, hybrid: defaultHybrid() }
     const withSystems = withHybrid.systems ? withHybrid : { ...withHybrid, systems: defaultSystems(withHybrid.clock) }
     // and a console saved before Kafka gets the harbor-events cluster
-    return withSystems.kafka ? withSystems : { ...withSystems, kafka: harborKafka(withSystems.clock) }
+    const withKafka = withSystems.kafka ? withSystems : { ...withSystems, kafka: harborKafka(withSystems.clock) }
+    const withLater = Object.entries(LATER).reduce((x, [k, make]) => (x[k] ? x : { ...x, [k]: make(x.clock) }), withKafka)
+    // a console saved before the Harbor enterprise landscape gets its APIs, apps and the welcome mail once
+    if (withLater.apps.some((a) => a.name === 'mobile-app-exp-api')) return withLater
+    try {
+      return welcomeMail(addEnterprise(withLater))
+    } catch {
+      return withLater
+    }
   })
   useSaved(OPEN_KEY, state)
   useEffect(() => {

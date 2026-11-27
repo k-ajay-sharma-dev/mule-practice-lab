@@ -25,7 +25,7 @@ export default function RuntimeManager({ state, update, place, go, openEnv }) {
     )
   return (
     <>
-      <SideNav env={state.env} onEnv={openEnv} items={[['Applications', 'Applications'], ['Servers', 'Servers'], ['Omni Gateways', 'Omni Gateways', true], ['Alerts', 'Alerts'], null, ['VPCs', 'VPCs', true], ['Private Spaces', 'Private Spaces', true], ['Load Balancers', 'Load Balancers', true]]} value={page === 'Deploy' ? 'Applications' : page} onPick={(p) => go({ page: p })} />
+      <SideNav env={state.env} onEnv={openEnv} items={[['Applications', 'Applications'], ['Servers', 'Servers'], ['Omni Gateways', 'Omni Gateways', true], ['Alerts', 'Alerts'], null, ['VPCs', 'VPCs', true], ['Private Spaces', 'Private Spaces'], ['Load Balancers', 'Load Balancers', true]]} value={page === 'Deploy' ? 'Applications' : page} onPick={(p) => go(p === 'Private Spaces' ? { product: 'Private spaces' } : { page: p })} />
       <main className="pc-main">
         {page === 'Deploy' && <Deploy state={state} update={update} go={go} />}
         {page === 'Alerts' && <Alerts state={state} update={update} />}
