@@ -1,10 +1,20 @@
 import { lazy, Suspense, useState } from 'react'
 import WideToggle from '../components/WideToggle.jsx'
-import GuidedLabsScreen from './lab/GuidedLabsScreen.jsx'
-import PipelineScreen from './lab/PipelineScreen.jsx'
 import './lab/platform-skin.css'
 
-const OpenConsole = lazy(() => import('./anypoint/PlatformLab.jsx').then((m) => ({ default: m.OpenConsole })))
+const OpenConsole = lazy(() => import('./anypoint/OpenConsole.jsx'))
+const GuidedLabs = lazy(() => import('./lab/GuidedLabsScreen.jsx'))
+const Pipeline = lazy(() => import('./lab/PipelineScreen.jsx'))
+const loading = (Screen, text) =>
+  function Loading() {
+    return (
+      <Suspense fallback={<p className="muted">{text}</p>}>
+        <Screen />
+      </Suspense>
+    )
+  }
+const GuidedLabsScreen = loading(GuidedLabs, 'Loading the guided labs…')
+const PipelineScreen = loading(Pipeline, 'Loading the pipeline…')
 const ConsoleScreen = () => (
   <Suspense fallback={<p className="muted">Loading the console…</p>}>
     <OpenConsole />

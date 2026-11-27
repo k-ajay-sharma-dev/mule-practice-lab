@@ -896,6 +896,9 @@ export const slug = (text) => text.trim().toLowerCase().replace(/[^a-z0-9]+/g, '
 export const starterRaml = (name) => `#%RAML 1.0\ntitle: ${name}\n`
 
 export const createProject = (state, name) => edit(state, (s) => void s.projects.push({ id: idOf(s, 'p'), name, raml: starterRaml(name), updated: s.clock, published: null }))
+// A project made from a published asset keeps no copy of the spec until it is edited: until then its spec is the
+// newest version in Exchange, as in Design Center, where the project holds what was published from it.
+export const projectRaml = (s, p) => p.raml ?? s.assets.findLast((a) => a.assetId === p.assetId)?.raml ?? starterRaml(p.name)
 export const saveProject = (state, id, raml) => edit(state, (s) => void Object.assign(s.projects.find((p) => p.id === id), { raml, updated: s.clock }))
 export const ramlErrors = (raml) => parseRaml(raml).errors.filter((e) => !e.file)
 
@@ -910,7 +913,8 @@ const SEMVER = /^\d+\.\d+\.\d+$/
 export function publish(state, projectId, form) {
   const project = state.projects.find((p) => p.id === projectId)
   const errors = []
-  const lint = ramlErrors(project.raml)
+  const raml = projectRaml(state, project)
+  const lint = ramlErrors(raml)
   if (lint.length) errors.push(`The specification has ${lint.length} error${lint.length === 1 ? '' : 's'}. Line ${lint[0].line}: ${lint[0].message}`)
   if (!SEMVER.test(form.version)) errors.push('The asset version needs the form 1.0.0.')
   if (!form.apiVersion.trim()) errors.push('Give the API version, such as v1.')
@@ -919,7 +923,7 @@ export function publish(state, projectId, form) {
   return {
     errors,
     state: edit(state, (s) => {
-      s.assets.push({ assetId: form.assetId, name: form.name, version: form.version, apiVersion: form.apiVersion, lifecycle: form.lifecycle, raml: project.raml, t: s.clock })
+      s.assets.push({ assetId: form.assetId, name: form.name, version: form.version, apiVersion: form.apiVersion, lifecycle: form.lifecycle, raml, t: s.clock })
       s.projects.find((p) => p.id === projectId).published = form.version
     }),
   }

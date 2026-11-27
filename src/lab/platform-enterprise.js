@@ -192,12 +192,25 @@ export function addEnterprise(state) {
   s = change(s, 'promotions-sys-api', { model: 'Recreate', props: { ...rest, 'promo.engine.endpoint': url } })
   // the loyalty platform gets an upgrade, so its System API is stopped in Sandbox
   s.apps.find((a) => a.name === 'loyalty-sys-api' && a.env === 'Sandbox').status = 'Stopped'
-  return s
+  return enterpriseProjects(s)
 }
 
 // The morning the learner arrives: a customer opens the tracking of their order in the mobile app, the carrier
 // lookup fails in Production and the carrier alert fires. Then the integration lead sends the welcome mail. The calls run
 // here and not as steady traffic, so a week of failing calls does not fill the log of carriers-sys-api.
+// Design Center: one API project for each asset of the landscape, so every API has the project it was published from.
+// It adds only the projects that are missing, so it can run on a console saved before the projects existed.
+export function enterpriseProjects(state) {
+  const have = new Set(state.projects.map((p) => p.assetId).filter(Boolean))
+  const add = []
+  for (const assetId of new Set(ESTATE.map((d) => d.asset ?? d.name))) {
+    const latest = state.assets.findLast((a) => a.assetId === assetId)
+    if (!latest || have.has(assetId)) continue
+    add.push({ id: `ent-${assetId}`, name: latest.name, assetId, updated: latest.t, published: latest.version })
+  }
+  return add.length ? { ...state, projects: [...state.projects, ...add] } : state
+}
+
 export function welcomeMail(state) {
   const c = CHANNELS.find((x) => x.name === 'Harbor Mobile App')
   let s = state

@@ -1,30 +1,38 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { advance, dayText, ENVS, finishDeploys, HOUR, MINUTE, nextJob } from '../../lab/platform.js'
-import ApiManager from './ApiManager.jsx'
-import DesignCenter from './DesignCenter.jsx'
-import Exchange from './Exchange.jsx'
-import Monitoring from './Monitoring.jsx'
-import RuntimeManager from './RuntimeManager.jsx'
-import { ApiClient, Backends, Inbox, Studio } from './Tools.jsx'
-import AnypointMQ from './AnypointMQ.jsx'
-import { DataCenter } from './Servers.jsx'
-import KafkaUI from './KafkaUI.jsx'
-import SftpClient from './SftpClient.jsx'
-import { BlobStorage, FileShares, KeyVault } from './AzurePortal.jsx'
-import DbConsole from './DbConsole.jsx'
-import MailServer from './MailServer.jsx'
-import ServiceBus from './ServiceBus.jsx'
-import JmsBroker from './JmsBroker.jsx'
-import PrivateSpaces from './PrivateSpaces.jsx'
-import FlowEditor from './FlowEditor.jsx'
-import BatchMonitor from './BatchMonitor.jsx'
-import Visualizer from './Visualizer.jsx'
 import { Btn } from './parts.jsx'
-import ApiManagerScreen from '../lab/ApiManagerScreen.jsx'
-import ExchangeScreen from '../lab/ExchangeScreen.jsx'
-import RuntimeManagerScreen from '../lab/RuntimeManagerScreen.jsx'
 import './anypoint.css'
 import '../lab/platform-skin.css'
+
+// Each product page is downloaded the first time it is opened, so the console itself opens faster.
+const page = (load, name = 'default') => lazy(() => load().then((m) => ({ default: m[name] })))
+const ApiManager = page(() => import('./ApiManager.jsx'))
+const DesignCenter = page(() => import('./DesignCenter.jsx'))
+const Exchange = page(() => import('./Exchange.jsx'))
+const Monitoring = page(() => import('./Monitoring.jsx'))
+const RuntimeManager = page(() => import('./RuntimeManager.jsx'))
+const ApiClient = page(() => import('./Tools.jsx'), 'ApiClient')
+const Backends = page(() => import('./Tools.jsx'), 'Backends')
+const Inbox = page(() => import('./Tools.jsx'), 'Inbox')
+const Studio = page(() => import('./Tools.jsx'), 'Studio')
+const AnypointMQ = page(() => import('./AnypointMQ.jsx'))
+const DataCenter = page(() => import('./Servers.jsx'), 'DataCenter')
+const KafkaUI = page(() => import('./KafkaUI.jsx'))
+const SftpClient = page(() => import('./SftpClient.jsx'))
+const BlobStorage = page(() => import('./AzurePortal.jsx'), 'BlobStorage')
+const FileShares = page(() => import('./AzurePortal.jsx'), 'FileShares')
+const KeyVault = page(() => import('./AzurePortal.jsx'), 'KeyVault')
+const DbConsole = page(() => import('./DbConsole.jsx'))
+const MailServer = page(() => import('./MailServer.jsx'))
+const ServiceBus = page(() => import('./ServiceBus.jsx'))
+const JmsBroker = page(() => import('./JmsBroker.jsx'))
+const PrivateSpaces = page(() => import('./PrivateSpaces.jsx'))
+const FlowEditor = page(() => import('./FlowEditor.jsx'))
+const BatchMonitor = page(() => import('./BatchMonitor.jsx'))
+const Visualizer = page(() => import('./Visualizer.jsx'))
+const ApiManagerScreen = page(() => import('../lab/ApiManagerScreen.jsx'))
+const ExchangeScreen = page(() => import('../lab/ExchangeScreen.jsx'))
+const RuntimeManagerScreen = page(() => import('../lab/RuntimeManagerScreen.jsx'))
 
 // Focused drills that go deeper into one product. Each keeps its own practice data, apart from the console's.
 const drill = (Screen, text) =>
@@ -213,7 +221,13 @@ export default function AnypointConsole({ state, onChange: update, guide, title 
               <Btn onClick={() => setEnvs(false)}>Cancel</Btn>
             </div>
           )}
-          {Page ? <Page state={state} update={update} place={shown} go={go} openEnv={() => setEnvs(!envs)} /> : <Home go={setPlace} title={title} />}
+          {Page ? (
+            <Suspense fallback={<main className="pc-main"><p className="pc-empty">Opening {place.product}.</p></main>}>
+              <Page state={state} update={update} place={shown} go={go} openEnv={() => setEnvs(!envs)} />
+            </Suspense>
+          ) : (
+            <Home go={setPlace} title={title} />
+          )}
         </div>
         {guide && showGuide && <aside className="pc-guide">{guide}</aside>}
       </div>

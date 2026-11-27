@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import CodeEditor from '../../components/CodeEditor.jsx'
-import { createProject, dayText, mark, mockCall, publish, ramlErrors, saveProject, slug } from '../../lab/platform.js'
+import { createProject, dayText, mark, mockCall, projectRaml, publish, ramlErrors, saveProject, slug } from '../../lab/platform.js'
 import { parseRaml } from '../../raml/parse.js'
 import { Btn, Errors, Field, Input, Link, Modal, Radios, Select, SideNav, Table } from './parts.jsx'
 
@@ -87,15 +87,16 @@ function Projects({ state, update, go }) {
 const SHELF = [['Root', ['title', 'version', 'baseUri', 'mediaType', 'types', 'traits', 'securitySchemes']], ['Methods', ['get', 'post', 'put', 'patch', 'delete']], ['Parameters', ['queryParameters', 'headers', 'uriParameters']], ['Responses', ['responses', 'body', 'description', 'example']], ['Types', ['type', 'properties', 'required', 'enum']]]
 
 function Designer({ project, state, update, go }) {
-  const [raml, setRaml] = useState(project.raml)
+  const saved = projectRaml(state, project)
+  const [raml, setRaml] = useState(saved)
   const [publishing, setPublishing] = useState(false)
   useEffect(() => {
-    if (raml === project.raml) return undefined
+    if (raml === saved) return undefined
     const timer = setTimeout(() => update((s) => saveProject(s, project.id, raml)), 400)
     return () => clearTimeout(timer)
-  }, [raml, project.id, project.raml, update])
+  }, [raml, project.id, saved, update])
   // a save that is still waiting must not be lost when the page changes
-  const keep = () => update((s) => (s.projects.find((p) => p.id === project.id)?.raml === raml ? s : saveProject(s, project.id, raml)))
+  const keep = () => update((s) => { const p = s.projects.find((x) => x.id === project.id); return !p || projectRaml(s, p) === raml ? s : saveProject(s, project.id, raml) })
   const errors = useMemo(() => ramlErrors(raml), [raml])
   const model = useMemo(() => (errors.length ? null : parseRaml(raml).model), [raml, errors])
 
@@ -216,7 +217,7 @@ function TryIt({ raml, open, on, update, onClose }) {
 }
 
 function Publish({ project, state, update, model, onClose, go }) {
-  const id = slug(project.name)
+  const id = project.assetId ?? slug(project.name)
   const last = state.assets.findLast((a) => a.assetId === id)
   const next = last ? last.version.replace(/(\d+)\.(\d+)\.\d+/, (_, a, b) => `${a}.${Number(b) + 1}.0`) : '1.0.0'
   const [f, setF] = useState({ version: next, apiVersion: String(model?.root.version ?? 'v1'), lifecycle: 'stable', assetId: id, name: project.name })
