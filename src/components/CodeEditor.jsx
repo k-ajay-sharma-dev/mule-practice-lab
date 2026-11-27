@@ -1,9 +1,10 @@
-import { useRef } from 'react'
+import { useContext, useRef } from 'react'
 import Editor from '@monaco-editor/react'
 import { useTheme } from '../theme.jsx'
 import { registerDataWeave } from '../editor/dataweave.js'
 import { formatJson } from '../study/json-format.js'
 import CopyButton from './CopyButton.jsx'
+import { LockContext } from './ReadOnlyLock.jsx'
 import { useCoarsePointer } from './touch.js'
 import TouchEditor from './TouchEditor.jsx'
 
@@ -12,13 +13,15 @@ import TouchEditor from './TouchEditor.jsx'
 export default function CodeEditor(given) {
   const touch = useCoarsePointer()
   const { language = 'dataweave', readOnly = false, height = '100%' } = given
+  // a paused timer locks the work: the editor turns read only, so you can still select and copy but not change it
+  const locked = useContext(LockContext)
   const props = readOnly && language === 'json' ? { ...given, value: formatJson(given.value) } : given
   return (
     <div className="copyable code-editor" style={{ height }}>
       {touch ? (
-        <TouchEditor {...props} language={language} readOnly={readOnly} height={height} />
+        <TouchEditor {...props} language={language} readOnly={readOnly || locked} height={height} />
       ) : (
-        <DesktopEditor {...props} />
+        <DesktopEditor {...props} readOnly={readOnly || locked} />
       )}
       {props.value && <CopyButton text={props.value} />}
     </div>
