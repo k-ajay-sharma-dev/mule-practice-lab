@@ -1,13 +1,17 @@
 // The Platform and systems tab of the Platform Lab: Anypoint Platform and every outside system, each on its own,
 // all in one practice environment. A change made on one shows on the others.
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import AnypointConsole, { Badge } from './AnypointConsole.jsx'
 import OpenConsole, { useOpenConsole, useSaveConsole } from './OpenConsole.jsx'
 
-// [group, [[product name in the console, label here, what you can do]]]. CI/CD opens its own tab.
+const Pipeline = lazy(() => import('../lab/PipelineScreen.jsx'))
+
+// [group, [[product name in the console, label here, what you can do]]]
 const ANYPOINT = 'Anypoint Platform'
+const CICD = 'CI/CD'
 const SYSTEMS = [
-  ['Anypoint', [[ANYPOINT, ANYPOINT, 'Design Center, API Manager, Runtime Manager and more'], ['CI/CD', 'CI/CD pipeline', 'The release workflow, opens its own tab']]],
+  ['Anypoint', [[ANYPOINT, ANYPOINT, 'Design Center, API Manager, Runtime Manager and more']]],
+  ['Deployments', [[CICD, 'CI/CD pipeline', 'The release workflow in GitHub Actions']]],
   ['Messaging', [['Kafka', 'Kafka', 'Topics, consumer groups, lag and schemas'], ['ActiveMQ', 'ActiveMQ', 'Classic and Artemis brokers, queues and DLQs'], ['MQ', 'Anypoint MQ', 'Queues, exchanges and client apps'], ['Azure Service Bus', 'Azure Service Bus', 'Queues, topics, sessions and dead letters'], ['Mail server', 'Mail server', 'SMTP and IMAP mailboxes']]],
   ['Files and data', [['SFTP and FTP', 'SFTP and FTP', 'Users, folders and file transfers'], ['Azure Blob Storage', 'Azure Blob Storage', 'Containers, blobs and SAS tokens'], ['Azure Files', 'Azure Files', 'File shares and directories'], ['Databases', 'SQL Server and Oracle', 'Queries, logins, grants, locks and plans'], ['Snowflake', 'Snowflake', 'Warehouses, stages, COPY and MERGE']]],
   ['Business systems', [['Salesforce', 'Salesforce', 'Setup, objects, API limits, Bulk and events'], ['SAP', 'SAP', 'IDocs, BAPIs and RFC destinations'], ['Workday', 'Workday', 'Workers, reports and integration users'], ['ServiceNow', 'ServiceNow', 'Incidents, Table API and ACLs'], ['Dynamics and SharePoint', 'Dynamics and SharePoint', 'Dataverse, SharePoint and Entra apps'], ['Shopify', 'Shopify', 'Orders, apps, webhooks and API limits']]],
@@ -18,14 +22,18 @@ const SYSTEMS = [
 ]
 const ALL = SYSTEMS.flatMap(([, list]) => list)
 
-export default function SystemsConsole({ onOpenTab }) {
+export default function SystemsConsole() {
   const [state, setState] = useOpenConsole()
   const [pick, setPick] = useState(ANYPOINT)
+  const [pipelineOpened, setPipelineOpened] = useState(false)
   const [find, setFind] = useState('')
   useSaveConsole(state)
   const q = find.trim().toLowerCase()
   const groups = SYSTEMS.map(([g, list]) => [g, q ? list.filter((x) => `${g} ${x[1]} ${x[2]}`.toLowerCase().includes(q)) : list]).filter(([, list]) => list.length)
-  const choose = (product) => (product === 'CI/CD' ? onOpenTab?.('pipeline') : setPick(product))
+  const choose = (product) => {
+    if (product === CICD) setPipelineOpened(true)
+    setPick(product)
+  }
   const label = ALL.find((x) => x[0] === pick)?.[1] ?? pick
   return (
     <div className="pc-wrap pc-skin sys-wrap">
@@ -63,7 +71,15 @@ export default function SystemsConsole({ onOpenTab }) {
         <div hidden={pick !== ANYPOINT}>
           <OpenConsole />
         </div>
-        {pick !== ANYPOINT && <AnypointConsole key={pick} state={state} onChange={setState} title={label} start={pick} bare />}
+        {/* the pipeline loads the first time it is picked, then stays mounted so its runs survive a switch */}
+        {pipelineOpened && (
+          <div hidden={pick !== CICD}>
+            <Suspense fallback={<p className="muted">Loading the pipeline…</p>}>
+              <Pipeline />
+            </Suspense>
+          </div>
+        )}
+        {pick !== ANYPOINT && pick !== CICD && <AnypointConsole key={pick} state={state} onChange={setState} title={label} start={pick} bare />}
       </div>
     </div>
   )

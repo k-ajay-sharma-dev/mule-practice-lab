@@ -4,7 +4,6 @@ import './lab/platform-skin.css'
 
 const Systems = lazy(() => import('./anypoint/SystemsConsole.jsx'))
 const GuidedLabs = lazy(() => import('./lab/GuidedLabsScreen.jsx'))
-const Pipeline = lazy(() => import('./lab/PipelineScreen.jsx'))
 const loading = (Screen, text) =>
   function Loading() {
     return (
@@ -14,11 +13,10 @@ const loading = (Screen, text) =>
     )
   }
 const GuidedLabsScreen = loading(GuidedLabs, 'Loading the guided labs…')
-const PipelineScreen = loading(Pipeline, 'Loading the pipeline…')
 
-const SystemsScreen = ({ onOpenTab }) => (
+const SystemsScreen = () => (
   <Suspense fallback={<p className="muted">Loading the console…</p>}>
-    <Systems onOpenTab={onOpenTab} />
+    <Systems />
   </Suspense>
 )
 
@@ -27,7 +25,6 @@ const SystemsScreen = ({ onOpenTab }) => (
 const VIEWS = [
   ['systems', 'Platform and systems', SystemsScreen],
   ['guided', 'Guided Labs', GuidedLabsScreen],
-  ['pipeline', 'CI/CD', PipelineScreen],
 ]
 
 export default function PlatformLabPage() {
@@ -42,8 +39,8 @@ export default function PlatformLabPage() {
       </div>
       <p className="muted">
         Practise Anypoint Platform tasks and see their effect. Platform and systems lists Anypoint Platform and every
-        outside system (Salesforce, SAP, Kafka, Epic, AWS and more), all in one practice environment. Guided Labs walk
-        you through a task step by step, and CI/CD runs the release pipeline as a GitHub Actions workflow. This is a simulator based
+        outside system (Salesforce, SAP, Kafka, Epic, AWS and more), all in one practice environment. Its CI/CD pipeline
+        runs the release as a GitHub Actions workflow. Guided Labs walk you through a task step by step. This is a simulator based
         on the MuleSoft documentation. It is not made by MuleSoft, is not connected to Anypoint Platform or GitHub and sends
         nothing over the network.
       </p>
@@ -59,7 +56,7 @@ export default function PlatformLabPage() {
       {/* every screen stays mounted so its clock and results survive a tab change */}
       {VIEWS.map(([key, , Screen]) => (
         <div key={key} role="tabpanel" hidden={view !== key}>
-          <Screen onOpenTab={setView} />
+          <Screen />
         </div>
       ))}
     </div>
