@@ -727,7 +727,8 @@ function resolveConn(f, v, path) {
   return [out, cost, nodes]
 }
 
-// mutations
+// mutations, and the scope a mutation needs beyond an installed app
+const MUTATION_SCOPES = { inventorySetQuantities: 'write_inventory' }
 function mutate(s, y, a, f, t) {
   const sel = f.sel ?? []
   const pick = (obj) => resolve(sel, obj, f.name)[0]
@@ -766,6 +767,36 @@ function mutate(s, y, a, f, t) {
     const w = addSubscription(y, a.id, { topic: t2, address: input.callbackUrl, apiVersion: y.apiVersion }, t)
     return pick({ webhookSubscription: { id: gid('WebhookSubscription', w.id), topic: topicEnum(w.topic), endpoint: { __typename: 'WebhookHttpEndpoint', callbackUrl: w.address } }, userErrors: [] })
   }
+  // inventorySetQuantities: the absolute quantity of inventory items at locations, all or none. compareQuantity must
+  // match the stored quantity unless ignoreCompareQuantity is true. Lab: on_hand is treated as available, as the lab
+  // keeps no committed or reserved quantities.
+  if (f.name === 'inventorySetQuantities') {
+    const input = f.args.input ?? {}
+    const name = word(input.name)
+    const rows = [].concat(input.quantities ?? [])
+    const errs = []
+    if (!['available', 'on_hand'].includes(name)) errs.push({ field: ['input', 'name'], message: "The quantity name must be either 'available' or 'on_hand'.", code: 'INVALID_NAME' })
+    if (!rows.length) errs.push({ field: ['input', 'quantities'], message: 'At least one quantity is required.', code: 'INVALID_QUANTITY' }) // lab-made wording
+    const found = rows.map((q, i) => {
+      const at = (k) => ['input', 'quantities', String(i), k]
+      const v = variantOfItem(y, idOfGid(q?.inventoryItemId))
+      const lv = v && levelOf(y, v.itemId, idOfGid(q?.locationId))
+      if (!v) errs.push({ field: at('inventoryItemId'), message: 'The specified inventory item could not be found.', code: 'INVALID_INVENTORY_ITEM' })
+      else if (!lv) errs.push({ field: at('locationId'), message: 'The specified location could not be found.', code: 'INVALID_LOCATION' })
+      else if (!Number.isInteger(q.quantity) || Math.abs(q.quantity) > 1000000000) errs.push({ field: at('quantity'), message: 'The quantity is not valid.', code: 'INVALID_QUANTITY' }) // lab-made wording
+      else if (!input.ignoreCompareQuantity && q.compareQuantity !== lv.available) errs.push({ field: at('compareQuantity'), message: 'The compareQuantity argument no longer matches the persisted quantity.', code: 'COMPARE_QUANTITY_STALE' })
+      return { lv, qty: q?.quantity }
+    })
+    if (errs.length) return pick({ inventoryAdjustmentGroup: null, userErrors: errs })
+    const changes = found.map(({ lv, qty }) => {
+      const delta = qty - lv.available
+      lv.available = qty
+      lv.updatedAt = t
+      emit(y, 'inventory_levels/update', levelPayload(lv), t)
+      return { name, delta, quantityAfterChange: qty, item: { id: gid('InventoryItem', lv.itemId), sku: variantOfItem(y, lv.itemId)?.sku ?? null }, location: { id: gid('Location', lv.locationId), name: y.locations.find((l) => l.id === lv.locationId)?.name ?? null } }
+    })
+    return pick({ inventoryAdjustmentGroup: { createdAt: iso(t), reason: word(input.reason) || 'correction', referenceDocumentUri: input.referenceDocumentUri ?? null, changes }, userErrors: [] })
+  }
   throw new GqlError(`Field '${f.name}' doesn't exist on type 'Mutation'`)
 }
 
@@ -800,6 +831,13 @@ function runGraphql(s, y, cfg, query, vars, t, who) {
   try {
     for (const f of doc.sel) {
       if (doc.op === 'mutation') {
+        // a mutation that writes store data needs its write scope
+        const need = MUTATION_SCOPES[f.name]
+        if (need && !a.granted.includes(need)) {
+          bucket.set(bucket.avail - 1)
+          callLog(y, t, a.name, 'GraphQL', `ACCESS_DENIED on ${f.name}`, 200, requested)
+          return { ok: false, status: 200, ms: GQL_MS, body: { data: null, errors: [{ message: `Access denied for ${f.name} field. Required access: \`${need}\` access scope.`, extensions: { code: 'ACCESS_DENIED', documentation: 'https://shopify.dev/api/usage/access-scopes' }, path: [f.name] }], extensions: { cost: { requestedQueryCost: requested, actualQueryCost: 1, throttleStatus: status(bucket.avail - 1) } } } }
+        }
         data[f.alias ?? f.name] = mutate(s, y, a, f, t)
         continue
       }

@@ -601,7 +601,11 @@ function Deploy({ state, update, go }) {
           />
         </Field>
         <Field label="Application File" required hint={jars.length === 0 ? 'No files yet. Export an application from Anypoint Studio first.' : chosen ? packageOf(chosen.pkg).note : undefined}>
-          <Select value={form.jar} onChange={(jar) => set({ jar, pkg: jars.find((j) => j.jar === jar)?.pkg ?? '' })} placeholder="Choose file" options={jars.map((j) => j.jar)} />
+          <Select value={form.jar} onChange={(jar) => {
+              const j = jars.find((x) => x.jar === jar)
+              // a jar exported from Studio may carry its mule-config.xml, so the Flow editor can open the app
+              set({ jar, pkg: j?.pkg ?? '', ...(j?.xml && { xml: j.xml }) })
+            }} placeholder="Choose file" options={jars.map((j) => j.jar)} />
         </Field>
       </div>
       <Tabs tabs={['Runtime', 'Ingress', 'Properties', 'Logging']} value={tab} onChange={setTab} />

@@ -32,6 +32,11 @@ export const ORG = 'Bayview Health'
 export const HOST = 'fhir.bayview.example'
 export const TOKEN_URL = `https://${HOST}/interconnect-fhir-oauth/oauth2/token`
 export const BASE = `https://${HOST}/interconnect-fhir-oauth/api/FHIR/R4`
+// The production side of Bayview: its own host, and the production client ID of each backend app. Lab-made: both sides
+// share one data set and one list of public keys, and the non-production screens show both.
+export const PROD_HOST = 'fhirprd.bayview.example'
+export const PROD_TOKEN_URL = `https://${PROD_HOST}/interconnect-fhir-oauth/oauth2/token`
+export const PROD_BASE = `https://${PROD_HOST}/interconnect-fhir-oauth/api/FHIR/R4`
 export const BRIGHTMART_JWKS = 'https://keys.brightmart.example/epic/jwks.json'
 export const ASSERTION_TYPE = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
 // a made up OID under the Epic root for the MRN of Bayview
@@ -233,6 +238,9 @@ export const isFilled = (y) => Boolean(y?.base)
 // ---------- lookups ----------
 
 export const appOf = (y, clientId) => (y?.apps ?? []).find((a) => a.clientId === word(clientId))
+export const prodAppOf = (y, clientId) => (y?.apps ?? []).find((a) => a.prodId === word(clientId))
+// the app of a client ID of either side, for the logs
+export const anyAppOf = (y, clientId) => appOf(y, clientId) ?? prodAppOf(y, clientId)
 export const appNamedIn = (y, name) => (y?.apps ?? []).find((a) => a.name === name)
 export const keyOf = (y, alias) => (y?.keystore ?? []).find((k) => k.alias === word(alias))
 export const patientByMrn = (y, mrn) => (y?.patients ?? []).find((p) => p.mrn === word(mrn))
@@ -439,13 +447,20 @@ function tokenRequest(s, y, app, cfg, now) {
   const key = keyOf(y, cfg?.keyAlias)
   if (cfg?.keystorePassword !== KEYSTORE_PASSWORD) return { ok: false, status: 0, error: 'java.io.IOException: Keystore was tampered with, or password was incorrect', ms: 20 }
   if (!key) return { ok: false, status: 0, error: `Alias ${word(cfg?.keyAlias) || '(empty)'} not found in the key store`, ms: 20 } // lab-made wording
-  if (word(cfg?.tokenUrl) !== TOKEN_URL) return { ok: false, status: 404, body: '<html><body>404 Not Found</body></html>', error: `No token endpoint at ${word(cfg?.tokenUrl) || '(empty)'}`, ms: 60 }
+  const prod = word(cfg?.tokenUrl) === PROD_TOKEN_URL
+  if (word(cfg?.tokenUrl) !== TOKEN_URL && !prod) return { ok: false, status: 404, body: '<html><body>404 Not Found</body></html>', error: `No token endpoint at ${word(cfg?.tokenUrl) || '(empty)'}`, ms: 60 }
+  entry.env = prod ? 'Production' : 'Non-production'
+  const url = prod ? PROD_TOKEN_URL : TOKEN_URL
   if (word(cfg?.grantType || 'client_credentials') !== 'client_credentials') return done(400, tokenErr('unsupported_grant_type'), `grant_type ${cfg.grantType}`)
   if (word(cfg?.assertionType || ASSERTION_TYPE) !== ASSERTION_TYPE) return done(400, tokenErr('invalid_request'), 'client_assertion_type is not jwt-bearer')
-  const a = appOf(y, c)
-  if (!a) return done(400, tokenErr('invalid_client'), `No backend app has client_id ${c || '(empty)'}`)
+  // each side knows only its own client ID of an app
+  const a = prod ? prodAppOf(y, c) : appOf(y, c)
+  if (!a) {
+    const other = prod ? appOf(y, c) : prodAppOf(y, c)
+    return done(400, tokenErr('invalid_client'), other ? `${c} is the ${prod ? 'non-production' : 'production'} client ID of ${other.name}. This endpoint takes the ${prod ? 'production' : 'non-production'} one` : `No backend app has client_id ${c || '(empty)'}`)
+  }
   if (!ALGS.includes(alg)) return done(400, tokenErr('invalid_client'), `JWT alg ${alg} is not supported. Sign with RS384 or ES384`)
-  if (word(cfg?.aud || TOKEN_URL) !== TOKEN_URL) return done(400, tokenErr('invalid_client'), `aud ${cfg.aud} is not the token endpoint`)
+  if (word(cfg?.aud || url) !== url) return done(400, tokenErr('invalid_client'), `aud ${cfg.aud} is not the token endpoint`)
   if (!(expSeconds > 0)) return done(400, tokenErr('invalid_client'), 'The JWT has expired')
   if (expSeconds > MAX_EXP) return done(400, tokenErr('invalid_client'), `exp is ${expSeconds} seconds after now. The limit is 5 minutes`)
   if (y.jtis[jti] && y.jtis[jti] > now) return done(400, tokenErr('invalid_client'), `jti ${jti} was used before. Each JWT needs a new jti`)

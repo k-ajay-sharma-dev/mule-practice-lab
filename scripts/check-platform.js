@@ -118,7 +118,9 @@ assert.ok(queryLogs(before, 'log-level: ERROR').length > 0)
 
 // labs
 const ids = new Set()
-for (const lab of PLATFORM_LABS) {
+// LABS=p-e2e-sftp,p-e2e-ftp checks only those labs, so parallel work can test its own labs
+const only = process.env.LABS ? new Set(process.env.LABS.split(',')) : null
+for (const lab of PLATFORM_LABS.filter((l) => !only || only.has(l.id))) {
   assert.ok(!ids.has(lab.id) && GROUPS.includes(lab.group), lab.id)
   ids.add(lab.id)
   const start = JSON.parse(JSON.stringify(lab.start())) // as it is after being saved

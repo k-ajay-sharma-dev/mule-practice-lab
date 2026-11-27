@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react'
 import { mark, stamp, timeText } from '../../lab/platform.js'
 import {
-  addPublicKey, appOf, BASE, browse, createBackendApp, generateKeyPair, BRIGHTMART_JWKS, isFilled, MAX_COUNT, MAX_EXP, ORG, publicJwk, publicKeysOf, RATE, removePublicKey, SCOPES, setAppScopes, setInJwks, setJwksUrl, TOKEN_URL,
+  addPublicKey, anyAppOf, appOf, BASE, browse, PROD_BASE, PROD_TOKEN_URL, createBackendApp, generateKeyPair, BRIGHTMART_JWKS, isFilled, MAX_COUNT, MAX_EXP, ORG, publicJwk, publicKeysOf, RATE, removePublicKey, SCOPES, setAppScopes, setInJwks, setJwksUrl, TOKEN_URL,
   upgradeEpic,
 } from '../../lab/platform-epic.js'
 import { Btn, Check, Field, Input, Link, Note, Select, SideNav, Table } from './parts.jsx'
@@ -42,7 +42,7 @@ export default function EpicFhir({ state, update, place, go }) {
     return r.result
   }
   const props = { y, state, update, act, place, go }
-  const nameOf = (clientId) => appOf(y, clientId)?.name ?? clientId
+  const nameOf = (clientId) => anyAppOf(y, clientId)?.name ?? clientId
   return (
     <>
       <SideNav items={[{ title: 'Epic on FHIR' }, ...VIEWS.map((v) => [v, v])]} value={view} onPick={(v) => go({ view: v })} />
@@ -147,6 +147,8 @@ function AppPage({ y, a, act, go }) {
           ['Application audience', a.audience],
           ['Token endpoint', TOKEN_URL],
           ['FHIR base URL', BASE],
+          ['Production token endpoint', PROD_TOKEN_URL],
+          ['Production FHIR base URL', PROD_BASE],
           ['Created', `${stamp(a.t)} by ${a.by}`],
         ].map(([k, v]) => (
           <div key={k}>
@@ -441,11 +443,12 @@ function Tokens({ y, nameOf }) {
         POST {TOKEN_URL} with grant_type client_credentials and a client_assertion JWT, newest first. The app gets only the error; the Reason is what the Epic team of Bayview sees in its log.
       </p>
       <Table
-        heads={['Time', 'Backend app', 'Mule app', 'kid', 'alg', 'jti', 'Status', 'Error', 'Granted scope', 'Reason']}
+        heads={['Time', 'Side', 'Backend app', 'Mule app', 'kid', 'alg', 'jti', 'Status', 'Error', 'Granted scope', 'Reason']}
         empty="No token requests yet"
         rows={[...y.tokenLog].reverse().map((x, i) => (
           <tr key={i}>
             <td>{stamp(x.t)}</td>
+            <td>{x.env ?? 'Non-production'}</td>
             <td>{nameOf(x.c) || 'Unknown client'}</td>
             <td>{x.app}</td>
             <td className="ep-mono">{x.kid}</td>

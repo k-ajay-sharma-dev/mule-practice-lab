@@ -645,5 +645,28 @@ export const changeEmail = (state, worker, email) =>
     return { ok: true, text: `Contact Change for ${x.name} completed.` }
   })
 
+// Hire Employee, as an HR partner enters it on the screen. The next free Employee ID is given, the worker is active from
+// the hire date, and Last Functionally Updated is the moment the hire completed. Lab-made: no approval step, so the
+// business process completes at once; no position or pay data.
+export function nextEmployeeId(y) {
+  const ids = Object.keys(y?.workers ?? {}).map(Number).filter((n) => n >= 21000 && n < 30000)
+  return String(Math.max(21000, ...ids) + 1)
+}
+export const hireWorker = (state, { first, last, job, loc, email = '', hireDate }) =>
+  edit(state, (s, y, t) => {
+    const f = word(first)
+    const l = word(last)
+    if (!/^[A-Za-z][A-Za-z' -]{0,39}$/.test(f) || !/^[A-Za-z][A-Za-z' -]{0,39}$/.test(l)) return { ok: false, text: 'Enter the legal first and last name.' }
+    if (!y.jobs[job]) return { ok: false, text: 'Pick a job profile.' }
+    if (!y.locations[loc]) return { ok: false, text: 'Pick a location.' }
+    const e = word(email)
+    if (e && !/^[^@\s]+@[^@\s]+\.[a-z]+$/i.test(e)) return { ok: false, text: 'Email Address is not valid.' }
+    const eff = word(hireDate) ? parseWd(word(hireDate)) : t - (t % DAY)
+    if (Number.isNaN(eff)) return { ok: false, text: 'Enter the hire date as 2026-11-03.' }
+    const id = nextEmployeeId(y)
+    hire(y, id, { name: `${f} ${l}`, job, loc, org: y.workers[Object.keys(y.workers).find((k) => y.workers[k].loc === loc)]?.org ?? 'Stores', eff, done: t, email: e, by: SCREEN_USER })
+    return { ok: true, id, text: `Hire Employee for ${f} ${l} completed. Employee ID ${id}.` }
+  })
+
 // the placeholder the open console seeds: tiny; fillWorkday builds the system on first use
 export const defaultWorkday = (now) => ({ created: now })

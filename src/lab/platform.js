@@ -1127,7 +1127,9 @@ export function importSpec(state, assetId) {
   const asset = latestAsset(state, assetId)
   return edit(state, (s) => {
     s.studio = s.studio.filter((p) => p.name !== assetId)
-    s.studio.push({ name: assetId, assetId, version: asset.version, raml: asset.raml, autodiscovery: null, jar: null })
+    // lab: a lab can name the package that stands for the flows its team builds on this spec (state.studioPkgs), so the
+    // exported jar runs that integration and not the generic API answer
+    s.studio.push({ name: assetId, assetId, version: asset.version, raml: asset.raml, autodiscovery: null, jar: null, ...(s.studioPkgs?.[assetId] && { pkg: s.studioPkgs[assetId] }), ...(s.studioXml?.[assetId] && { xml: s.studioXml[assetId] }) })
   })
 }
 export const setStudio = (state, name, patch) => edit(state, (s) => void Object.assign(s.studio.find((p) => p.name === name), { jar: null, ...patch }))
@@ -1138,7 +1140,7 @@ export const studioFlows = (project) => [
 ]
 // The files the Deploy Application page can choose
 export const jarsOf = (s) => [
-  ...s.studio.filter((p) => p.jar).map((p) => ({ jar: p.jar, pkg: 'api', project: p.name, raml: p.raml, autodiscovery: p.autodiscovery })),
+  ...s.studio.filter((p) => p.jar).map((p) => ({ jar: p.jar, pkg: p.pkg ?? 'api', project: p.name, raml: p.raml, autodiscovery: p.autodiscovery, ...(p.xml && { xml: p.xml }) })),
   // a name, or { pkg, autodiscovery } for an application that is linked to API Manager
   ...(s.jars ?? []).map((j) => (typeof j === 'string' ? { pkg: j } : j)).map((j) => ({ jar: `${j.pkg}-1.0.0-mule-application.jar`, ...j })),
 ]

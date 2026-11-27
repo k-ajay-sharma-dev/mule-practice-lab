@@ -1673,8 +1673,10 @@ export function dbCtx(s, app) {
     update: single('update'),
     delete: single('delete'),
     executeDdl: (name, cfg, sql) => single('ddl')(name, cfg, sql, null),
-    // one statement for many rows in one batch; with autocommit the rows before a failure stay
-    bulkInsert: (name, cfg, sql, list) =>
+    // one statement for many rows in one batch; with autocommit the rows before a failure stay.
+    // Lab-made: opts.represents says how many rows the list stands for (a load of 300,000 rows keeps a few in the
+    // state), so the row count of the table, which COUNT(*) reads, grows by that number.
+    bulkInsert: (name, cfg, sql, list, opts = {}) =>
       on(name, (srv) => {
         const c = configOf(cfg)
         const got = checkout(s, srv, app, c)
@@ -1692,7 +1694,10 @@ export function dbCtx(s, app) {
           ms += 0.4
         }
         checkin(got.sess)
-        return { ok: true, affected, ms: Math.round(ms) }
+        const more = Math.max(0, Math.floor(Number(opts.represents) || 0) - affected)
+        const t = more ? srv.tables[tableKeyOf(srv, parseSql(sql, srv.vendor).from ?? '')] : null
+        if (t) t.count += more
+        return { ok: true, affected: affected + (t ? more : 0), ms: Math.round(ms + (t ? more * 0.02 : 0)) }
       }),
     // A transaction on one connection: fn(tx) runs the operations; an error rolls everything back. tx.hold(reason)
     // keeps the transaction open after fn returns, as a flow does while it waits inside the Try scope for a remote call

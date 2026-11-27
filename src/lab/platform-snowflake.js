@@ -1587,6 +1587,37 @@ S.ALTER = (p, env) => {
     sch.formats[ref.name] = { ...formatOf(o, obj), owner: obj.owner }
     return status('Statement executed successfully.')
   }
+  // ALTER TABLE t ALTER [COLUMN] c SET DATA TYPE type (also MODIFY, and TYPE without SET DATA). Snowflake can make a
+  // VARCHAR longer and raise the precision of a NUMBER with the same scale; anything else is refused. The rows keep their
+  // values. Lab-made: the error codes of the refusals.
+  if (p.accept('TABLE')) {
+    const parts = p.qname()
+    if (!p.accept('ALTER') && !p.accept('MODIFY')) lab('this ALTER TABLE is not part of the lab. Use ALTER TABLE t ALTER COLUMN c SET DATA TYPE type')
+    p.accept('COLUMN')
+    const col = p.ident()
+    if (p.accept('SET')) {
+      p.accept('DATA')
+      p.expect('TYPE')
+    } else p.accept('TYPE')
+    const type = typeName(p)
+    p.end()
+    const { ref, obj: t } = tableFor(env, parts, 'ALTER TABLE')
+    need(env, 'OWNERSHIP', 'TABLE', ref)
+    const c = t.cols.find((x) => x.name === col)
+    if (!c) fail('000904', '42000', `SQL compilation error: error line 1 at position 0\ninvalid identifier '${col}'`)
+    const len = (x) => Number(String(x).match(/^\w+\((\d+)/)?.[1] ?? (/^(VARCHAR|STRING|TEXT)$/.test(baseType(x)) ? 16777216 : NaN))
+    const text = ['VARCHAR', 'STRING', 'TEXT', 'CHAR', 'CHARACTER']
+    const num = ['NUMBER', 'NUMERIC', 'DECIMAL']
+    const from = baseType(c.type)
+    const to = baseType(type)
+    if (text.includes(from) && text.includes(to)) {
+      if (len(type) < len(c.type)) fail('002108', '0A000', `SQL compilation error: cannot change column ${col} from type ${c.type} to ${type} because reducing the byte-length of a varchar is not supported.`)
+    } else if (num.includes(from) && num.includes(to)) {
+      if (scaleOf(type) !== scaleOf(c.type) || len(type) < len(c.type)) fail('002108', '0A000', `SQL compilation error: cannot change column ${col} from type ${c.type} to ${type} because changing the scale of a number or lowering its precision is not supported.`)
+    } else if (from !== to) fail('002108', '0A000', `SQL compilation error: cannot change column ${col} from type ${c.type} to ${type} because the types are not compatible.`)
+    c.type = type
+    return status('Statement executed successfully.')
+  }
   lab('this ALTER statement is not part of the lab')
 }
 

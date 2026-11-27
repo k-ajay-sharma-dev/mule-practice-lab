@@ -837,18 +837,21 @@ export const releaseHold = (state, id) =>
   })
 
 // Test messages that the Epic interface team sends from Epic. The test patient ZZTEST is made up.
-export const TEST_KINDS = { A04: 'A04 register test patient', 'A04 bad': 'A04 without PID-3', A08: 'A08 update test patient', R01: 'ORU^R01 test result' }
+export const TEST_KINDS = { A04: 'A04 register test patient', 'A04 bad': 'A04 without PID-3', A08: 'A08 update test patient', R01: 'ORU^R01 test result', 'A08 second': 'A08 update second test patient', 'A04 second': 'A04 register second test patient' }
 export const TEST_MRN = '990001'
+// a second test patient, ZZTEST, SECOND, for a lab that sends its update before its registration
+export const TEST_MRN_2 = '990002'
 export const sendTest = (state, id, kind = 'A04') =>
   edit(state, (s, h, now) => {
     const i = ifaceOf(h, id)
     if (!i) return { ok: false, text: `Interface ${id} does not exist.` }
     const ctl = String(h.ctl++)
-    const base = { ctl, t: now, ids: [{ id: TEST_MRN }], name: ['ZZTEST', 'BRIGHTMART'], dob: '19900101', sex: 'U', cls: 'O', loc: ['OPCLIN', '', '', FACILITY], visit: `VT${ctl.slice(-4)}`, admit: dtm(now) }
+    const second = / second$/.test(kind)
+    const base = { ctl, t: now, ids: [{ id: second ? TEST_MRN_2 : TEST_MRN }], name: ['ZZTEST', second ? 'SECOND' : 'BRIGHTMART'], dob: second ? '19850615' : '19900101', sex: second ? 'F' : 'U', cls: 'O', loc: ['OPCLIN', '', '', FACILITY], visit: second ? 'VT2002' : `VT${ctl.slice(-4)}`, admit: dtm(now) }
     const raw =
       kind === 'R01'
         ? oruMessage({ ...base, placer: `ORDT${ctl.slice(-4)}`, filler: `LABT${ctl.slice(-4)}`, tests: [{ code: '2345-7', text: 'Glucose', value: '101', units: 'mg/dL', range: '70-99', flag: 'H' }] })
-        : adtMessage({ ...base, event: kind === 'A08' ? 'A08' : 'A04', ...(kind === 'A04 bad' && { ids: [] }) })
+        : adtMessage({ ...base, event: kind.startsWith('A08') ? 'A08' : 'A04', ...(kind === 'A04 bad' && { ids: [] }), ...(kind === 'A08 second' && { cls: 'I', loc: ['4W', '407', 'B', FACILITY] }) })
     if (!enqueue(i, raw)) return { ok: false, text: `The event filter of ${i.id} does not send this event.` }
     return { ok: true, ctl, text: `Test message ${ctl} is queued on ${i.id}.` }
   })

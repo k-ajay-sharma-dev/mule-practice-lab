@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react'
 import { mark, timeText } from '../../lab/platform.js'
 import {
-  activatePending, activeCount, addPrompt, changeEmail, createGroup, createIsu, createReport, DOMAIN_LIST, editIsu, editReport, expiresAt, FIELDS, GROUP_TYPE, groupsOf, isFilled, jobName, locName, raasUrl, removePrompt, SCREEN_USER,
+  activatePending, activeCount, addPrompt, changeEmail, createGroup, createIsu, createReport, DOMAIN_LIST, editIsu, editReport, expiresAt, FIELDS, GROUP_TYPE, groupsOf, hireWorker, isFilled, jobName, locName, raasUrl, removePrompt, SCREEN_USER,
   setMembers, setPasswordRules, setPermissions, shortTime, soapUrl, SOURCES, statusOf, testReport, upgradeWorkday, wdDate, widOf, wsdlUrl,
 } from '../../lab/platform-workday.js'
 import { Btn, Check, Field, Input, Link, Note, Select, SideNav, Table, Tabs } from './parts.jsx'
@@ -20,6 +20,7 @@ const TASKS = [
   ['Find Workers', 'Workers'],
   ['Change Contact Information', 'Workers'],
   ['Business Processes', 'Business processes'],
+  ['Hire Employee', 'Business processes'],
   ['Create Custom Report', 'Custom reports'],
   ['Edit Custom Report', 'Custom reports'],
   ['Create Integration System User', 'Integration system users'],
@@ -103,7 +104,7 @@ export default function Workday({ state, update, place, go }) {
           <>
             {view === 'Home' && <Home {...props} />}
             {view === 'Workers' && (place?.worker && y.workers[place.worker] ? <Profile key={place.worker} {...props} id={place.worker} /> : <Workers {...props} />)}
-            {view === 'Business processes' && <Processes y={y} open={open} />}
+            {view === 'Business processes' && <Processes {...props} />}
             {view === 'Custom reports' && (place?.report && y.reports[place.report] ? <Report key={place.report} {...props} r={y.reports[place.report]} /> : <Reports {...props} />)}
             {view === 'Integration system users' && <Isus {...props} />}
             {view === 'Security groups' && <Groups {...props} />}
@@ -322,12 +323,60 @@ function Profile({ y, state, act, go, id }) {
   )
 }
 
-function Processes({ y, open }) {
+function Processes({ y, state, act, open }) {
   const [type, setType] = useState('')
+  const blank = { first: '', last: '', job: '', loc: '', email: '', hireDate: wdDate(state.clock) }
+  const [form, setForm] = useState(null)
+  const [m, setM] = useState(null)
   const list = [...y.events].reverse().filter((e) => !type || e.type === type)
+  const hire = () => {
+    const r = act((s) => hireWorker(s, form))
+    setM(r)
+    if (r.ok) setForm(null)
+  }
   return (
     <>
       <h2>Business Processes</h2>
+      {!form && (
+        <Btn kind="primary" onClick={() => (setM(null), setForm(blank))}>
+          Hire Employee
+        </Btn>
+      )}
+      {form && (
+        <section className="wd-card" aria-label="Hire Employee">
+          <h3>Hire Employee</h3>
+          <div className="pc-pair">
+            <Field label="Legal first name" required>
+              <Input value={form.first} onChange={(first) => setForm({ ...form, first })} aria-label="Legal first name" />
+            </Field>
+            <Field label="Legal last name" required>
+              <Input value={form.last} onChange={(last) => setForm({ ...form, last })} aria-label="Legal last name" />
+            </Field>
+          </div>
+          <div className="pc-pair">
+            <Field label="Job profile" required>
+              <Select value={form.job} onChange={(job) => setForm({ ...form, job })} placeholder="Choose a job profile" options={Object.entries(y.jobs).map(([k, v]) => [k, v])} />
+            </Field>
+            <Field label="Location" required>
+              <Select value={form.loc} onChange={(loc) => setForm({ ...form, loc })} placeholder="Choose a location" options={Object.entries(y.locations).map(([k, v]) => [k, v])} />
+            </Field>
+          </div>
+          <div className="pc-pair">
+            <Field label="Work email" hint="Optional. It can be added later with Change Contact Information.">
+              <Input value={form.email} onChange={(email) => setForm({ ...form, email })} aria-label="Work email" />
+            </Field>
+            <Field label="Hire date" hint="2026-11-03">
+              <input className="pc-input" value={form.hireDate} onChange={(e) => setForm({ ...form, hireDate: e.target.value })} aria-label="Hire date" />
+            </Field>
+          </div>
+          <p className="pc-dim">The next free Employee ID is given on Submit. The worker is active from the hire date.</p>
+          <Btn kind="primary" onClick={hire}>
+            Submit
+          </Btn>{' '}
+          <Btn onClick={() => setForm(null)}>Cancel</Btn>
+        </section>
+      )}
+      <Msg m={m} />
       <Field label="Business process type">
         <Select value={type} onChange={setType} placeholder="All" options={['Hire', 'Terminate', 'Change Job', 'Contact Change']} />
       </Field>
