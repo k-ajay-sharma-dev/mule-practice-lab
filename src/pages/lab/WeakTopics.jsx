@@ -40,7 +40,7 @@ export function groupStats(sections, solved, { drills, writeups, mysteries }) {
 }
 
 export default function WeakTopics({ sections, solved, onOpen }) {
-  const [all, setAll] = useState(true)
+  const [all, setAll] = useState(false)
   const stats = useMemo(() => groupStats(sections.filter(([, labs]) => labs.length > 0), solved, { drills: readDrills(), writeups: readWriteups(), mysteries: readMysteries() }), [sections, solved])
   // groups with trouble on record first, then the groups with the most left to solve
   const weakest = [...stats]

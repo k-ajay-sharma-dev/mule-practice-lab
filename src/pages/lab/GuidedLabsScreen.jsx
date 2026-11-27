@@ -251,43 +251,89 @@ export default function GuidedLabsScreen() {
   }, [labId])
   const drilling = drill?.labId === labId ? drill : null
 
+  // the home page shows one group at a time; it stays picked while a lab is open
+  const [group, setGroup] = useState(() => SECTIONS.find(([, labs]) => labs.some((l) => !progress.solved[l.id]))?.[0] ?? SECTIONS[0][0])
+  const [find, setFind] = useState('')
+  const [hideSolved, setHideSolved] = useState(false)
+  const pickGroup = (name) => {
+    setGroup(name)
+    setFind('')
+  }
+
   function restart() {
     setProgress((p) => ({ ...p, configs: Object.fromEntries(Object.entries(p.configs).filter(([id]) => id !== labId)) }))
   }
 
-  if (!lab)
+  if (!lab) {
+    const q = find.trim().toLowerCase()
+    const doneIn = (labs) => labs.filter((l) => progress.solved[l.id]).length
+    const keep = (l) => (!hideSolved || !progress.solved[l.id]) && (!q || `${l.title} ${l.scenario}`.toLowerCase().includes(q))
+    // a search looks through every group; otherwise only the chosen group shows
+    const shown = (q ? SECTIONS : SECTIONS.filter(([name]) => name === group)).map(([name, labs]) => [name, labs.filter(keep), labs]).filter(([, labs]) => !q || labs.length)
     return (
       <div className="lab-sections">
         <p className="muted small">
           {solvedCount} of {ALL.length} solved. The first {GROUPS.length} groups run in the Anypoint console and the CI/CD labs run on a GitHub Actions page, with steps that tick off as you work.
         </p>
-        <DrillPanel drills={drills} onStart={startDrill} onOpen={openLab} />
-        <MysteryPanel groups={mysteryGroups} onGroups={chooseGroups} onStart={startMystery} />
+        <div className="lab-home-top">
+          <DrillPanel drills={drills} onStart={startDrill} onOpen={openLab} />
+          <MysteryPanel groups={mysteryGroups} onGroups={chooseGroups} onStart={startMystery} />
+        </div>
         <WeakTopics sections={SECTIONS} solved={progress.solved} onOpen={openLab} />
-        {SECTIONS.map(([name, labs]) => (
-          <section key={name} aria-label={name}>
-            <div className="lab-panel-head">
-              <h2>{name}</h2>
-              <span className="muted small">
-                {labs.filter((l) => progress.solved[l.id]).length} of {labs.length} solved
-              </span>
+        <div className="lab-browse">
+          <nav className="lab-browse-nav" aria-label="Lab groups">
+            {SECTIONS.map(([name, labs]) => (
+              <button type="button" key={name} aria-current={!q && name === group ? 'true' : undefined} className={!q && name === group ? 'on' : ''} onClick={() => pickGroup(name)}>
+                <span>{name}</span>
+                <small className={doneIn(labs) === labs.length ? 'done' : ''}>
+                  {doneIn(labs)}/{labs.length}
+                </small>
+              </button>
+            ))}
+          </nav>
+          <div className="lab-browse-main">
+            <div className="lab-browse-bar">
+              <select className="lab-browse-pick" aria-label="Lab group" value={group} onChange={(e) => pickGroup(e.target.value)}>
+                {SECTIONS.map(([name, labs]) => (
+                  <option key={name} value={name}>
+                    {name} ({doneIn(labs)}/{labs.length})
+                  </option>
+                ))}
+              </select>
+              <input type="search" className="lab-browse-find" placeholder="Find a lab in every group" aria-label="Find a lab" value={find} onChange={(e) => setFind(e.target.value)} />
+              <label className="small lab-browse-hide">
+                <input type="checkbox" checked={hideSolved} onChange={(e) => setHideSolved(e.target.checked)} /> Hide solved
+              </label>
             </div>
-            <div className="lab-cards">
-              {labs.map((l) => (
-                <button type="button" key={l.id} type="button" className="lab-card" onClick={() => openLab(l.id)}>
-                  <b>{l.title}</b>
-                  <span className="muted small">{l.scenario}</span>
-                  <span className="lab-card-foot small">
-                    <span className="muted">{l.steps ? `${l.steps.length} steps, about ${l.minutes} min` : l.kind === 'runtime' ? 'Runtime Manager' : 'API Manager'}</span>
-                    {progress.solved[l.id] && <span className="lab-badge lab-approved">solved</span>}
+            {q && !shown.length && <p className="muted small">No lab matches "{find}".</p>}
+            {shown.map(([name, labs, all]) => (
+              <section key={name} aria-label={name}>
+                <div className="lab-panel-head">
+                  <h2>{name}</h2>
+                  <span className="muted small">
+                    {doneIn(all)} of {all.length} solved
                   </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        ))}
+                </div>
+                {!labs.length && <p className="muted small">Every lab in this group is solved.</p>}
+                <div className="lab-cards">
+                  {labs.map((l) => (
+                    <button type="button" key={l.id} className="lab-card" onClick={() => openLab(l.id)}>
+                      <b>{l.title}</b>
+                      <span className="muted small">{l.scenario}</span>
+                      <span className="lab-card-foot small">
+                        <span className="muted">{l.steps ? `${l.steps.length} steps, about ${l.minutes} min` : l.kind === 'runtime' ? 'Runtime Manager' : 'API Manager'}</span>
+                        {progress.solved[l.id] && <span className="lab-badge lab-approved">solved</span>}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
       </div>
     )
+  }
 
   const position = ALL.indexOf(lab)
   return (
