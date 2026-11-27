@@ -23,6 +23,7 @@ export const BACKUP_KEYS = [
   'pl.mistakes',
   'pl.wrong',
   'pl.stories',
+  'pl.lab.solved',
 ]
 
 // Keys saved to the account. Theme and page size stay per device. So do the runner settings on a copy served from

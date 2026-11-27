@@ -5,7 +5,7 @@
 //
 // The browser stays the working copy (fast, works offline). Each sync pulls only what changed since the last
 // pull (by server time, so device clocks don't matter for that), merges it, then pushes what changed here.
-// Conflicts: per problem the two copies are merged part by part (see merge.js); activity days are combined; other keys go to the newest write.
+// Conflicts: per problem the two copies are merged part by part (see merge.js); activity days and solved labs are combined; other keys go to the newest write.
 import { initializeApp } from 'firebase/app'
 import {
   connectAuthEmulator,
@@ -31,10 +31,13 @@ import { onLocalChange, readMeta, SYNCED_KEYS, writeMeta } from '../store/local.
 import { reloadFromStorage } from '../store/progress.js'
 import { EMULATOR_CONFIG, firebaseConfig, useEmulator } from './config.js'
 import { mergeEntry, sameEntry } from './merge.js'
+import { LAB_SOLVED_KEY, mergeSolvedLabs } from '../store/labs.js'
 import { setStatus } from './status.js'
 
 const PROGRESS_KEY = 'pl.progress'
 const ACTIVITY_KEY = 'pl.activity'
+// keys whose two copies are combined instead of the newest one winning
+const COMBINED = { [ACTIVITY_KEY]: (a, b) => mergeActivity(a, b), [LAB_SOLVED_KEY]: (a, b) => mergeSolvedLabs(a, b) }
 const STATE_KEYS = SYNCED_KEYS.filter((k) => k !== PROGRESS_KEY)
 // { uid, lastPull: {seconds, nanoseconds}, pushed: {problemId: updatedAt}, pushedKeys: {key: ms} }
 const SYNC_STATE_KEY = 'pl.sync.state'
@@ -209,19 +212,19 @@ async function syncOnce(uid) {
     const key = d.id
     if (!STATE_KEYS.includes(key)) return
     const { value = null, updatedAt = 0 } = d.data()
-    if (key === ACTIVITY_KEY) {
+    if (COMBINED[key]) {
       let remoteValue = {}
       try {
         remoteValue = JSON.parse(value) ?? {}
       } catch {
         // unreadable remote copy: keep ours and overwrite it below
       }
-      const merged = JSON.stringify(mergeActivity(readJson(key, {}), remoteValue))
+      const merged = JSON.stringify(COMBINED[key](readJson(key, {}), remoteValue))
       if (merged !== localStorage.getItem(key)) {
         localStorage.setItem(key, merged)
         changed = true
       }
-      if (merged !== value) meta[key] = Math.max(Date.now(), (pushedKeys[key] ?? 0) + 1) // push the combined days
+      if (merged !== value) meta[key] = Math.max(Date.now(), (pushedKeys[key] ?? 0) + 1) // push the combined copy
       return
     }
     if (updatedAt > (meta[key] ?? 0)) {

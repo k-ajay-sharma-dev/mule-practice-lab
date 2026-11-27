@@ -1,4 +1,5 @@
 import { BACKUP_KEYS, writeLocal } from './local.js'
+import { LAB_SOLVED_KEY, mergeSolvedLabs, readSolvedLabs, writeSolvedLabs } from './labs.js'
 
 // A backup file you keep yourself: everything that cloud sync carries except the runner settings, in one JSON file.
 const APP = 'mule-practice-lab'
@@ -28,7 +29,7 @@ const parse = (s) => {
 }
 
 // Restores a backup into this browser. Problems merge — for each one the newer version wins, so restoring an
-// old file never throws away newer work; practice days are combined; everything else is taken from the file.
+// old file never throws away newer work; practice days and solved labs are combined; everything else is taken from the file.
 // Returns the number of problems in the file. Throws with a readable message for a wrong file.
 export async function importBackup(file) {
   const backup = parse(await file.text())
@@ -60,8 +61,12 @@ export async function importBackup(file) {
     writeLocal('pl.activity', JSON.stringify(merged))
   }
 
+  // a lab solved before stays solved
+  const labs = parse(data[LAB_SOLVED_KEY])
+  if (isObject(labs)) writeSolvedLabs(mergeSolvedLabs(readSolvedLabs(), labs))
+
   for (const key of BACKUP_KEYS) {
-    if (key === 'pl.progress' || key === 'pl.activity') continue
+    if (key === 'pl.progress' || key === 'pl.activity' || key === LAB_SOLVED_KEY) continue
     if (typeof data[key] === 'string') writeLocal(key, data[key])
   }
   return problems

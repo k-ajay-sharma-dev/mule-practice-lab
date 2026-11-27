@@ -8,6 +8,8 @@ import Assumed from './Assumed.jsx'
 import { AppsTab, NodesTab, PoliciesTab, TiersTab } from './ConfigTabs.jsx'
 import { formFor, RuntimeWorkbench } from './RuntimeManagerScreen.jsx'
 import { topologyOf } from '../../lab/engine.js'
+import { markLabSolved, mergeSolvedLabs, readSolvedLabs, writeSolvedLabs } from '../../store/labs.js'
+import { useSyncStatus } from '../../sync/status.js'
 
 const PlatformLab = lazy(() => import('../anypoint/PlatformLab.jsx').then((m) => ({ default: m.PlatformLab })))
 
@@ -27,19 +29,30 @@ const isConfig = (c) =>
 const isRuntimeState = (s) => Number.isFinite(s?.clock) && Array.isArray(s?.apps)
 const isSaved = (lab, config) => (lab.kind === 'runtime' ? isRuntimeState(config) : isConfig(config))
 
+// Solved labs live in their own key, which cloud sync carries. The states of labs in progress stay in this browser.
 function loadProgress() {
+  let saved = null
   try {
-    const saved = JSON.parse(localStorage.getItem(PROGRESS_KEY))
-    const configs = Object.fromEntries(Object.entries(saved?.configs ?? {}).filter(([id, config]) => labById.has(id) && isSaved(labById.get(id), config)))
-    return { solved: saved?.solved ?? {}, configs }
+    saved = JSON.parse(localStorage.getItem(PROGRESS_KEY))
   } catch {
-    return { solved: {}, configs: {} }
+    // unreadable: start from nothing
   }
+  const configs = Object.fromEntries(Object.entries(saved?.configs ?? {}).filter(([id, config]) => labById.has(id) && isSaved(labById.get(id), config)))
+  // labs solved before sync existed were kept as { id: true } in pl.lab.guided: move them over once
+  const before = Object.fromEntries(Object.keys(saved?.solved ?? {}).filter((id) => saved.solved[id]).map((id) => [id, '2026-01-01T00:00:00.000Z']))
+  const solved = readSolvedLabs()
+  if (Object.keys(before).some((id) => !solved[id])) {
+    const merged = mergeSolvedLabs(solved, before)
+    writeSolvedLabs(merged)
+    return { solved: merged, configs }
+  }
+  return { solved, configs }
 }
 
-function saveProgress(progress) {
+function saveProgress({ solved, configs }) {
   try {
-    localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress))
+    // solved stays here too, so an older copy of the site still shows it
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify({ solved: Object.fromEntries(Object.keys(solved).map((id) => [id, true])), configs }))
   } catch {
     // storage blocked: progress lasts for this visit
   }
@@ -52,6 +65,11 @@ export default function GuidedLabsScreen() {
   const solvedCount = ALL.filter((l) => progress.solved[l.id]).length
 
   useEffect(() => saveProgress(progress), [progress])
+  // a sync can bring labs solved on another device
+  const { lastSync } = useSyncStatus()
+  useEffect(() => {
+    if (lastSync) setProgress((p) => ({ ...p, solved: readSolvedLabs() }))
+  }, [lastSync])
 
   // takes a value or an updater, because a running deployment advances its state on a timer
   const setConfig = useCallback(
@@ -62,7 +80,10 @@ export default function GuidedLabsScreen() {
       }),
     [labId],
   )
-  const markSolved = useCallback(() => setProgress((p) => ({ ...p, solved: { ...p.solved, [labId]: true } })), [labId])
+  const markSolved = useCallback(() => {
+    const solved = markLabSolved(labId)
+    setProgress((p) => ({ ...p, solved }))
+  }, [labId])
 
   function restart() {
     setProgress((p) => ({ ...p, configs: Object.fromEntries(Object.entries(p.configs).filter(([id]) => id !== labId)) }))
