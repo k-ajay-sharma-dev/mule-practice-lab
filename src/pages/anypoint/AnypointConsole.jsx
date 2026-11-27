@@ -166,7 +166,7 @@ const COLOR = {
   'Dynamics and SharePoint': '#0078d4',
   Shopify: '#5e8e3e',
   'Exchange versioning': '#0176d3', 'Design Center': '#0b5cab', Exchange: '#0176d3', 'API Manager': '#0b827c', 'Runtime Manager': '#2e5bba', MQ: '#7f56d9', Monitoring: '#1b6fd0', Visualizer: '#0f6e84', Backends: '#8a4b08', 'Data center': '#00539b', 'Anypoint Studio': '#525f7f', 'API client': '#b86e00', Inbox: '#525f7f' }
-const Badge = ({ name }) => (
+export const Badge = ({ name }) => (
   <span className="pc-badge" style={{ background: COLOR[name] ?? '#0176d3' }} aria-hidden="true">
     {name.split(' ').map((w) => w[0].toUpperCase()).join('').slice(0, 2)}
   </span>
@@ -175,8 +175,9 @@ const Badge = ({ name }) => (
 const STARTING_MS = 1400
 
 // `onChange` takes an updater. `guide` is drawn beside the pages, for a lab.
-export default function AnypointConsole({ state, onChange: update, guide, title }) {
-  const [place, setPlace] = useState({ product: 'Home' })
+// start opens a product instead of the home page; bare leaves out the Anypoint header and menu (the Systems tab)
+export default function AnypointConsole({ state, onChange: update, guide, title, start, bare }) {
+  const [place, setPlace] = useState({ product: start ?? 'Home' })
   const [menu, setMenu] = useState(false)
   const [full, setFull] = useState(false)
   const [showGuide, setShowGuide] = useState(true)
@@ -239,6 +240,7 @@ export default function AnypointConsole({ state, onChange: update, guide, title 
         {guide && <Btn onClick={() => setShowGuide(!showGuide)}>{showGuide ? 'Hide steps' : 'Show steps'}</Btn>}
         <Btn onClick={() => setFull(!full)}>{full ? 'Exit full screen' : 'Full screen'}</Btn>
       </div>
+      {!bare && (
       <header className="pc-top">
         <button type="button" className="pc-burger" aria-label="Menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
           ☰
@@ -253,6 +255,7 @@ export default function AnypointConsole({ state, onChange: update, guide, title 
           YO
         </span>
       </header>
+      )}
       <div className={`pc-body${guide && showGuide ? ' with-guide' : ''}`}>
         <div className="pc-page">
           {menu && (

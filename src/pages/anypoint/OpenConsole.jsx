@@ -34,8 +34,28 @@ const LATER = { databases: defaultDatabases, mailServer: defaultMailServer, serv
 const OPEN_KEY = 'pl.lab.anypoint2'
 const OLD_KEY = 'pl.lab.anypoint' // the console before it had the API-led project
 
-export default function OpenConsole() {
-  const [state, setState] = useState(() => {
+// One practice environment for the Anypoint console tab and the Systems tab: both read and change this store.
+let shared = null
+const listeners = new Set()
+const setShared = (fn) => {
+  shared ??= loadConsole() // a screen can write before any reader loaded the store
+  const next = typeof fn === 'function' ? fn(shared) : fn
+  if (next === shared) return
+  shared = next
+  listeners.forEach((l) => l(next))
+}
+export function useOpenConsole() {
+  const [state, setState] = useState(() => (shared ??= loadConsole()))
+  useEffect(() => {
+    listeners.add(setState)
+    setState(shared)
+    return () => void listeners.delete(setState)
+  }, [])
+  return [state, setShared]
+}
+
+function loadConsole() {
+  {
     const saved = read(OPEN_KEY)
     // a console saved before the data center or the outside systems existed gets them
     if (!isState(saved)) return openConsole()
@@ -51,8 +71,17 @@ export default function OpenConsole() {
     } catch {
       return withLater
     }
-  })
+  }
+}
+
+// saves the shared console; the Platform and systems tab calls it once, so a change made on any system is kept
+export function useSaveConsole(state) {
   useSaved(OPEN_KEY, state)
+}
+
+// the Anypoint Platform entry of the Platform and systems tab, which saves for it
+export default function OpenConsole() {
+  const [state, setState] = useOpenConsole()
   useEffect(() => {
     try {
       localStorage.removeItem(OLD_KEY)
