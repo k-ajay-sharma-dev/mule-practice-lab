@@ -120,11 +120,15 @@ const PRODUCTS = {
   'Exchange versioning': drill(ExchangeScreen, 'Publish versions, change their lifecycle and see which numbers stay reserved.'),
 }
 const MENU = [
-  ['APIs', [['Design Center', 'Design, mock and publish API specifications.'], ['Exchange', 'Discover and share assets.'], ['API Manager', 'Manage, secure and watch API instances.'], ['Partner Manager', 'B2B partners, AS2 and EDI message tracking.'], ['API Governance', 'Rulesets, profiles and API conformance.']]],
-  ['Runtimes', [['Runtime Manager', 'Deploy and manage applications.'], ['ActiveMQ', 'Apache ActiveMQ Classic and Artemis brokers for JMS: queues, topics, durable subscribers.'], ['MQ', 'Anypoint MQ: queues, exchanges and client apps.'], ['Batch jobs', 'Batch job instances, steps and failed records.'], ['Private spaces', 'CloudHub 2.0 networking: static IPs, VPN, DNS and firewall.'], ['Runtime Fabric', 'Runtime Fabric clusters: nodes, pods and events.'], ['Flex Gateway', 'Self-managed gateways in front of APIs.'], ['Monitoring', 'Dashboards, alerts and logs.'], ['Visualizer', 'The map of your applications.']]],
-  ['Systems', [['Kafka', 'Apache Kafka: brokers, topics, consumer groups and schemas.'], ['SFTP and FTP', 'A file transfer client on the SFTP and FTP servers.'], ['Azure Blob Storage', 'Containers, blobs, SAS tokens and access keys.'], ['Azure Files', 'File shares of the storage account.'], ['Azure Key Vault', 'Secrets, versions and access policies.'], ['Azure Service Bus', 'Queues, topics, subscriptions and sessions.'], ['Databases', 'SQL Server and Oracle: query, sessions, locks, plans.'], ['Mail server', 'SMTP and IMAP mailboxes.'], ['Salesforce', 'Salesforce Setup, objects, API usage, Bulk jobs and events.'], ['SAP', 'SAP GUI: IDocs, BAPIs and RFC destinations.'], ['Splunk', 'Search the logs that apps forward.'], ['Epic (FHIR)', 'Bayview Health Epic: FHIR R4 resources and backend apps.'], ['HL7 interfaces', 'HL7 v2 over MLLP: connections, messages, ACKs.'], ['Workday', 'Workers, business processes, reports and integration users.'], ['ServiceNow', 'Incidents, the Table API, users and ACLs.'], ['Snowflake', 'Warehouses, stages, loads and queries.'], ['AWS', 'S3, SQS, SNS and IAM.'], ['Dynamics and SharePoint', 'Dataverse tables, SharePoint sites and Entra app registrations.'], ['Shopify', 'Store admin, webhooks, apps and API limits.']]],
-  ['Management', [['Access Management', 'Business groups, users, roles and connected apps.'], ['Change and release', 'Change tickets, approvals and release plans.']]],
-  ['Lab tools', [['Secure properties tool', 'Encrypt and decrypt property values with a key.'], ['Capacity planner', 'Pick vCores and replicas for a load and a budget.'], ['Anypoint Studio', 'The steps that link an app to an API.'], ['Flow editor', 'The Mule configuration XML of an app.'], ['API client', 'Send requests.'], ['Backends', 'Stop or slow a system.'], ['Data center', 'Your Windows servers: files, PowerShell and the link to Anypoint.'], ['Inbox', 'Mail that alerts send.']]],
+  ['APIs', [['Design Center', 'Design, mock and publish API specifications.'], ['Exchange', 'Discover and share assets.'], ['API Manager', 'Manage, secure and watch API instances.'], ['API Governance', 'Rulesets, profiles and API conformance.'], ['Partner Manager', 'B2B partners, AS2 and EDI message tracking.']]],
+  ['Runtimes and release', [['Runtime Manager', 'Deploy and manage applications.'], ['Runtime Fabric', 'Runtime Fabric clusters: nodes, pods and events.'], ['Flex Gateway', 'Self-managed gateways in front of APIs.'], ['Private spaces', 'CloudHub 2.0 networking: static IPs, VPN, DNS and firewall.'], ['Batch jobs', 'Batch job instances, steps and failed records.'], ['Change and release', 'Change tickets, approvals and release plans.']]],
+  ['Monitoring', [['Monitoring', 'Dashboards, alerts and logs.'], ['Visualizer', 'The map of your applications.'], ['Splunk', 'Search the logs that apps forward.']]],
+  ['Messaging', [['MQ', 'Anypoint MQ: queues, exchanges and client apps.'], ['ActiveMQ', 'Apache ActiveMQ Classic and Artemis brokers for JMS: queues, topics, durable subscribers.'], ['Kafka', 'Apache Kafka: brokers, topics, consumer groups and schemas.'], ['Azure Service Bus', 'Queues, topics, subscriptions and sessions.'], ['Mail server', 'SMTP and IMAP mailboxes.']]],
+  ['Files and data', [['SFTP and FTP', 'A file transfer client on the SFTP and FTP servers.'], ['Azure Blob Storage', 'Containers, blobs, SAS tokens and access keys.'], ['Azure Files', 'File shares of the storage account.'], ['Databases', 'SQL Server and Oracle: query, sessions, locks, plans.'], ['Snowflake', 'Warehouses, stages, loads and queries.']]],
+  ['Business systems', [['Salesforce', 'Salesforce Setup, objects, API usage, Bulk jobs and events.'], ['SAP', 'SAP GUI: IDocs, BAPIs and RFC destinations.'], ['Workday', 'Workers, business processes, reports and integration users.'], ['ServiceNow', 'Incidents, the Table API, users and ACLs.'], ['Dynamics and SharePoint', 'Dataverse tables, SharePoint sites and Entra app registrations.'], ['Shopify', 'Store admin, webhooks, apps and API limits.']]],
+  ['Healthcare', [['Epic (FHIR)', 'Bayview Health Epic: FHIR R4 resources and backend apps.'], ['HL7 interfaces', 'HL7 v2 over MLLP: connections, messages, ACKs.']]],
+  ['Cloud and security', [['AWS', 'S3, SQS, SNS and IAM.'], ['Azure Key Vault', 'Secrets, versions and access policies.'], ['Access Management', 'Business groups, users, roles and connected apps.'], ['Secure properties tool', 'Encrypt and decrypt property values with a key.']]],
+  ['Lab tools', [['API client', 'Send requests.'], ['Inbox', 'Mail that alerts send.'], ['Anypoint Studio', 'The steps that link an app to an API.'], ['Flow editor', 'The Mule configuration XML of an app.'], ['Backends', 'Stop or slow a system.'], ['Data center', 'Your Windows servers: files, PowerShell and the link to Anypoint.'], ['Capacity planner', 'Pick vCores and replicas for a load and a budget.']]],
   ['Practice drills', [['Policy test bench', 'Policy order, quotas and the headers a request gets.'], ['Deployment drill', 'Properties, replicas, logs and rollback.'], ['Exchange versioning', 'Versions, lifecycle and reserved numbers.']]],
 ]
 const COLOR = {
@@ -294,18 +298,33 @@ export default function AnypointConsole({ state, onChange: update, guide, title 
 }
 
 function Home({ go, title }) {
+  const [find, setFind] = useState('')
+  const q = find.trim().toLowerCase()
+  const groups = MENU.map(([name, list]) => [name, q ? list.filter(([p, text]) => `${name} ${p} ${text}`.toLowerCase().includes(q)) : list]).filter(([, list]) => list.length)
+  const first = groups[0]?.[1][0]?.[0]
   return (
     <main className="pc-main pc-home">
       <div className="pc-hello">
-        <h2>{title ?? 'Welcome'}</h2>
-        <p>Choose a product to start. Every page works on the same practice environment.</p>
+        <div>
+          <h2>{title ?? 'Welcome'}</h2>
+          <p>Choose a product to start. Every page works on the same practice environment.</p>
+        </div>
+        <input
+          type="search"
+          className="pc-home-find"
+          placeholder="Find a product, for example Kafka or SAP"
+          aria-label="Find a product"
+          value={find}
+          onChange={(e) => setFind(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && first && go({ product: first })}
+        />
       </div>
       <div className="pc-home-grid">
-        {MENU.map(([name, list]) => (
+        {groups.map(([name, list]) => (
           <section key={name}>
             <h3>{name}</h3>
             {list.map(([p, text]) => (
-              <button key={p} type="button" onClick={() => go({ product: p })}>
+              <button key={p} type="button" title={text} onClick={() => go({ product: p })}>
                 <Badge name={p} />
                 <span>
                   <b>{p}</b>
@@ -315,6 +334,7 @@ function Home({ go, title }) {
             ))}
           </section>
         ))}
+        {!groups.length && <p className="pc-empty">No product matches "{find}".</p>}
       </div>
     </main>
   )

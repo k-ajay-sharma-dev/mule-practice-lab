@@ -1011,38 +1011,88 @@ textarea.pc-input {
   padding: 0;
 }
 .pc-hello {
-  padding: 28px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding: 20px 24px;
   background: linear-gradient(100deg, #1b2a78, #2e62d0);
   color: #fff;
 }
 .pc-hello h2 {
   color: #fff;
 }
+.pc-home-find {
+  flex: 0 1 340px;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid rgb(255 255 255 / 45%);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 96%);
+  color: #16325c;
+  font: inherit;
+  font-size: 14px;
+}
+.pc-home-find:focus {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+/* sections flow into balanced columns, so no single column runs long */
 .pc-home-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 18px;
-  padding: 20px 24px;
+  column-width: 270px;
+  column-gap: 20px;
+  padding: 16px 24px 24px;
+}
+.pc-home-grid section {
+  break-inside: avoid;
+  margin-bottom: 14px;
+  padding: 10px 6px 6px;
+  border: 1px solid var(--pc-line);
+  border-radius: 8px;
+  background: #fff;
 }
 .pc-home-grid h3 {
-  margin-bottom: 8px;
-  color: var(--pc-ink);
-  font-size: 13px;
+  margin: 0 6px 4px;
+  color: var(--pc-dim);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 .pc-home-grid button {
   display: flex;
+  align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 10px;
+  padding: 6px;
   border: 0;
-  border-radius: 4px;
+  border-radius: 6px;
   background: none;
   color: var(--pc-ink);
   text-align: left;
   cursor: pointer;
 }
-.pc-home-grid button:hover {
+.pc-home-grid button > span {
+  min-width: 0;
+}
+.pc-home-grid button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pc-home-grid button:hover,
+.pc-home-grid button:focus-visible {
   background: var(--pc-soft);
+}
+@media (max-width: 600px) {
+  .pc-hello,
+  .pc-home-grid {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+  .pc-home-find {
+    flex-basis: 100%;
+  }
 }
 
 /* designer */
